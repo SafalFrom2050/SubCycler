@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">SubCycler</string>
+    <string name="notification_channel_name">SubCycler Alerts</string>
+    <string name="notification_channel_description">Notifications for auto-renewal cancellations and re-subscription dates.</string>
+</resources>
