@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,8 +18,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,7 +33,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.subtrack.app.data.model.*
 import com.subtrack.app.ui.theme.*
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +41,9 @@ fun AddEditSubscriptionDialog(
     onDismiss: () -> Unit,
     onSave: (Subscription) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+    val focusManager = LocalFocusManager.current
+
     var name by remember { mutableStateOf(initialSubscription?.name ?: "") }
     var costStr by remember { mutableStateOf(initialSubscription?.cost?.toString() ?: "") }
     var category by remember { mutableStateOf(initialSubscription?.category ?: SubscriptionCategory.STREAMING) }
@@ -117,6 +125,7 @@ fun AddEditSubscriptionDialog(
                                         brush = androidx.compose.ui.graphics.SolidColor(presetColor.copy(alpha = 0.3f))
                                     ),
                                     modifier = Modifier.clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         name = preset.name
                                         costStr = preset.defaultCost.toString()
                                         category = preset.category
@@ -144,7 +153,13 @@ fun AddEditSubscriptionDialog(
                         placeholder = { Text("e.g. Netflix, Spotify") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        )
                     )
 
                     // Cost Input
@@ -153,7 +168,13 @@ fun AddEditSubscriptionDialog(
                         onValueChange = { costStr = it },
                         label = { Text("Monthly Cost ($)") },
                         placeholder = { Text("15.49") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp)
@@ -177,7 +198,10 @@ fun AddEditSubscriptionDialog(
                                 ) else null,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { strategy = strat }
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        strategy = strat
+                                    }
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -187,7 +211,10 @@ fun AddEditSubscriptionDialog(
                                 ) {
                                     RadioButton(
                                         selected = isSelected,
-                                        onClick = { strategy = strat },
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            strategy = strat
+                                        },
                                         colors = RadioButtonDefaults.colors(selectedColor = Emerald500)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -219,7 +246,13 @@ fun AddEditSubscriptionDialog(
                                 value = customActiveDaysStr,
                                 onValueChange = { customActiveDaysStr = it },
                                 label = { Text("Active Days") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Right) }
+                                ),
                                 modifier = Modifier.weight(1f),
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp)
@@ -228,7 +261,13 @@ fun AddEditSubscriptionDialog(
                                 value = customBlackoutDaysStr,
                                 onValueChange = { customBlackoutDaysStr = it },
                                 label = { Text("Blackout Days") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                                ),
                                 modifier = Modifier.weight(1f),
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp)
@@ -244,7 +283,13 @@ fun AddEditSubscriptionDialog(
                         placeholder = { Text("e.g. Cancel after Stranger Things") },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { focusManager.clearFocus() }
+                        )
                     )
                 }
 
@@ -253,6 +298,7 @@ fun AddEditSubscriptionDialog(
                 // Save Button
                 Button(
                     onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         val parsedCost = costStr.toDoubleOrNull() ?: 0.0
                         val parsedActive = customActiveDaysStr.toIntOrNull() ?: 30
                         val parsedBlackout = customBlackoutDaysStr.toIntOrNull() ?: 15

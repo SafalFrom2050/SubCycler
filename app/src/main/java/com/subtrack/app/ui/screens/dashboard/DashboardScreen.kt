@@ -6,11 +6,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +28,7 @@ fun DashboardScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
 
     var showAddDialog by remember { mutableStateOf(false) }
     var subscriptionToEdit by remember { mutableStateOf<Subscription?>(null) }
@@ -64,6 +66,7 @@ fun DashboardScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     subscriptionToEdit = null
                     showAddDialog = true
                 },
@@ -84,28 +87,31 @@ fun DashboardScreen(
             contentPadding = PaddingValues(bottom = 90.dp)
         ) {
             // High Impact Savings Summary Card
-            item {
+            item(key = "savings_summary", contentType = "summary") {
                 SavingsSummaryCard(summary = uiState.portfolioSummary)
             }
 
             // Urgent / Due Next Action Banner
             if (uiState.urgentStatuses.isNotEmpty()) {
-                item {
+                item(key = "urgent_banner", contentType = "urgent") {
                     NextActionBanner(urgentStatuses = uiState.urgentStatuses)
                 }
             }
 
             // Filter Chips
-            item {
+            item(key = "filter_row", contentType = "filters") {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(SubscriptionFilter.values()) { filter ->
+                    items(SubscriptionFilter.values(), key = { it.name }) { filter ->
                         val isSelected = filter == uiState.selectedFilter
                         FilterChip(
                             selected = isSelected,
-                            onClick = { viewModel.setFilter(filter) },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.setFilter(filter)
+                            },
                             label = {
                                 Text(
                                     text = filter.displayName,
@@ -123,7 +129,7 @@ fun DashboardScreen(
 
             // Subscriptions List
             if (uiState.cycleStatuses.isEmpty()) {
-                item {
+                item(key = "empty_state", contentType = "empty") {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -146,7 +152,11 @@ fun DashboardScreen(
                     }
                 }
             } else {
-                items(uiState.cycleStatuses, key = { it.subscription.id }) { cycleStatus ->
+                items(
+                    items = uiState.cycleStatuses,
+                    key = { it.subscription.id },
+                    contentType = { "subscription_card" }
+                ) { cycleStatus ->
                     SubscriptionCard(
                         cycleStatus = cycleStatus,
                         onToggleAutoRenew = { viewModel.toggleAutoRenew(cycleStatus.subscription.id) },
@@ -154,7 +164,8 @@ fun DashboardScreen(
                             subscriptionToEdit = cycleStatus.subscription
                             showAddDialog = true
                         },
-                        onDelete = { viewModel.deleteSubscription(cycleStatus.subscription) }
+                        onDelete = { viewModel.deleteSubscription(cycleStatus.subscription) },
+                        modifier = Modifier.animateItem()
                     )
                 }
             }

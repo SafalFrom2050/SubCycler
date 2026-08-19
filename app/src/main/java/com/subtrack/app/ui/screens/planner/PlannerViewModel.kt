@@ -51,7 +51,9 @@ class PlannerViewModel(
             blackoutOnSelectedDate = blackoutList,
             isLoading = false
         )
-    }.stateIn(
+    }
+    .flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = PlannerUiState()

@@ -16,6 +16,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +33,7 @@ fun PlannerScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
     val isDark = MaterialTheme.colorScheme.background == DarkBg
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
 
@@ -60,7 +63,7 @@ fun PlannerScreen(
             contentPadding = PaddingValues(bottom = 90.dp)
         ) {
             // Explainer Card: The 45-Day Strategy
-            item {
+            item(key = "explainer_card", contentType = "info") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -88,7 +91,7 @@ fun PlannerScreen(
                         Text(
                             text = "• 30 Days Active: Pay for 1 month and binge your watchlist.\n" +
                                     "• 15 Days Blackout: Take 2 weeks of natural downtime (busy with life, exams, or work) while new episodes accumulate.\n" +
-                                    "• Result: Pay for ~8 months instead of 12 per year $\\rightarrow$ 33.3% direct annual cash savings!",
+                                    "• Result: Pay for ~8 months instead of 12 per year -> 33.3% direct annual cash savings!",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
@@ -98,7 +101,7 @@ fun PlannerScreen(
             }
 
             // Interactive Future Date Inspector Card
-            item {
+            item(key = "date_inspector_card", contentType = "inspector") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -121,7 +124,10 @@ fun PlannerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = { viewModel.stepDate(-7) }) {
+                            IconButton(onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.stepDate(-7)
+                            }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Prev Week", modifier = Modifier.size(16.dp))
                             }
                             Text(
@@ -130,7 +136,10 @@ fun PlannerScreen(
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            IconButton(onClick = { viewModel.stepDate(7) }) {
+                            IconButton(onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.stepDate(7)
+                            }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = "Next Week", modifier = Modifier.size(16.dp))
                             }
                         }
@@ -178,7 +187,7 @@ fun PlannerScreen(
             }
 
             // Section Header
-            item {
+            item(key = "section_header", contentType = "header") {
                 Text(
                     text = "Subscription Multi-Month Timelines",
                     style = MaterialTheme.typography.titleMedium,
@@ -187,8 +196,15 @@ fun PlannerScreen(
             }
 
             // Timelines List
-            items(uiState.cycleStatuses, key = { it.subscription.id }) { cycleStatus ->
-                CycleTimelineView(cycleStatus = cycleStatus)
+            items(
+                items = uiState.cycleStatuses,
+                key = { it.subscription.id },
+                contentType = { "timeline_item" }
+            ) { cycleStatus ->
+                CycleTimelineView(
+                    cycleStatus = cycleStatus,
+                    modifier = Modifier.animateItem()
+                )
             }
         }
     }

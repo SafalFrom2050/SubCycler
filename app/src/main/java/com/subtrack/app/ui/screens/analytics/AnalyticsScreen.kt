@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +30,7 @@ fun AnalyticsScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
     val isDark = MaterialTheme.colorScheme.background == DarkBg
 
     Scaffold(
@@ -56,7 +59,7 @@ fun AnalyticsScreen(
             contentPadding = PaddingValues(bottom = 90.dp)
         ) {
             // Multi-Year Compounding Savings Card
-            item {
+            item(key = "multi_year_card", contentType = "card") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -108,7 +111,7 @@ fun AnalyticsScreen(
             }
 
             // "What-If" Interactive Simulation Slider
-            item {
+            item(key = "simulator_card", contentType = "card") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -141,7 +144,12 @@ fun AnalyticsScreen(
 
                         Slider(
                             value = uiState.simulatedRotationPct,
-                            onValueChange = { viewModel.setSimulatedRotationPct(it) },
+                            onValueChange = {
+                                if (it != uiState.simulatedRotationPct) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                                viewModel.setSimulatedRotationPct(it)
+                            },
                             valueRange = 0f..1f,
                             steps = 10,
                             colors = SliderDefaults.colors(
@@ -182,7 +190,7 @@ fun AnalyticsScreen(
             }
 
             // Summary Fact Box
-            item {
+            item(key = "psychology_card", contentType = "card") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),

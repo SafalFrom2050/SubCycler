@@ -1,6 +1,13 @@
 package com.subtrack.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +39,7 @@ fun SubscriptionCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val sub = cycleStatus.subscription
     val isDark = MaterialTheme.colorScheme.background == DarkBg
     val brandColor = try {
@@ -44,7 +54,10 @@ fun SubscriptionCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable { expanded = !expanded },
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                expanded = !expanded
+            },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDark) DarkSurface else LightSurface
@@ -224,7 +237,21 @@ fun SubscriptionCard(
             }
 
             // Expanded Details & Actions
-            AnimatedVisibility(visible = expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMediumLow,
+                        dampingRatio = Spring.DampingRatioNoBouncy
+                    )
+                ) + fadeIn(animationSpec = tween(120)),
+                exit = shrinkVertically(
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMediumLow,
+                        dampingRatio = Spring.DampingRatioNoBouncy
+                    )
+                ) + fadeOut(animationSpec = tween(90))
+            ) {
                 Column(modifier = Modifier.padding(top = 14.dp)) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     Spacer(modifier = Modifier.height(10.dp))
@@ -265,12 +292,18 @@ fun SubscriptionCard(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onToggleAutoRenew() }
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onToggleAutoRenew()
+                                }
                                 .padding(vertical = 4.dp)
                         ) {
                             Checkbox(
                                 checked = sub.isAutoRenewCancelled,
-                                onCheckedChange = { onToggleAutoRenew() }
+                                onCheckedChange = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onToggleAutoRenew()
+                                }
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(

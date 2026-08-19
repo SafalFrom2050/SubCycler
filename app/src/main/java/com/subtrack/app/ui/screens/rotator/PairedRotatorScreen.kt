@@ -1,5 +1,13 @@
 package com.subtrack.app.ui.screens.rotator
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +38,7 @@ fun PairedRotatorScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
     val isDark = MaterialTheme.colorScheme.background == DarkBg
 
     var showSuccessSnackbar by remember { mutableStateOf(false) }
@@ -58,7 +69,7 @@ fun PairedRotatorScreen(
             contentPadding = PaddingValues(bottom = 90.dp)
         ) {
             // Explainer Banner
-            item {
+            item(key = "explainer_card") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -92,7 +103,7 @@ fun PairedRotatorScreen(
             }
 
             // Service Selector Card
-            item {
+            item(key = "service_selector_card") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -115,7 +126,10 @@ fun PairedRotatorScreen(
                         ServiceDropdown(
                             subscriptions = uiState.subscriptions,
                             selected = uiState.service1,
-                            onSelect = { viewModel.selectService1(it.id) }
+                            onSelect = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.selectService1(it.id)
+                            }
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
@@ -126,7 +140,10 @@ fun PairedRotatorScreen(
                         ServiceDropdown(
                             subscriptions = uiState.subscriptions.filter { it.id != uiState.service1?.id },
                             selected = uiState.service2,
-                            onSelect = { viewModel.selectService2(it.id) }
+                            onSelect = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                viewModel.selectService2(it.id)
+                            }
                         )
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -157,6 +174,7 @@ fun PairedRotatorScreen(
                         // Align Button
                         Button(
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 viewModel.alignAndActivateAlternatingRotation()
                                 showSuccessSnackbar = true
                             },
@@ -172,25 +190,36 @@ fun PairedRotatorScreen(
                             Text("Align & Activate 50% Alternating Schedule", fontWeight = FontWeight.Bold)
                         }
 
-                        if (showSuccessSnackbar) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = ActiveGreen.copy(alpha = 0.15f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                        AnimatedVisibility(
+                            visible = showSuccessSnackbar,
+                            enter = expandVertically(
+                                animationSpec = spring(
+                                    stiffness = Spring.StiffnessMediumLow,
+                                    dampingRatio = Spring.DampingRatioNoBouncy
+                                )
+                            ) + fadeIn(animationSpec = tween(120)),
+                            exit = shrinkVertically() + fadeOut(animationSpec = tween(90))
+                        ) {
+                            Column {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = ActiveGreen.copy(alpha = 0.15f),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ActiveGreen, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Schedules synchronized! Swapping occurs every 30 days.",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = ActiveGreen
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ActiveGreen, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Schedules synchronized! Swapping occurs every 30 days.",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = ActiveGreen
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -220,7 +249,7 @@ private fun ServiceDropdown(
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
-                .menuAnchor()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(12.dp)
         )

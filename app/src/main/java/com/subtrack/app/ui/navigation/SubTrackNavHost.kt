@@ -1,10 +1,14 @@
 package com.subtrack.app.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +34,8 @@ fun SubTrackApp(
     repository: SubscriptionRepository,
     navController: NavHostController = rememberNavController()
 ) {
+    val haptic = LocalHapticFeedback.current
+
     val dashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
         DashboardViewModel(repository)
     }
@@ -58,6 +64,7 @@ fun SubTrackApp(
                         selected = selected,
                         onClick = {
                             if (currentRoute != screen.route) {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
                                         saveState = true
@@ -93,7 +100,11 @@ fun SubTrackApp(
         NavHost(
             navController = navController,
             startDestination = Screen.Dashboard.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None }
         ) {
             composable(Screen.Dashboard.route) {
                 DashboardScreen(viewModel = dashboardViewModel)
