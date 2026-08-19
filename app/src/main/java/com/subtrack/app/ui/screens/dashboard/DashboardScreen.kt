@@ -21,13 +21,28 @@ import com.subtrack.app.ui.components.*
 import com.subtrack.app.ui.theme.Emerald500
 import com.subtrack.app.ui.theme.LightSurface
 
-@OptIn(ExperimentalMaterial3Api::class)
+import androidx.hilt.navigation.compose.hiltViewModel
+
 @Composable
-fun DashboardScreen(
-    viewModel: DashboardViewModel,
+fun DashboardRoute(
+    viewModel: DashboardViewModel = hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    DashboardScreen(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardScreen(
+    uiState: DashboardUiState,
+    onAction: (DashboardAction) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val haptic = LocalHapticFeedback.current
 
     var showAddDialog by remember { mutableStateOf(false) }
@@ -110,7 +125,7 @@ fun DashboardScreen(
                             selected = isSelected,
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                viewModel.setFilter(filter)
+                                onAction(DashboardAction.SetFilter(filter))
                             },
                             label = {
                                 Text(
@@ -159,12 +174,12 @@ fun DashboardScreen(
                 ) { cycleStatus ->
                     SubscriptionCard(
                         cycleStatus = cycleStatus,
-                        onToggleAutoRenew = { viewModel.toggleAutoRenew(cycleStatus.subscription.id) },
+                        onToggleAutoRenew = { onAction(DashboardAction.ToggleAutoRenew(cycleStatus.subscription.id)) },
                         onEdit = {
                             subscriptionToEdit = cycleStatus.subscription
                             showAddDialog = true
                         },
-                        onDelete = { viewModel.deleteSubscription(cycleStatus.subscription) },
+                        onDelete = { onAction(DashboardAction.DeleteSubscription(cycleStatus.subscription)) },
                         modifier = Modifier.animateItem()
                     )
                 }
@@ -182,9 +197,9 @@ fun DashboardScreen(
             },
             onSave = { sub ->
                 if (subscriptionToEdit != null) {
-                    viewModel.updateSubscription(sub)
+                    onAction(DashboardAction.UpdateSubscription(sub))
                 } else {
-                    viewModel.addSubscription(sub)
+                    onAction(DashboardAction.AddSubscription(sub))
                 }
                 showAddDialog = false
                 subscriptionToEdit = null

@@ -21,15 +21,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.subtrack.app.ui.theme.*
+
+@Composable
+fun AnalyticsRoute(
+    viewModel: AnalyticsViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    AnalyticsScreen(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        modifier = modifier
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
-    viewModel: AnalyticsViewModel,
+    uiState: AnalyticsUiState,
+    onAction: (AnalyticsAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
     val isDark = MaterialTheme.colorScheme.background == DarkBg
 
@@ -148,7 +162,7 @@ fun AnalyticsScreen(
                                 if (it != uiState.simulatedRotationPct) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 }
-                                viewModel.setSimulatedRotationPct(it)
+                                onAction(AnalyticsAction.SetSimulatedRotationPct(it))
                             },
                             valueRange = 0f..1f,
                             steps = 10,

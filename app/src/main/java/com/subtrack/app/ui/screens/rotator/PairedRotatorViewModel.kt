@@ -2,12 +2,15 @@ package com.subtrack.app.ui.screens.rotator
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.subtrack.app.data.model.RotationStrategy
 import com.subtrack.app.data.model.Subscription
 import com.subtrack.app.data.repository.SubscriptionRepository
+import com.subtrack.app.di.DefaultDispatcher
+import com.subtrack.app.domain.usecase.AlignPairedSubscriptionsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDate
+import javax.inject.Inject
 
 data class PairedRotatorUiState(
     val subscriptions: List<Subscription> = emptyList(),
@@ -20,8 +23,17 @@ data class PairedRotatorUiState(
     val isLoading: Boolean = true
 )
 
-class PairedRotatorViewModel(
-    private val repository: SubscriptionRepository
+sealed interface PairedRotatorAction {
+    data class SelectService1(val id: Long) : PairedRotatorAction
+    data class SelectService2(val id: Long) : PairedRotatorAction
+    object AlignAndActivate : PairedRotatorAction
+}
+
+@HiltViewModel
+class PairedRotatorViewModel @Inject constructor(
+    private val repository: SubscriptionRepository,
+    private val alignPairedSubscriptionsUseCase: AlignPairedSubscriptionsUseCase,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
     private val _selectedId1 = MutableStateFlow<Long?>(null)
@@ -51,47 +63,24 @@ class PairedRotatorViewModel(
             isLoading = false
         )
     }
-    .flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .flowOn(defaultDispatcher)
     .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = PairedRotatorUiState()
     )
 
-    fun selectService1(id: Long) {
-        _selectedId1.value = id
-    }
-
-    fun selectService2(id: Long) {
-        _selectedId2.value = id
-    }
-
-    fun alignAndActivateAlternatingRotation() {
-        val s1 = uiState.value.service1 ?: return
-        val s2 = uiState.value.service2 ?: return
-
-        viewModelScope.launch {
-            val today = LocalDate.now()
-            // S1 active now (30d active + 30d blackout)
-            val updatedS1 = s1.copy(
-                startDate = today,
-                strategy = RotationStrategy.ROTATION_60_DAYS,
-                customActiveDays = 30,
-                customBlackoutDays = 30,
-                pairedWithSubscriptionId = s2.id
-            )
-
-            // S2 blackout now, activates in 30 days
-            val updatedS2 = s2.copy(
-                startDate = today.minusDays(30), // Effectively puts S2 in blackout phase for first 30 days
-                strategy = RotationStrategy.ROTATION_60_DAYS,
-                customActiveDays = 30,
-                customBlackoutDays = 30,
-                pairedWithSubscriptionId = s1.id
-            )
-
-            repository.updateSubscription(updatedS1)
-            repository.updateSubscription(updatedS2)
+    fun onAction(action: PairedRotatorAction) {
+        when (action) {
+            is PairedRotatorAction.SelectService1 -> _selectedId1.value = action.id
+            is PairedRotatorAction.SelectService2 -> _selectedId2.value = action.id
+            is PairedRotatorAction.AlignAndActivate -> {
+                val s1 = uiState.value.service1 ?: return
+                val s2 = uiState.value.service2 ?: return
+                viewModelScope.launch {
+                    alignPairedSubscriptionsUseCase(s1.id, s2.id)
+                }
+            }
         }
     }
 }

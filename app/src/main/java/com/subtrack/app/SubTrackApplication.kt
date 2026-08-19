@@ -1,21 +1,31 @@
 package com.subtrack.app
 
 import android.app.Application
-import com.subtrack.app.data.local.AppDatabase
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.subtrack.app.data.repository.SubscriptionRepository
-import com.subtrack.app.data.repository.SubscriptionRepositoryImpl
 import com.subtrack.app.notification.NotificationHelper
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
+import com.subtrack.app.worker.WorkSchedulerManager
+import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
-class SubTrackApplication : Application() {
-    private val applicationScope = CoroutineScope(SupervisorJob())
+@HiltAndroidApp
+class SubTrackApplication : Application(), Configuration.Provider {
 
-    val database by lazy { AppDatabase.getDatabase(this, applicationScope) }
-    val repository: SubscriptionRepository by lazy { SubscriptionRepositoryImpl(database.subscriptionDao()) }
+    @Inject
+    lateinit var repository: SubscriptionRepository
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 
     override fun onCreate() {
         super.onCreate()
         NotificationHelper.createNotificationChannel(this)
+        WorkSchedulerManager.scheduleDailyCycleEvaluation(this)
     }
 }

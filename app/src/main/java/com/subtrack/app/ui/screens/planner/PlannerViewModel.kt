@@ -2,12 +2,18 @@ package com.subtrack.app.ui.screens.planner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.subtrack.app.data.model.CyclePhase
 import com.subtrack.app.data.model.CycleStatus
-import com.subtrack.app.data.model.Subscription
-import com.subtrack.app.data.repository.SubscriptionRepository
+import com.subtrack.app.di.DefaultDispatcher
 import com.subtrack.app.domain.RotationEngine
+import com.subtrack.app.domain.time.DefaultTimeProvider
+import com.subtrack.app.domain.time.TimeProvider
+import com.subtrack.app.domain.usecase.GetSubscriptionCycleStatusesUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
 import java.time.LocalDate
+import javax.inject.Inject
 
 data class PlannerUiState(
     val cycleStatuses: List<CycleStatus> = emptyList(),
@@ -17,30 +23,35 @@ data class PlannerUiState(
     val isLoading: Boolean = true
 )
 
-class PlannerViewModel(
-    private val repository: SubscriptionRepository
+sealed interface PlannerAction {
+    data class SetSelectedDate(val date: LocalDate) : PlannerAction
+    data class StepDate(val days: Long) : PlannerAction
+}
+
+@HiltViewModel
+class PlannerViewModel @Inject constructor(
+    private val getCycleStatusesUseCase: GetSubscriptionCycleStatusesUseCase,
+    private val timeProvider: TimeProvider,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
-    private val _selectedTargetDate = MutableStateFlow(LocalDate.now())
+    private val _selectedTargetDate = MutableStateFlow(timeProvider.today())
     val selectedTargetDate: StateFlow<LocalDate> = _selectedTargetDate
 
     val uiState: StateFlow<PlannerUiState> = combine(
-        repository.getAllSubscriptions(),
+        getCycleStatusesUseCase(),
         _selectedTargetDate
-    ) { subs, targetDate ->
-        val today = LocalDate.now()
-        val statuses = subs.map { RotationEngine.calculateCycleStatus(it, today) }
-
+    ) { statuses, targetDate ->
         // Projections for selected date
         val activeList = mutableListOf<String>()
         val blackoutList = mutableListOf<String>()
 
-        subs.forEach { sub ->
-            val statusAtDate = RotationEngine.calculateCycleStatus(sub, targetDate)
-            if (statusAtDate.phase == com.subtrack.app.data.model.CyclePhase.ACTIVE) {
-                activeList.add(sub.name)
+        statuses.forEach { cycleStatus ->
+            val statusAtDate = RotationEngine.calculateCycleStatus(cycleStatus.subscription, targetDate)
+            if (statusAtDate.phase == CyclePhase.ACTIVE) {
+                activeList.add(cycleStatus.subscription.name)
             } else {
-                blackoutList.add(sub.name)
+                blackoutList.add(cycleStatus.subscription.name)
             }
         }
 
@@ -52,18 +63,17 @@ class PlannerViewModel(
             isLoading = false
         )
     }
-    .flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .flowOn(defaultDispatcher)
     .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = PlannerUiState()
+        initialValue = PlannerUiState(selectedTargetDate = timeProvider.today())
     )
 
-    fun setSelectedDate(date: LocalDate) {
-        _selectedTargetDate.value = date
-    }
-
-    fun stepDate(days: Long) {
-        _selectedTargetDate.value = _selectedTargetDate.value.plusDays(days)
+    fun onAction(action: PlannerAction) {
+        when (action) {
+            is PlannerAction.SetSelectedDate -> _selectedTargetDate.value = action.date
+            is PlannerAction.StepDate -> _selectedTargetDate.value = _selectedTargetDate.value.plusDays(action.days)
+        }
     }
 }

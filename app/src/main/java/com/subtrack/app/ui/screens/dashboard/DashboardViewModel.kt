@@ -2,18 +2,22 @@ package com.subtrack.app.ui.screens.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.subtrack.app.data.model.ActionUrgency
 import com.subtrack.app.data.model.CyclePhase
 import com.subtrack.app.data.model.CycleStatus
 import com.subtrack.app.data.model.Subscription
-import com.subtrack.app.data.repository.SubscriptionRepository
+import com.subtrack.app.di.DefaultDispatcher
 import com.subtrack.app.domain.PortfolioSummary
-import com.subtrack.app.domain.RotationEngine
+import com.subtrack.app.domain.usecase.GetPortfolioSummaryUseCase
+import com.subtrack.app.domain.usecase.GetSubscriptionCycleStatusesUseCase
+import com.subtrack.app.domain.usecase.ManageSubscriptionUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDate
+import javax.inject.Inject
 
 data class DashboardUiState(
-    val subscriptions: List<Subscription> = emptyList(),
     val cycleStatuses: List<CycleStatus> = emptyList(),
     val urgentStatuses: List<CycleStatus> = emptyList(),
     val portfolioSummary: PortfolioSummary = PortfolioSummary(
@@ -40,21 +44,31 @@ enum class SubscriptionFilter(val displayName: String) {
     ROTATING("45d Rotators")
 }
 
-class DashboardViewModel(
-    private val repository: SubscriptionRepository
+sealed interface DashboardAction {
+    data class SetFilter(val filter: SubscriptionFilter) : DashboardAction
+    data class AddSubscription(val subscription: Subscription) : DashboardAction
+    data class UpdateSubscription(val subscription: Subscription) : DashboardAction
+    data class DeleteSubscription(val subscription: Subscription) : DashboardAction
+    data class ToggleAutoRenew(val subscriptionId: Long) : DashboardAction
+}
+
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    private val getCycleStatusesUseCase: GetSubscriptionCycleStatusesUseCase,
+    private val getPortfolioSummaryUseCase: GetPortfolioSummaryUseCase,
+    private val manageSubscriptionUseCase: ManageSubscriptionUseCase,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(SubscriptionFilter.ALL)
     val selectedFilter: StateFlow<SubscriptionFilter> = _selectedFilter
 
     val uiState: StateFlow<DashboardUiState> = combine(
-        repository.getAllSubscriptions(),
+        getCycleStatusesUseCase(),
         _selectedFilter
-    ) { subs, filter ->
-        val today = LocalDate.now()
-        val statuses = subs.map { RotationEngine.calculateCycleStatus(it, today) }
-        val portfolio = RotationEngine.calculatePortfolioSavings(statuses)
-        val urgent = statuses.filter { it.nextAction.urgency != com.subtrack.app.data.model.ActionUrgency.INFO }
+    ) { statuses, filter ->
+        val portfolio = getPortfolioSummaryUseCase(statuses)
+        val urgent = statuses.filter { it.nextAction.urgency != ActionUrgency.INFO }
 
         val filteredStatuses = when (filter) {
             SubscriptionFilter.ALL -> statuses
@@ -64,7 +78,6 @@ class DashboardViewModel(
         }
 
         DashboardUiState(
-            subscriptions = subs,
             cycleStatuses = filteredStatuses,
             urgentStatuses = urgent,
             portfolioSummary = portfolio,
@@ -72,38 +85,36 @@ class DashboardViewModel(
             isLoading = false
         )
     }
-    .flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .flowOn(defaultDispatcher)
     .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = DashboardUiState()
     )
 
-    fun setFilter(filter: SubscriptionFilter) {
-        _selectedFilter.value = filter
-    }
-
-    fun addSubscription(subscription: Subscription) {
-        viewModelScope.launch {
-            repository.addSubscription(subscription)
-        }
-    }
-
-    fun updateSubscription(subscription: Subscription) {
-        viewModelScope.launch {
-            repository.updateSubscription(subscription)
-        }
-    }
-
-    fun deleteSubscription(subscription: Subscription) {
-        viewModelScope.launch {
-            repository.deleteSubscription(subscription)
-        }
-    }
-
-    fun toggleAutoRenew(subscriptionId: Long) {
-        viewModelScope.launch {
-            repository.toggleAutoRenewCancelled(subscriptionId)
+    fun onAction(action: DashboardAction) {
+        when (action) {
+            is DashboardAction.SetFilter -> _selectedFilter.value = action.filter
+            is DashboardAction.AddSubscription -> {
+                viewModelScope.launch {
+                    manageSubscriptionUseCase.addSubscription(action.subscription)
+                }
+            }
+            is DashboardAction.UpdateSubscription -> {
+                viewModelScope.launch {
+                    manageSubscriptionUseCase.updateSubscription(action.subscription)
+                }
+            }
+            is DashboardAction.DeleteSubscription -> {
+                viewModelScope.launch {
+                    manageSubscriptionUseCase.deleteSubscription(action.subscription)
+                }
+            }
+            is DashboardAction.ToggleAutoRenew -> {
+                viewModelScope.launch {
+                    manageSubscriptionUseCase.toggleAutoRenew(action.subscriptionId)
+                }
+            }
         }
     }
 }

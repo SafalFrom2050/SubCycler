@@ -1,7 +1,5 @@
 package com.subtrack.app.data.model
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
 import java.time.LocalDate
 
 enum class RotationStrategy(
@@ -47,9 +45,7 @@ enum class SubscriptionCategory(val displayName: String, val iconName: String) {
     OTHER("Other", "Layers")
 }
 
-@Entity(tableName = "subscriptions")
 data class Subscription(
-    @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val name: String,
     val cost: Double,

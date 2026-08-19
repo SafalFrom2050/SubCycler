@@ -29,15 +29,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.subtrack.app.ui.theme.*
+
+@Composable
+fun PairedRotatorRoute(
+    viewModel: PairedRotatorViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    PairedRotatorScreen(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        modifier = modifier
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PairedRotatorScreen(
-    viewModel: PairedRotatorViewModel,
+    uiState: PairedRotatorUiState,
+    onAction: (PairedRotatorAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
     val isDark = MaterialTheme.colorScheme.background == DarkBg
 
@@ -128,7 +142,7 @@ fun PairedRotatorScreen(
                             selected = uiState.service1,
                             onSelect = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                viewModel.selectService1(it.id)
+                                onAction(PairedRotatorAction.SelectService1(it.id))
                             }
                         )
 
@@ -142,7 +156,7 @@ fun PairedRotatorScreen(
                             selected = uiState.service2,
                             onSelect = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                viewModel.selectService2(it.id)
+                                onAction(PairedRotatorAction.SelectService2(it.id))
                             }
                         )
 
@@ -175,7 +189,7 @@ fun PairedRotatorScreen(
                         Button(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                viewModel.alignAndActivateAlternatingRotation()
+                                onAction(PairedRotatorAction.AlignAndActivate)
                                 showSuccessSnackbar = true
                             },
                             enabled = uiState.service1 != null && uiState.service2 != null,

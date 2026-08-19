@@ -2,15 +2,16 @@ package com.subtrack.app.ui.screens.analytics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.subtrack.app.data.model.Subscription
-import com.subtrack.app.data.repository.SubscriptionRepository
+import com.subtrack.app.di.DefaultDispatcher
 import com.subtrack.app.domain.PortfolioSummary
-import com.subtrack.app.domain.RotationEngine
+import com.subtrack.app.domain.usecase.GetPortfolioSummaryUseCase
+import com.subtrack.app.domain.usecase.GetSubscriptionCycleStatusesUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
-import java.time.LocalDate
+import javax.inject.Inject
 
 data class AnalyticsUiState(
-    val subscriptions: List<Subscription> = emptyList(),
     val summary: PortfolioSummary = PortfolioSummary(
         totalSubscriptions = 0,
         activeCount = 0,
@@ -26,31 +27,35 @@ data class AnalyticsUiState(
     ),
     val threeYearSavings: Double = 0.0,
     val fiveYearSavings: Double = 0.0,
-    val simulatedRotationPct: Float = 0.5f, // Slider 0% to 100%
+    val simulatedRotationPct: Float = 0.75f, // Slider 0% to 100%
     val simulatedAnnualSavings: Double = 0.0,
     val isLoading: Boolean = true
 )
 
-class AnalyticsViewModel(
-    private val repository: SubscriptionRepository
+sealed interface AnalyticsAction {
+    data class SetSimulatedRotationPct(val pct: Float) : AnalyticsAction
+}
+
+@HiltViewModel
+class AnalyticsViewModel @Inject constructor(
+    private val getCycleStatusesUseCase: GetSubscriptionCycleStatusesUseCase,
+    private val getPortfolioSummaryUseCase: GetPortfolioSummaryUseCase,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
     private val _simulatedRotationPct = MutableStateFlow(0.75f)
 
     val uiState: StateFlow<AnalyticsUiState> = combine(
-        repository.getAllSubscriptions(),
+        getCycleStatusesUseCase(),
         _simulatedRotationPct
-    ) { subs, simPct ->
-        val today = LocalDate.now()
-        val statuses = subs.map { RotationEngine.calculateCycleStatus(it, today) }
-        val summary = RotationEngine.calculatePortfolioSavings(statuses)
+    ) { statuses, simPct ->
+        val summary = getPortfolioSummaryUseCase(statuses)
 
         // Simulation: If simPct of all subs used 45-day rotation (saving 33.3%)
-        val totalStandardAnnual = subs.sumOf { it.cost * 12.0 }
+        val totalStandardAnnual = statuses.sumOf { it.subscription.cost * 12.0 }
         val simulatedAnnualSavings = totalStandardAnnual * simPct * (15.0 / 45.0)
 
         AnalyticsUiState(
-            subscriptions = subs,
             summary = summary,
             threeYearSavings = summary.totalAnnualSavings * 3.0,
             fiveYearSavings = summary.totalAnnualSavings * 5.0,
@@ -59,14 +64,16 @@ class AnalyticsViewModel(
             isLoading = false
         )
     }
-    .flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .flowOn(defaultDispatcher)
     .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = AnalyticsUiState()
     )
 
-    fun setSimulatedRotationPct(pct: Float) {
-        _simulatedRotationPct.value = pct
+    fun onAction(action: AnalyticsAction) {
+        when (action) {
+            is AnalyticsAction.SetSimulatedRotationPct -> _simulatedRotationPct.value = action.pct
+        }
     }
 }

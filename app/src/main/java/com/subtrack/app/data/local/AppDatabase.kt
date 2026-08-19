@@ -3,6 +3,8 @@ package com.subtrack.app.data.local
 import android.content.Context
 import androidx.room.*
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.subtrack.app.data.local.entity.SubscriptionEntity
+import com.subtrack.app.data.local.mapper.toEntity
 import com.subtrack.app.data.model.RotationStrategy
 import com.subtrack.app.data.model.Subscription
 import com.subtrack.app.data.model.SubscriptionCategory
@@ -11,7 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-@Database(entities = [Subscription::class], version = 1, exportSchema = false)
+@Database(entities = [SubscriptionEntity::class], version = 1, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun subscriptionDao(): SubscriptionDao
@@ -104,7 +106,7 @@ abstract class AppDatabase : RoomDatabase() {
                     notes = "Rotate with Claude Pro for alternating AI workflow."
                 )
             )
-            dao.insertAll(initialSubs)
+            dao.insertAll(initialSubs.toEntity())
         }
     }
 }

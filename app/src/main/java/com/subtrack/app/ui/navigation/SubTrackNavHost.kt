@@ -19,45 +19,27 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.subtrack.app.data.repository.SubscriptionRepository
-import com.subtrack.app.ui.screens.analytics.AnalyticsScreen
-import com.subtrack.app.ui.screens.analytics.AnalyticsViewModel
-import com.subtrack.app.ui.screens.dashboard.DashboardScreen
-import com.subtrack.app.ui.screens.dashboard.DashboardViewModel
-import com.subtrack.app.ui.screens.planner.PlannerScreen
-import com.subtrack.app.ui.screens.planner.PlannerViewModel
-import com.subtrack.app.ui.screens.rotator.PairedRotatorScreen
-import com.subtrack.app.ui.screens.rotator.PairedRotatorViewModel
+import com.subtrack.app.ui.screens.analytics.AnalyticsRoute
+import com.subtrack.app.ui.screens.dashboard.DashboardRoute
+import com.subtrack.app.ui.screens.planner.PlannerRoute
+import com.subtrack.app.ui.screens.rotator.PairedRotatorRoute
 import com.subtrack.app.ui.theme.Emerald500
 
 @Composable
 fun SubTrackApp(
-    repository: SubscriptionRepository,
     navController: NavHostController = rememberNavController()
 ) {
     val haptic = LocalHapticFeedback.current
-
-    val dashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
-        DashboardViewModel(repository)
-    }
-    val plannerViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
-        PlannerViewModel(repository)
-    }
-    val pairedRotatorViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
-        PairedRotatorViewModel(repository)
-    }
-    val analyticsViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
-        AnalyticsViewModel(repository)
-    }
-
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
+    val currentDestination = navBackStackEntry?.destination
 
     var isNavBarExpanded by rememberSaveable { mutableStateOf(true) }
 
@@ -74,7 +56,7 @@ fun SubTrackApp(
         }
     }
 
-    LaunchedEffect(currentRoute) {
+    LaunchedEffect(currentDestination) {
         isNavBarExpanded = true
     }
 
@@ -97,15 +79,15 @@ fun SubTrackApp(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
-                Screen.items.forEach { screen ->
-                    val selected = currentRoute == screen.route
+                NavigationItems.items.forEach { item ->
+                    val selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true
                     NavigationBarItem(
                         selected = selected,
                         alwaysShowLabel = isNavBarExpanded,
                         onClick = {
-                            if (currentRoute != screen.route) {
+                            if (!selected) {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                navController.navigate(screen.route) {
+                                navController.navigate(item.destination) {
                                     popUpTo(navController.graph.findStartDestination().id) {
                                         saveState = true
                                     }
@@ -116,14 +98,14 @@ fun SubTrackApp(
                         },
                         icon = {
                             Icon(
-                                imageVector = if (selected) screen.selectedIcon else screen.unselectedIcon,
-                                contentDescription = screen.title
+                                imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                                contentDescription = item.title
                             )
                         },
                         label = if (isNavBarExpanded) {
                             {
                                 Text(
-                                    text = screen.title,
+                                    text = item.title,
                                     fontSize = 11.sp,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                     maxLines = 1
@@ -142,24 +124,24 @@ fun SubTrackApp(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Dashboard.route,
+            startDestination = DashboardDestination,
             modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
             enterTransition = { EnterTransition.None },
             exitTransition = { ExitTransition.None },
             popEnterTransition = { EnterTransition.None },
             popExitTransition = { ExitTransition.None }
         ) {
-            composable(Screen.Dashboard.route) {
-                DashboardScreen(viewModel = dashboardViewModel)
+            composable<DashboardDestination> {
+                DashboardRoute()
             }
-            composable(Screen.Planner.route) {
-                PlannerScreen(viewModel = plannerViewModel)
+            composable<PlannerDestination> {
+                PlannerRoute()
             }
-            composable(Screen.Rotator.route) {
-                PairedRotatorScreen(viewModel = pairedRotatorViewModel)
+            composable<RotatorDestination> {
+                PairedRotatorRoute()
             }
-            composable(Screen.Analytics.route) {
-                AnalyticsScreen(viewModel = analyticsViewModel)
+            composable<AnalyticsDestination> {
+                AnalyticsRoute()
             }
         }
     }

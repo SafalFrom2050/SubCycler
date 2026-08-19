@@ -14,7 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.subtrack.app.ui.navigation.SubTrackApp
 import com.subtrack.app.ui.theme.SubTrackTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -28,15 +30,13 @@ class MainActivity : ComponentActivity() {
 
         checkAndRequestNotificationPermission()
 
-        val app = application as SubTrackApplication
-
         setContent {
             SubTrackTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SubTrackApp(repository = app.repository)
+                    SubTrackApp()
                 }
             }
         }

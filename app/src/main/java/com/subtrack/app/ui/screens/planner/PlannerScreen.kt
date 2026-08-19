@@ -24,15 +24,29 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtrack.app.ui.components.CycleTimelineView
 import com.subtrack.app.ui.theme.*
+import androidx.hilt.navigation.compose.hiltViewModel
 import java.time.format.DateTimeFormatter
+
+@Composable
+fun PlannerRoute(
+    viewModel: PlannerViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    PlannerScreen(
+        uiState = uiState,
+        onAction = viewModel::onAction,
+        modifier = modifier
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlannerScreen(
-    viewModel: PlannerViewModel,
+    uiState: PlannerUiState,
+    onAction: (PlannerAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
     val isDark = MaterialTheme.colorScheme.background == DarkBg
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
@@ -126,7 +140,7 @@ fun PlannerScreen(
                         ) {
                             IconButton(onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                viewModel.stepDate(-7)
+                                onAction(PlannerAction.StepDate(-7))
                             }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Prev Week", modifier = Modifier.size(16.dp))
                             }
@@ -138,7 +152,7 @@ fun PlannerScreen(
                             )
                             IconButton(onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                viewModel.stepDate(7)
+                                onAction(PlannerAction.StepDate(7))
                             }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = "Next Week", modifier = Modifier.size(16.dp))
                             }
