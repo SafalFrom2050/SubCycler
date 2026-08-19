@@ -2,12 +2,19 @@ package com.subtrack.app.ui.navigation
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,9 +59,41 @@ fun SubTrackApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    var isNavBarExpanded by rememberSaveable { mutableStateOf(true) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -10f) {
+                    if (isNavBarExpanded) isNavBarExpanded = false
+                } else if (available.y > 10f) {
+                    if (!isNavBarExpanded) isNavBarExpanded = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(currentRoute) {
+        isNavBarExpanded = true
+    }
+
+    val navBarHeight by animateDpAsState(
+        targetValue = if (isNavBarExpanded) 80.dp else 54.dp,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioNoBouncy
+        ),
+        label = "navBarHeight"
+    )
+
     Scaffold(
+        modifier = Modifier.nestedScroll(nestedScrollConnection),
         bottomBar = {
             NavigationBar(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(navBarHeight),
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
@@ -62,6 +101,7 @@ fun SubTrackApp(
                     val selected = currentRoute == screen.route
                     NavigationBarItem(
                         selected = selected,
+                        alwaysShowLabel = isNavBarExpanded,
                         onClick = {
                             if (currentRoute != screen.route) {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -80,13 +120,16 @@ fun SubTrackApp(
                                 contentDescription = screen.title
                             )
                         },
-                        label = {
-                            Text(
-                                text = screen.title,
-                                fontSize = 11.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
+                        label = if (isNavBarExpanded) {
+                            {
+                                Text(
+                                    text = screen.title,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1
+                                )
+                            }
+                        } else null,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Emerald500,
                             selectedTextColor = Emerald500,
@@ -100,7 +143,7 @@ fun SubTrackApp(
         NavHost(
             navController = navController,
             startDestination = Screen.Dashboard.route,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
             enterTransition = { EnterTransition.None },
             exitTransition = { ExitTransition.None },
             popEnterTransition = { EnterTransition.None },
