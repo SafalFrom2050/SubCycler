@@ -13,7 +13,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.subtrack.app.ui.navigation.SubTrackApp
-import com.subtrack.app.ui.theme.SubTrackTheme
+import com.subtrack.core.ui.theme.SubTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

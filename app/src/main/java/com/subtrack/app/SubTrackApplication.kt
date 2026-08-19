@@ -3,7 +3,7 @@ package com.subtrack.app
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.subtrack.app.data.repository.SubscriptionRepository
+import com.subtrack.core.domain.repository.SubscriptionRepository
 import com.subtrack.app.notification.NotificationHelper
 import com.subtrack.app.worker.WorkSchedulerManager
 import dagger.hilt.android.HiltAndroidApp

@@ -27,11 +27,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.subtrack.app.ui.screens.analytics.AnalyticsRoute
-import com.subtrack.app.ui.screens.dashboard.DashboardRoute
-import com.subtrack.app.ui.screens.planner.PlannerRoute
-import com.subtrack.app.ui.screens.rotator.PairedRotatorRoute
-import com.subtrack.app.ui.theme.Emerald500
+import com.subtrack.feature.analytics.AnalyticsRoute
+import com.subtrack.feature.dashboard.DashboardRoute
+import com.subtrack.feature.planner.PlannerRoute
+import com.subtrack.feature.rotator.PairedRotatorRoute
+import com.subtrack.core.ui.theme.Emerald500
 
 @Composable
 fun SubTrackApp(

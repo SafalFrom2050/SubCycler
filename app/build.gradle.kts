@@ -51,6 +51,15 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:common"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:data"))
+    implementation(project(":core:ui"))
+    implementation(project(":feature:dashboard"))
+    implementation(project(":feature:planner"))
+    implementation(project(":feature:rotator"))
+    implementation(project(":feature:analytics"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

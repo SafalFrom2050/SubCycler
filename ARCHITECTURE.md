@@ -1,6 +1,6 @@
-# SubCycler Architecture & Modernization Plan 🏛️
+# SubCycler Architecture & Modularization 🏛️
 
-This document outlines the architecture, design principles, layer separation, and future scaling roadmap for **SubCycler (SubTrack)**.
+This document outlines the architecture, design principles, module separation, and SOLID implementation for **SubCycler (SubTrack)**.
 
 ---
 
@@ -8,118 +8,165 @@ This document outlines the architecture, design principles, layer separation, an
 
 The application follows the official **Google Recommended Architecture Guide for Android**, enforcing **Clean Architecture** and strict **SOLID principles**:
 
-- **Single Responsibility Principle (SRP)**: ViewModels handle UI state and user intents; Use Cases encapsulate discrete domain business rules; Repositories manage data retrieval/persistence; Workers handle background tasks.
+- **Single Responsibility Principle (SRP)**: Feature modules handle UI state and user intents; Use Cases encapsulate discrete domain business rules; Repositories manage data retrieval/persistence; Workers handle background evaluation.
 - **Open/Closed Principle (OCP)**: Systems are extensible via interfaces (e.g. `TimeProvider`, `SubscriptionRepository`, `UserPreferencesRepository`) without modifying caller code.
-- **Liskov Substitution Principle (LSP)**: Interface implementations (e.g., `FakeTimeProvider`, `FakeSubscriptionRepository`) substitute seamlessly in tests without affecting domain logic.
+- **Liskov Substitution Principle (LSP)**: Interface implementations (e.g., `FakeTimeProvider`, `FakeSubscriptionRepository`, `FakeUserPreferencesRepository`) substitute seamlessly in tests without affecting domain logic.
 - **Interface Segregation Principle (ISP)**: Granular, focused use cases (`GetSubscriptionCycleStatusesUseCase`, `GetPortfolioSummaryUseCase`, `AlignPairedSubscriptionsUseCase`, `ManageSubscriptionUseCase`) instead of monolithic God-classes.
 - **Dependency Inversion Principle (DIP)**: High-level business logic depends on domain abstractions, not concrete Room DAOs or system APIs. Injected via **Hilt (Dagger)**.
 
 ---
 
-## 2. High-Level Layer Hierarchy
+## 2. Multi-Module Project Hierarchy
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                                UI Layer                                │
-│  - Jetpack Compose (MVI-style UDF: UiState + UiAction)                │
-│  - Type-Safe Navigation Compose (Navigation 2.8+ @Serializable)        │
-│  - Stateful Routes (*Route) + Stateless Screens (*Screen)              │
-│  - Scoped @HiltViewModel with StateFlow<UiState>                      │
-└───────────────────────────────────▲────────────────────────────────────┘
-                                    │ consumes
-┌───────────────────────────────────┴────────────────────────────────────┐
-│                              Domain Layer                              │
-│  - Pure Kotlin Business Logic (Zero Android Framework Dependencies)    │
-│  - Domain Models: Subscription, CycleStatus, PortfolioSummary, etc.    │
-│  - Single-Responsibility Use Cases                                     │
-│  - RotationEngine (Mathematical cycle calculations & savings)          │
-│  - TimeProvider Abstraction (Deterministic system time testing)        │
-└───────────────────────────────────▲────────────────────────────────────┘
-                                    │ provides
-┌───────────────────────────────────┴────────────────────────────────────┐
-│                               Data Layer                               │
-│  - Room Database (SubscriptionEntity, SubscriptionDao, AppDatabase)    │
-│  - Bidirectional Data Mappers (SubscriptionMapper.kt)                  │
-│  - SubscriptionRepository & SubscriptionRepositoryImpl                 │
-│  - Jetpack DataStore (UserPreferencesRepository)                       │
-└───────────────────────────────────▲────────────────────────────────────┘
-                                    │ manages
-┌───────────────────────────────────┴────────────────────────────────────┐
-│                    Background & Autonomous Engine                      │
-│  - WorkManager 2.9 (Battery-optimized 24h periodic cycle evaluation)   │
-│  - HiltWorkerFactory with on-demand Application Configuration.Provider │
-│  - DailyCycleEvaluationWorker (Notifications & Autonomous Action Hooks)│
-│  - WorkSchedulerManager (Device boot & trigger management)             │
-└────────────────────────────────────────────────────────────────────────┘
+SubCycler
+ ├── :core:common       (Dispatchers qualifiers, TimeProvider abstractions, testing fakes)
+ ├── :core:domain       (Pure business logic, Domain models, RotationEngine, Use Cases, Repository interfaces)
+ ├── :core:data         (Room Database, DataStore Preferences, Repository implementations, Mappers, Hilt DI)
+ ├── :core:ui           (Design system, SubTrackTheme, Typography, Shared Cards, Dialogs & Timeline views)
+ ├── :feature:dashboard (Dashboard Route, Screen, ViewModel, MVI UI State/Actions)
+ ├── :feature:planner   (45-day Planner Route, Screen, ViewModel)
+ ├── :feature:rotator   (Paired Swap Rotator Route, Screen, ViewModel)
+ ├── :feature:analytics (Savings & Compounding ROI Route, Screen, ViewModel)
+ └── :app               (Application class, MainActivity, NavHost, WorkManager, Receivers, Notifications)
+```
+
+```mermaid
+graph TD
+    App[":app (Host & Orchestrator)"]
+    FeatureDash[":feature:dashboard"]
+    FeaturePlan[":feature:planner"]
+    FeatureRot[":feature:rotator"]
+    FeatureAna[":feature:analytics"]
+    CoreUI[":core:ui"]
+    CoreData[":core:data"]
+    CoreDomain[":core:domain"]
+    CoreCommon[":core:common"]
+
+    App --> FeatureDash
+    App --> FeaturePlan
+    App --> FeatureRot
+    App --> FeatureAna
+    App --> CoreData
+    App --> CoreUI
+    App --> CoreDomain
+    App --> CoreCommon
+
+    FeatureDash --> CoreUI
+    FeatureDash --> CoreDomain
+    FeatureDash --> CoreCommon
+
+    FeaturePlan --> CoreUI
+    FeaturePlan --> CoreDomain
+    FeaturePlan --> CoreCommon
+
+    FeatureRot --> CoreUI
+    FeatureRot --> CoreDomain
+    FeatureRot --> CoreCommon
+
+    FeatureAna --> CoreUI
+    FeatureAna --> CoreDomain
+    FeatureAna --> CoreCommon
+
+    CoreUI --> CoreDomain
+    CoreUI --> CoreCommon
+
+    CoreData --> CoreDomain
+    CoreData --> CoreCommon
+
+    CoreDomain --> CoreCommon
 ```
 
 ---
 
-## 3. Layer Breakdown
+## 3. Module Breakdown
 
-### A. Domain Layer (`com.subtrack.app.domain`)
+### A. `:core:common` (`com.subtrack.core.common`)
+- **Coroutines Dispatchers**: `@IoDispatcher`, `@DefaultDispatcher`, `@MainDispatcher` qualifiers and Hilt module.
+- **Time Abstraction (`TimeProvider`)**: System clock wrapper (`DefaultTimeProvider`) and test double (`FakeTimeProvider`) for deterministic unit tests.
+
+### B. `:core:domain` (`com.subtrack.core.domain`)
 - **Pure Kotlin**: Free of Android SDK references (`android.*`), allowing rapid local JVM unit testing (<20ms).
-- **Time Abstraction (`TimeProvider`)**: All time checks invoke `timeProvider.today()` or `timeProvider.nowInstant()`, allowing deterministic historical and future simulations.
+- **Domain Models**: `Subscription`, `CycleStatus`, `NextAction`, `PortfolioSummary`, `SubscriptionPreset`, `UserPreferences`.
 - **Domain Use Cases**:
   - `GetSubscriptionCycleStatusesUseCase`: Transforms subscription entities into real-time cycle phases (Active vs Blackout) and computes urgent cancellation actions.
   - `GetPortfolioSummaryUseCase`: Computes aggregate annual costs, optimized rotation spending, and compounding multi-year ROI.
   - `AlignPairedSubscriptionsUseCase`: Synchronizes two paired subscriptions (e.g., Netflix + Disney+) to alternate 30d/30d without service blackout overlap.
   - `ManageSubscriptionUseCase`: Handles subscription lifecycle (CRUD, toggle auto-renew cancellation).
+- **Domain Repositories**: `SubscriptionRepository` and `UserPreferencesRepository` interfaces.
 
-### B. Data Layer (`com.subtrack.app.data`)
-- **Entity & Domain Separation**: Room entities (`SubscriptionEntity`) reside strictly in `data/local/entity/`. The domain model (`Subscription`) contains no database annotations (`@Entity`, `@PrimaryKey`), isolating database schema evolution from business logic.
-- **DataStore Preferences**: `UserPreferencesRepository` provides non-blocking, reactive `Flow<UserPreferences>` using Jetpack DataStore Preferences for user currency, notification thresholds, and dark mode.
-- **Repository Implementation**: `SubscriptionRepositoryImpl` handles database mapping and reactive `Flow` transformations on IO dispatchers.
+### C. `:core:data` (`com.subtrack.core.data`)
+- **Room Persistence**: `AppDatabase`, `SubscriptionDao`, `SubscriptionEntity`, `Converters`.
+- **Data Mappers**: Bidirectional conversion between `SubscriptionEntity` and domain `Subscription`.
+- **DataStore Preferences**: `UserPreferencesRepositoryImpl` providing non-blocking `Flow<UserPreferences>`.
+- **Repository Implementation**: `SubscriptionRepositoryImpl` managing Room database access on `@IoDispatcher`.
+- **Hilt Dependency Injection**: `DataModule` and `UseCaseModule`.
 
-### C. UI Layer (`com.subtrack.app.ui`)
-- **Unidirectional Data Flow (UDF)**:
-  - `UiState`: Single immutable state data class per screen (`DashboardUiState`, `PlannerUiState`, `PairedRotatorUiState`, `AnalyticsUiState`).
-  - `UiAction`: Sealed interface capturing all user interactions (`DashboardAction`, `PlannerAction`, etc.).
-- **Stateful Route vs Stateless Screen**:
-  - `*Route`: Injects `@HiltViewModel`, collects state with lifecycle awareness (`collectAsStateWithLifecycle()`), and binds actions.
-  - `*Screen`: Pure stateless composable accepting `(uiState, onAction)`, preview-ready in Android Studio and isolated for Compose UI testing.
-- **Type-Safe Navigation Compose**: Uses Kotlin `@Serializable` route destinations (`DashboardDestination`, `PlannerDestination`, `RotatorDestination`, `AnalyticsDestination`) with Navigation Compose 2.8+.
+### D. `:core:ui` (`com.subtrack.core.ui`)
+- **Theme & Design System**: `SubTrackTheme`, `Color.kt`, `Type.kt`.
+- **Reusable Components**: `SubscriptionCard`, `AddEditSubscriptionDialog`, `CycleTimelineView`, `NextActionBanner`, `SavingsSummaryCard`.
 
-### D. Dependency Injection (`com.subtrack.app.di`)
-- **Hilt Modules**:
-  - `DispatchersModule`: Qualifiers (`@IoDispatcher`, `@DefaultDispatcher`, `@MainDispatcher`) for testable thread switching.
-  - `DataModule`: Provides Singleton instances of `AppDatabase`, `SubscriptionDao`, `SubscriptionRepository`, `UserPreferencesRepository`, and `TimeProvider`.
-  - `UseCaseModule`: Provides Singleton domain Use Cases.
-- **Application & Activities**: `@HiltAndroidApp`, `@AndroidEntryPoint`, and `@HiltViewModel`.
+### E. Feature Modules (`:feature:*`)
+- **`:feature:dashboard`**: Primary dashboard list with filtering chips, active/blackout status badges, and quick actions.
+- **`:feature:planner`**: 45-day cycle multi-month timeline viewer and interactive future date inspector.
+- **`:feature:rotator`**: 30d/30d zero-downtime alternating paired subscription synchronizer.
+- **`:feature:analytics`**: Compounding multi-year savings charts and what-if optimizer simulator.
+- **MVI / UDF**: Stateful `*Route` + Stateless `*Screen` + `*ViewModel` with immutable `UiState` and sealed `UiAction`.
 
-### E. Background Processing (`com.subtrack.app.worker`)
-- **WorkManager**: Periodic 24-hour execution via `DailyCycleEvaluationWorker` utilizing `@HiltWorker` and `HiltWorkerFactory`.
-- **Battery Optimization**: On-demand WorkManager initialization via `Configuration.Provider` in `SubTrackApplication`, with `Constraints.setRequiresBatteryNotLow(true)`.
+### F. `:app` (`com.subtrack.app`)
+- **Host Application**: `SubTrackApplication` with on-demand `HiltWorkerFactory` configuration.
+- **Navigation**: `SubTrackNavHost` and type-safe destinations (`Screen.kt`).
+- **Background & Broadcast**: `DailyCycleEvaluationWorker`, `WorkSchedulerManager`, `BootReceiver`, `SubscriptionAlarmReceiver`, `NotificationHelper`.
 
 ---
 
-## 4. Testing Strategy
+## 4. Testing & Verification
 
 The architecture supports 100% test coverage without requiring physical devices or emulators:
-- **Local Unit Tests (`test/`)**:
+- **`:core:domain` Unit Tests**:
   - `RotationEngineTest`: Verifies rotation mathematical cycles, phase dates, and cost savings.
-  - `SubscriptionMapperTest`: Verifies bidirectional conversion accuracy.
-  - `GetSubscriptionCycleStatusesUseCaseTest`: Verifies stream status calculation with `FakeSubscriptionRepository` and `FakeTimeProvider`.
+  - `GetSubscriptionCycleStatusesUseCaseTest`: Verifies stream status calculation.
   - `AlignPairedSubscriptionsUseCaseTest`: Verifies paired schedule alignment logic.
   - `GetPortfolioSummaryUseCaseTest`: Verifies portfolio financial metrics.
-  - `DashboardViewModelTest`: Verifies MVI actions, coroutine scheduling with `StandardTestDispatcher`, and UI state emission.
+- **`:core:data` Unit Tests**:
+  - `SubscriptionMapperTest`: Verifies bidirectional conversion accuracy.
   - `UserPreferencesTest`: Verifies DataStore reactive updates.
+- **`:feature:dashboard` Unit Tests**:
+  - `DashboardViewModelTest`: Verifies MVI actions, coroutine scheduling with `StandardTestDispatcher`, and UI state emission.
+- **`:app` Unit Tests**:
   - `DailyCycleEvaluationLogicTest`: Verifies background notification triggers and lead thresholds.
 
 ---
 
-## 5. Multi-Module Target Roadmap
+## 5. Development & Build Commands
 
-As SubCycler grows, the single `:app` module can be factored into a modular multi-module architecture:
+- **Run all unit tests across all modules**:
+  ```powershell
+  $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+  $env:Path = "$env:JAVA_HOME\bin;$env:LOCALAPPDATA\Android\Sdk\platform-tools;$env:Path"
+  .\gradlew.bat testDebugUnitTest
+  ```
 
-```
-:app
- ├── :feature:dashboard
- ├── :feature:planner
- ├── :feature:rotator
- ├── :feature:analytics
- ├── :core:domain       (Pure Kotlin use cases, models, RotationEngine)
- ├── :core:data         (Room database, DataStore, Repository implementations)
- ├── :core:ui           (Compose design system, theme, common components)
- └── :core:common       (Dispatchers, time abstractions, utilities)
-```
+- **Build debug APK**:
+  ```powershell
+  .\gradlew.bat assembleDebug
+  ```
+
+- **Install and Launch on Device via ADB**:
+  ```powershell
+  adb install -r app/build/outputs/apk/debug/app-debug.apk
+  adb shell am start -n com.subtrack.app/com.subtrack.app.MainActivity
+  ```
+
+---
+
+## 6. Guidelines for Creating New Features
+
+When adding a new feature (e.g. `:feature:settings` or `:feature:export`):
+1. **Module Creation**: Create `feature/<name>/build.gradle.kts` and include `:feature:<name>` in `settings.gradle.kts`.
+2. **Dependencies Flow**: Only depend on `:core:common`, `:core:domain`, and `:core:ui`. Never depend directly on `:core:data` or other feature modules.
+3. **MVI Presentation Pattern**:
+   - Define a single immutable `UiState` data class and a sealed `UiAction` interface.
+   - Separate stateful `*Route` (collects `*ViewModel` state) and stateless `*Screen` (accepts `(uiState, onAction)`).
+4. **Navigation Registration**: Register the route in `:app`'s `Screen.kt` and add a composable destination in `SubTrackNavHost.kt`.
+

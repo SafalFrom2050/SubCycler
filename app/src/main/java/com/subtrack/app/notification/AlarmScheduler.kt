@@ -5,9 +5,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import com.subtrack.app.data.model.ActionType
-import com.subtrack.app.data.model.Subscription
-import com.subtrack.app.domain.RotationEngine
+import com.subtrack.core.domain.engine.RotationEngine
+import com.subtrack.core.domain.model.ActionType
+import com.subtrack.core.domain.model.Subscription
 import com.subtrack.app.receiver.SubscriptionAlarmReceiver
 import java.time.LocalDate
 import java.time.ZoneId

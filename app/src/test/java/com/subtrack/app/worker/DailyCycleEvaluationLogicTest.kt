@@ -1,13 +1,13 @@
 package com.subtrack.app.worker
 
-import com.subtrack.app.data.model.CyclePhase
-import com.subtrack.app.data.model.RotationStrategy
-import com.subtrack.app.data.model.Subscription
-import com.subtrack.app.data.preferences.FakeUserPreferencesRepository
-import com.subtrack.app.data.preferences.UserPreferences
-import com.subtrack.app.data.repository.FakeSubscriptionRepository
-import com.subtrack.app.domain.time.FakeTimeProvider
-import com.subtrack.app.domain.usecase.GetSubscriptionCycleStatusesUseCase
+import com.subtrack.core.common.time.FakeTimeProvider
+import com.subtrack.core.domain.model.CyclePhase
+import com.subtrack.core.domain.model.RotationStrategy
+import com.subtrack.core.domain.model.Subscription
+import com.subtrack.core.domain.model.UserPreferences
+import com.subtrack.core.domain.testing.FakeSubscriptionRepository
+import com.subtrack.core.domain.testing.FakeUserPreferencesRepository
+import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -36,7 +36,7 @@ class DailyCycleEvaluationLogicTest {
             strategy = RotationStrategy.ROTATION_45_DAYS,
             isAutoRenewCancelled = false
         )
-        fakeRepository.setSubscriptions(listOf(sub))
+        fakeRepository.resetAllWithSamples(listOf(sub))
 
         val prefs = fakeUserPreferencesRepository.userPreferences.first()
         val statuses = getCycleStatusesUseCase().first()
@@ -61,7 +61,7 @@ class DailyCycleEvaluationLogicTest {
             strategy = RotationStrategy.ROTATION_45_DAYS,
             isAutoRenewCancelled = true
         )
-        fakeRepository.setSubscriptions(listOf(sub))
+        fakeRepository.resetAllWithSamples(listOf(sub))
 
         val statuses = getCycleStatusesUseCase().first()
         val status = statuses.first()
@@ -80,7 +80,7 @@ class DailyCycleEvaluationLogicTest {
             startDate = today.minusDays(44),
             strategy = RotationStrategy.ROTATION_45_DAYS
         )
-        fakeRepository.setSubscriptions(listOf(sub))
+        fakeRepository.resetAllWithSamples(listOf(sub))
 
         val statuses = getCycleStatusesUseCase().first()
         val status = statuses.first()
