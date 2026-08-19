@@ -27,11 +27,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.draw.drawBehind
 import com.subtrack.feature.analytics.AnalyticsRoute
 import com.subtrack.feature.dashboard.DashboardRoute
 import com.subtrack.feature.planner.PlannerRoute
 import com.subtrack.feature.rotator.PairedRotatorRoute
-import com.subtrack.core.ui.theme.Emerald500
+import com.subtrack.core.ui.theme.PrimarySky
 
 @Composable
 fun SubTrackApp(
@@ -72,12 +73,21 @@ fun SubTrackApp(
     Scaffold(
         modifier = Modifier.nestedScroll(nestedScrollConnection),
         bottomBar = {
+            val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
             NavigationBar(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(navBarHeight),
+                    .height(navBarHeight)
+                    .drawBehind {
+                        drawLine(
+                            color = outlineColor,
+                            start = Offset(0f, 0f),
+                            end = Offset(size.width, 0f),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    },
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
+                tonalElevation = 0.dp
             ) {
                 NavigationItems.items.forEach { item ->
                     val selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true
@@ -113,9 +123,11 @@ fun SubTrackApp(
                             }
                         } else null,
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Emerald500,
-                            selectedTextColor = Emerald500,
-                            indicatorColor = Emerald500.copy(alpha = 0.15f)
+                            selectedIconColor = PrimarySky,
+                            selectedTextColor = PrimarySky,
+                            indicatorColor = PrimarySky.copy(alpha = 0.15f),
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                 }
@@ -125,7 +137,7 @@ fun SubTrackApp(
         NavHost(
             navController = navController,
             startDestination = DashboardDestination,
-            modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
+            modifier = Modifier.padding(innerPadding),
             enterTransition = { EnterTransition.None },
             exitTransition = { ExitTransition.None },
             popEnterTransition = { EnterTransition.None },

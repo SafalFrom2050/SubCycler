@@ -12,27 +12,34 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Emerald500,
-    onPrimary = DarkBg,
-    primaryContainer = Emerald700,
-    onPrimaryContainer = Emerald100,
-    secondary = BlackoutIndigo,
+    primary = PrimarySky,
+    onPrimary = OledBlack,
+    primaryContainer = PrimarySkyContainer,
+    onPrimaryContainer = PrimarySkyBright,
+    secondary = CyberIndigo,
     onSecondary = TextPrimaryDark,
-    background = DarkBg,
+    secondaryContainer = CyberIndigoContainer,
+    onSecondaryContainer = CyberIndigoLight,
+    error = AlertCrimson,
+    onError = TextPrimaryDark,
+    errorContainer = AlertCrimsonBg,
+    onErrorContainer = AlertCrimson,
+    background = OledBlack,
     onBackground = TextPrimaryDark,
     surface = DarkSurface,
     onSurface = TextPrimaryDark,
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = TextSecondaryDark,
-    outline = DarkBorder
+    outline = DarkBorder,
+    outlineVariant = DarkBorderSubtle
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Emerald600,
+    primary = Sky600,
     onPrimary = LightSurface,
-    primaryContainer = Emerald100,
-    onPrimaryContainer = Emerald700,
-    secondary = BlackoutIndigo,
+    primaryContainer = Sky200,
+    onPrimaryContainer = Sky700,
+    secondary = CyberIndigo,
     onSecondary = LightSurface,
     background = LightBg,
     onBackground = TextPrimaryLight,

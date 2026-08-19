@@ -34,9 +34,13 @@ fun CycleTimelineView(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) DarkSurface else LightSurface
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -64,7 +68,7 @@ fun CycleTimelineView(
                 }
 
                 // Current Phase Badge
-                val currentBadgeColor = if (cycleStatus.phase == CyclePhase.ACTIVE) ActiveGreen else BlackoutIndigo
+                val currentBadgeColor = if (cycleStatus.phase == CyclePhase.ACTIVE) PrimarySky else CyberIndigo
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = currentBadgeColor.copy(alpha = 0.15f)
@@ -90,11 +94,11 @@ fun CycleTimelineView(
             ) {
                 cycleStatus.timelineBlocks.forEachIndexed { index, block ->
                     val isCurrent = block.isCurrent
-                    val blockColor = if (block.phase == CyclePhase.ACTIVE) ActiveGreen else BlackoutIndigo
+                    val blockColor = if (block.phase == CyclePhase.ACTIVE) PrimarySky else CyberIndigoLight
                     val blockBg = if (block.phase == CyclePhase.ACTIVE) {
-                        if (isDark) ActiveGreenBg else Emerald100
+                        PrimarySky.copy(alpha = 0.12f)
                     } else {
-                        if (isDark) BlackoutIndigoBg else Color(0xFFE0E7FF)
+                        CyberIndigo.copy(alpha = 0.12f)
                     }
 
                     Box(
@@ -103,8 +107,8 @@ fun CycleTimelineView(
                             .clip(RoundedCornerShape(10.dp))
                             .background(blockBg)
                             .then(
-                                if (isCurrent) Modifier.border(2.dp, blockColor, RoundedCornerShape(10.dp))
-                                else Modifier
+                                if (isCurrent) Modifier.border(1.dp, blockColor, RoundedCornerShape(10.dp))
+                                else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
                             )
                             .padding(10.dp)
                     ) {

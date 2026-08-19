@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,9 +58,13 @@ fun SubscriptionCard(
             },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) DarkSurface else LightSurface
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -78,16 +83,17 @@ fun SubscriptionCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(brandColor.copy(alpha = 0.2f)),
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF141414))
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = sub.name.take(2).uppercase(),
-                            color = brandColor,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 13.sp
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -122,7 +128,7 @@ fun SubscriptionCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Strategy & Phase Badges
             Row(
@@ -130,30 +136,25 @@ fun SubscriptionCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Phase Pill
-                val (phaseBg, phaseText, phaseColor) = when (cycleStatus.phase) {
-                    CyclePhase.ACTIVE -> Triple(
-                        ActiveGreen.copy(alpha = 0.15f),
-                        "🟢 ACTIVE (${cycleStatus.daysRemainingInPhase}d left)",
-                        ActiveGreen
-                    )
-                    CyclePhase.BLACKOUT -> Triple(
-                        BlackoutIndigo.copy(alpha = 0.15f),
-                        "⏸️ BLACKOUT (${cycleStatus.daysRemainingInPhase}d to re-sub)",
-                        BlackoutIndigo
-                    )
-                }
+                // Phase Pill (Clean, without noisy emojis)
+                val isPhaseActive = cycleStatus.phase == CyclePhase.ACTIVE
+                val phaseBg = if (isPhaseActive) PrimarySky.copy(alpha = 0.10f) else Color(0xFF141414)
+                val phaseBorder = if (isPhaseActive) PrimarySky.copy(alpha = 0.25f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                val phaseText = if (isPhaseActive) "ACTIVE · ${cycleStatus.daysRemainingInPhase}d left" else "PAUSED · ${cycleStatus.daysRemainingInPhase}d to re-sub"
+                val phaseColor = if (isPhaseActive) PrimarySky else MaterialTheme.colorScheme.onSurfaceVariant
 
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = phaseBg
+                    shape = RoundedCornerShape(6.dp),
+                    color = phaseBg,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, phaseBorder)
                 ) {
                     Text(
                         text = phaseText,
                         color = phaseColor,
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
 
@@ -169,63 +170,71 @@ fun SubscriptionCard(
                     text = strategyText,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 11.sp
                 )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Progress Bar
-            val progressColor = if (cycleStatus.phase == CyclePhase.ACTIVE) ActiveGreen else BlackoutIndigo
+            // Progress Bar (Sleek 2dp hairline)
+            val progressColor = if (cycleStatus.phase == CyclePhase.ACTIVE) PrimarySky else Color(0xFF3F3F46)
             LinearProgressIndicator(
                 progress = { cycleStatus.progressFraction },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
+                    .height(2.dp)
+                    .clip(RoundedCornerShape(1.dp)),
                 color = progressColor,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                trackColor = Color(0xFF161616)
             )
 
-            // Urgent / Info Next Action Banner
-            Spacer(modifier = Modifier.height(12.dp))
+            // Urgent / Info Next Action Banner (Clean & Quiet)
+            Spacer(modifier = Modifier.height(10.dp))
             val action = cycleStatus.nextAction
             val actionContainerColor = when (action.urgency) {
-                ActionUrgency.ACTION_DUE -> ErrorRose.copy(alpha = 0.12f)
-                ActionUrgency.WARNING -> WarningAmber.copy(alpha = 0.12f)
-                ActionUrgency.INFO -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                ActionUrgency.ACTION_DUE -> AlertCrimson.copy(alpha = 0.08f)
+                ActionUrgency.WARNING -> WarningAmber.copy(alpha = 0.08f)
+                ActionUrgency.INFO -> Color(0xFF121212)
+            }
+            val actionBorderColor = when (action.urgency) {
+                ActionUrgency.ACTION_DUE -> AlertCrimson.copy(alpha = 0.25f)
+                ActionUrgency.WARNING -> WarningAmber.copy(alpha = 0.25f)
+                ActionUrgency.INFO -> MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
             }
             val actionContentColor = when (action.urgency) {
-                ActionUrgency.ACTION_DUE -> ErrorRose
+                ActionUrgency.ACTION_DUE -> AlertCrimson
                 ActionUrgency.WARNING -> WarningAmber
                 ActionUrgency.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
             }
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                color = actionContainerColor
+                shape = RoundedCornerShape(8.dp),
+                color = actionContainerColor,
+                border = androidx.compose.foundation.BorderStroke(1.dp, actionBorderColor)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = when (action.actionType) {
-                            ActionType.CANCEL_AUTO_RENEW -> Icons.Default.NotificationsActive
+                            ActionType.CANCEL_AUTO_RENEW -> Icons.Default.NotificationsNone
                             ActionType.RESUBSCRIBE -> Icons.Default.Autorenew
-                            ActionType.NO_ACTION -> Icons.Default.CheckCircle
+                            ActionType.NO_ACTION -> Icons.Default.Check
                         },
                         contentDescription = null,
                         tint = actionContentColor,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = action.description,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
                         color = actionContentColor,
                         fontWeight = if (action.urgency != ActionUrgency.INFO) FontWeight.SemiBold else FontWeight.Normal,
                         modifier = Modifier.weight(1f)

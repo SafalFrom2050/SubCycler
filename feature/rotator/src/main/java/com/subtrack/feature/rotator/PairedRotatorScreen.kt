@@ -85,22 +85,28 @@ fun PairedRotatorScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) DarkSurfaceVariant else LightSurfaceVariant
-                    )
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.SwapHoriz,
                                 contentDescription = null,
-                                tint = Emerald500,
+                                tint = PrimarySky,
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Zero-Downtime Alternating Binge",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
@@ -119,15 +125,20 @@ fun PairedRotatorScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) DarkSurface else LightSurface
+                        containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "Select Two Services to Pair",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
@@ -158,7 +169,7 @@ fun PairedRotatorScreen(
                         )
 
                         Spacer(modifier = Modifier.height(20.dp))
-                        HorizontalDivider()
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Financial Impact
@@ -168,15 +179,18 @@ fun PairedRotatorScreen(
                         ) {
                             Column {
                                 Text("Cost (Simultaneous)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("$${String.format("%.2f", uiState.combinedMonthlyCostBefore)}/mo", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("$${String.format("%.2f", uiState.combinedMonthlyCostBefore)}/mo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                             Column {
-                                Text("Cost (Alternating)", fontSize = 11.sp, color = Emerald500)
-                                Text("$${String.format("%.2f", uiState.combinedMonthlyCostAfter)}/mo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Emerald500)
+                                Text("Cost (Alternating)", fontSize = 11.sp, color = PrimarySky)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("$${String.format("%.2f", uiState.combinedMonthlyCostAfter)}/mo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PrimarySky)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("Annual Savings", fontSize = 11.sp, color = ActiveGreen)
-                                Text("$${String.format("%.2f", uiState.combinedAnnualSavings)}/yr", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = ActiveGreen)
+                                Text("Annual Savings", fontSize = 11.sp, color = PrimarySky)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("$${String.format("%.2f", uiState.combinedAnnualSavings)}/yr", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = PrimarySky)
                             }
                         }
 
@@ -194,7 +208,10 @@ fun PairedRotatorScreen(
                                 .fillMaxWidth()
                                 .height(48.dp),
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimarySky,
+                                contentColor = OledBlack
+                            )
                         ) {
                             Icon(Icons.Default.SyncAlt, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
@@ -215,20 +232,24 @@ fun PairedRotatorScreen(
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = ActiveGreen.copy(alpha = 0.15f),
+                                    color = PrimarySky.copy(alpha = 0.12f),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        PrimarySky.copy(alpha = 0.3f)
+                                    ),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ActiveGreen, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = PrimarySky, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = "Schedules synchronized! Swapping occurs every 30 days.",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = ActiveGreen
+                                            color = PrimarySky
                                         )
                                     }
                                 }

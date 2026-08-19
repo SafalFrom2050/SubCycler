@@ -79,15 +79,20 @@ fun PlannerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) DarkSurfaceVariant else LightSurfaceVariant
-                    )
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = null,
-                                tint = Emerald500,
+                                tint = PrimarySky,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -117,15 +122,20 @@ fun PlannerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) DarkSurface else LightSurface
+                        containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "Date Inspector & Coverage",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -145,7 +155,7 @@ fun PlannerScreen(
                                 text = uiState.selectedTargetDate.format(dateFormatter),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.primary
+                                color = PrimarySky
                             )
                             IconButton(onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -155,16 +165,16 @@ fun PlannerScreen(
                             }
                         }
 
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
                         // Active on this date
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "🟢 Active (${uiState.activeOnSelectedDate.size})",
+                                    text = "Active (${uiState.activeOnSelectedDate.size})",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
-                                    color = ActiveGreen
+                                    color = PrimarySky
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 if (uiState.activeOnSelectedDate.isEmpty()) {
@@ -178,10 +188,10 @@ fun PlannerScreen(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "⏸️ Blackout (${uiState.blackoutOnSelectedDate.size})",
+                                    text = "Blackout (${uiState.blackoutOnSelectedDate.size})",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
-                                    color = BlackoutIndigo
+                                    color = CyberIndigoLight
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 if (uiState.blackoutOnSelectedDate.isEmpty()) {

@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,15 +28,17 @@ fun NextActionBanner(
     val action = topUrgent.nextAction
     val isDue = action.urgency == ActionUrgency.ACTION_DUE
 
-    val containerColor = if (isDue) ErrorRose.copy(alpha = 0.15f) else WarningAmber.copy(alpha = 0.15f)
+    val containerColor = if (isDue) Color(0xFF160A0A) else Color(0xFF14120A)
     val contentColor = if (isDue) ErrorRose else WarningAmber
+    val cleanTitle = action.title.replace("⚡ ", "").replace("⚠️ ", "").replace("🔔 ", "")
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         color = containerColor,
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(contentColor.copy(alpha = 0.4f))
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = contentColor.copy(alpha = 0.35f)
         )
     ) {
         Row(
@@ -48,21 +51,21 @@ fun NextActionBanner(
                 imageVector = Icons.Default.WarningAmber,
                 contentDescription = null,
                 tint = contentColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "${topUrgent.subscription.name}: ${action.title}",
+                    text = "${topUrgent.subscription.name}: $cleanTitle",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     color = contentColor
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = action.description,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

@@ -71,25 +71,30 @@ fun AnalyticsScreen(
             item(key = "multi_year_card", contentType = "card") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) DarkSurface else LightSurface
+                        containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(18.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.AutoGraph,
                                 contentDescription = null,
-                                tint = Emerald500,
-                                modifier = Modifier.size(24.dp)
+                                tint = PrimarySky,
+                                modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = "Long-Term Compounding Savings",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
@@ -123,17 +128,22 @@ fun AnalyticsScreen(
             item(key = "simulator_card", contentType = "card") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) DarkSurface else LightSurface
+                        containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(18.dp)) {
                         Text(
                             text = "What-If Optimizer Simulator",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -148,7 +158,7 @@ fun AnalyticsScreen(
                             text = "Rotation Adoption: ${(uiState.simulatedRotationPct * 100).toInt()}% of services",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = Emerald500
+                            color = PrimarySky
                         )
 
                         Slider(
@@ -162,8 +172,9 @@ fun AnalyticsScreen(
                             valueRange = 0f..1f,
                             steps = 10,
                             colors = SliderDefaults.colors(
-                                thumbColor = Emerald500,
-                                activeTrackColor = Emerald500
+                                thumbColor = PrimarySky,
+                                activeTrackColor = PrimarySky,
+                                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                         )
 
@@ -171,7 +182,11 @@ fun AnalyticsScreen(
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = Emerald500.copy(alpha = 0.12f),
+                            color = PrimarySky.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                PrimarySky.copy(alpha = 0.3f)
+                            ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -184,13 +199,14 @@ fun AnalyticsScreen(
                                 Text(
                                     text = "Simulated Annual Savings:",
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.sp
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "$${String.format("%.2f", uiState.simulatedAnnualSavings)}/yr",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 18.sp,
-                                    color = Emerald500
+                                    color = PrimarySky
                                 )
                             }
                         }
@@ -204,14 +220,20 @@ fun AnalyticsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDark) DarkSurfaceVariant else LightSurfaceVariant
-                    )
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "🧠 The Psychology of the 15-Day Blackout",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
@@ -245,7 +267,7 @@ private fun SavingsHorizonItem(
             text = "$${String.format("%.0f", amount)}",
             fontSize = 20.sp,
             fontWeight = FontWeight.Black,
-            color = ActiveGreen
+            color = PrimarySky
         )
         Text(
             text = subtitle,
