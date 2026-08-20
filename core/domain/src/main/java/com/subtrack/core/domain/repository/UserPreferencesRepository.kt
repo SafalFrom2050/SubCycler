@@ -8,5 +8,4 @@ interface UserPreferencesRepository {
     suspend fun setCurrency(currency: String)
     suspend fun setNotificationLeadDays(days: Int)
     suspend fun setAutoCancelApprovalRequired(required: Boolean)
-    suspend fun setDarkTheme(isDark: Boolean?)
 }

@@ -4,7 +4,6 @@ import com.subtrack.core.domain.testing.FakeUserPreferencesRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class UserPreferencesTest {
@@ -17,7 +16,6 @@ class UserPreferencesTest {
         assertEquals("USD", prefs.currency)
         assertEquals(3, prefs.notificationLeadDays)
         assertEquals(true, prefs.isAutoCancelApprovalRequired)
-        assertNull(prefs.isDarkTheme)
     }
 
     @Test
@@ -25,12 +23,10 @@ class UserPreferencesTest {
         repository.setCurrency("EUR")
         repository.setNotificationLeadDays(5)
         repository.setAutoCancelApprovalRequired(false)
-        repository.setDarkTheme(true)
 
         val updated = repository.userPreferences.first()
         assertEquals("EUR", updated.currency)
         assertEquals(5, updated.notificationLeadDays)
         assertEquals(false, updated.isAutoCancelApprovalRequired)
-        assertEquals(true, updated.isDarkTheme)
     }
 }

@@ -39,7 +39,6 @@ fun SubscriptionCard(
 ) {
     val haptic = LocalHapticFeedback.current
     val sub = cycleStatus.subscription
-    val isDark = MaterialTheme.colorScheme.background == DarkBg
     val brandColor = try {
         Color(android.graphics.Color.parseColor(sub.colorHex))
     } catch (e: Exception) {

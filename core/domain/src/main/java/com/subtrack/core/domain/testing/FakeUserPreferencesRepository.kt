@@ -25,8 +25,4 @@ class FakeUserPreferencesRepository(
     override suspend fun setAutoCancelApprovalRequired(required: Boolean) {
         preferencesFlow.value = preferencesFlow.value.copy(isAutoCancelApprovalRequired = required)
     }
-
-    override suspend fun setDarkTheme(isDark: Boolean?) {
-        preferencesFlow.value = preferencesFlow.value.copy(isDarkTheme = isDark)
-    }
 }

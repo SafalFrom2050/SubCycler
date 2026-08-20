@@ -12,11 +12,6 @@ val DarkSurfaceVariant = Color(0xFF121212)
 val DarkBorder = Color(0xFF1C1C1E)          // Subtle non-contrasty 1dp hairline border
 val DarkBorderSubtle = Color(0x14FFFFFF)    // 8% white hairline alpha
 
-// Neutral Light Palette (Fallback)
-val LightBg = Color(0xFFF9FAFB)
-val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFF3F4F6)
-val LightBorder = Color(0xFFE5E7EB)
 
 // ==========================================
 // Primary Bright Accent: Material Sky Blue
@@ -74,5 +69,4 @@ val WarningAmberBg = Color(0xFF451A03)
 val TextPrimaryDark = Color(0xFFFFFFFF)
 val TextSecondaryDark = Color(0xFFA1A1AA)
 val TextTertiaryDark = Color(0xFF71717A)
-val TextPrimaryLight = Color(0xFF0F172A)
-val TextSecondaryLight = Color(0xFF64748B)
+

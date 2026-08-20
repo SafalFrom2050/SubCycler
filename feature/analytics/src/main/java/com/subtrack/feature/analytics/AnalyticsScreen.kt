@@ -40,7 +40,6 @@ fun AnalyticsScreen(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
-    val isDark = MaterialTheme.colorScheme.background == DarkBg
 
     Scaffold(
         topBar = {

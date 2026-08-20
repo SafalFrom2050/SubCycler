@@ -21,7 +21,6 @@ class UserPreferencesRepositoryImpl(
         val CURRENCY = stringPreferencesKey("currency")
         val NOTIFICATION_LEAD_DAYS = intPreferencesKey("notification_lead_days")
         val AUTO_CANCEL_APPROVAL = booleanPreferencesKey("auto_cancel_approval")
-        val IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
     }
 
     override val userPreferences: Flow<UserPreferences> = dataStore.data
@@ -36,8 +35,7 @@ class UserPreferencesRepositoryImpl(
             UserPreferences(
                 currency = preferences[PreferencesKeys.CURRENCY] ?: "USD",
                 notificationLeadDays = preferences[PreferencesKeys.NOTIFICATION_LEAD_DAYS] ?: 3,
-                isAutoCancelApprovalRequired = preferences[PreferencesKeys.AUTO_CANCEL_APPROVAL] ?: true,
-                isDarkTheme = preferences[PreferencesKeys.IS_DARK_THEME]
+                isAutoCancelApprovalRequired = preferences[PreferencesKeys.AUTO_CANCEL_APPROVAL] ?: true
             )
         }
 
@@ -56,16 +54,6 @@ class UserPreferencesRepositoryImpl(
     override suspend fun setAutoCancelApprovalRequired(required: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.AUTO_CANCEL_APPROVAL] = required
-        }
-    }
-
-    override suspend fun setDarkTheme(isDark: Boolean?) {
-        dataStore.edit { preferences ->
-            if (isDark == null) {
-                preferences.remove(PreferencesKeys.IS_DARK_THEME)
-            } else {
-                preferences[PreferencesKeys.IS_DARK_THEME] = isDark
-            }
         }
     }
 }

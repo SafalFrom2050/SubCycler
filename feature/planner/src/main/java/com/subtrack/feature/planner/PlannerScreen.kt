@@ -45,7 +45,6 @@ fun PlannerScreen(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
-    val isDark = MaterialTheme.colorScheme.background == DarkBg
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
 
     Scaffold(

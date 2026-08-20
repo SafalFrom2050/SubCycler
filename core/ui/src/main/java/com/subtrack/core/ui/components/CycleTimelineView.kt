@@ -27,7 +27,6 @@ fun CycleTimelineView(
     modifier: Modifier = Modifier
 ) {
     val sub = cycleStatus.subscription
-    val isDark = MaterialTheme.colorScheme.background == DarkBg
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
 
     Card(

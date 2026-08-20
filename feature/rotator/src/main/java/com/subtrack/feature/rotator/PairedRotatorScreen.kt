@@ -50,8 +50,6 @@ fun PairedRotatorScreen(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
-    val isDark = MaterialTheme.colorScheme.background == DarkBg
-
     var showSuccessSnackbar by remember { mutableStateOf(false) }
 
     Scaffold(
