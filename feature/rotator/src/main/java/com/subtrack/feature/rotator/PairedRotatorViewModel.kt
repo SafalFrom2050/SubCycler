@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.subtrack.core.common.dispatcher.DefaultDispatcher
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.repository.SubscriptionRepository
+import com.subtrack.core.domain.repository.UserPreferencesRepository
 import com.subtrack.core.domain.usecase.AlignPairedSubscriptionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
@@ -19,6 +20,8 @@ data class PairedRotatorUiState(
     val combinedMonthlyCostBefore: Double = 0.0,
     val combinedMonthlyCostAfter: Double = 0.0,
     val combinedAnnualSavings: Double = 0.0,
+    val currencyCode: String = "USD",
+    val hasMixedCurrencies: Boolean = false,
     val isAligned: Boolean = false,
     val isLoading: Boolean = true
 )
@@ -32,6 +35,7 @@ sealed interface PairedRotatorAction {
 @HiltViewModel
 class PairedRotatorViewModel @Inject constructor(
     private val repository: SubscriptionRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
     private val alignPairedSubscriptionsUseCase: AlignPairedSubscriptionsUseCase,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
@@ -42,15 +46,21 @@ class PairedRotatorViewModel @Inject constructor(
     val uiState: StateFlow<PairedRotatorUiState> = combine(
         repository.getAllSubscriptions(),
         _selectedId1,
-        _selectedId2
-    ) { subs, id1, id2 ->
+        _selectedId2,
+        userPreferencesRepository.userPreferences
+    ) { subs, id1, id2, preferences ->
         // Default to first two streaming services if not selected
         val s1 = subs.find { it.id == id1 } ?: subs.firstOrNull()
         val s2 = subs.find { it.id == id2 } ?: subs.getOrNull(1)
 
-        val costBefore = (s1?.cost ?: 0.0) + (s2?.cost ?: 0.0)
+        val hasMixedCurrencies = s1 != null && s2 != null && s1.currency != s2.currency
+        val costBefore = if (hasMixedCurrencies) 0.0 else (s1?.cost ?: 0.0) + (s2?.cost ?: 0.0)
         // In alternating 30d/30d mode, you pay for 1 service each month
-        val costAfter = if (s1 != null && s2 != null) (s1.cost + s2.cost) / 2.0 else costBefore
+        val costAfter = if (!hasMixedCurrencies && s1 != null && s2 != null) {
+            (s1.cost + s2.cost) / 2.0
+        } else {
+            costBefore
+        }
         val annualSavings = (costBefore - costAfter) * 12.0
 
         PairedRotatorUiState(
@@ -60,6 +70,8 @@ class PairedRotatorViewModel @Inject constructor(
             combinedMonthlyCostBefore = costBefore,
             combinedMonthlyCostAfter = costAfter,
             combinedAnnualSavings = annualSavings,
+            currencyCode = s1?.currency ?: s2?.currency ?: preferences.currency,
+            hasMixedCurrencies = hasMixedCurrencies,
             isLoading = false
         )
     }

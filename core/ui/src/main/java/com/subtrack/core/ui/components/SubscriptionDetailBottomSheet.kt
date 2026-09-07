@@ -1,5 +1,6 @@
 package com.subtrack.core.ui.components
 
+import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -106,7 +107,7 @@ fun SubscriptionDetailBottomSheet(
                 // Cost display
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "$${String.format("%.2f", sub.cost)}",
+                        text = MoneyFormatter.format(sub.cost, sub.currency),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
                         fontSize = 18.sp,
@@ -237,7 +238,7 @@ fun SubscriptionDetailBottomSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "$${String.format("%.2f", cycleStatus.optimizedAnnualCost)} (Saves $${String.format("%.2f", cycleStatus.annualSavings)}/yr)",
+                        text = "${MoneyFormatter.format(cycleStatus.optimizedAnnualCost, sub.currency)} (Saves ${MoneyFormatter.format(cycleStatus.annualSavings, sub.currency)}/yr)",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = PrimarySky

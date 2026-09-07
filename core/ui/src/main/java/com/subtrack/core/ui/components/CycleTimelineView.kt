@@ -1,5 +1,6 @@
 package com.subtrack.core.ui.components
 
+import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -159,7 +160,7 @@ fun CycleTimelineView(
             // Action guidance footer
             val footerText = when (cycleStatus.phase) {
                 CyclePhase.ACTIVE -> "💡 Tip: Auto-renew should be turned off before ${cycleStatus.phaseEndDate.format(dateFormatter)}."
-                CyclePhase.BLACKOUT -> "💡 Tip: Blackout saves you ~$${String.format("%.2f", sub.cost * 0.50)} per rotation. Resubscribe on ${cycleStatus.phaseEndDate.format(dateFormatter)}."
+                CyclePhase.BLACKOUT -> "💡 Tip: Blackout saves you ~${MoneyFormatter.format(sub.cost * 0.50, sub.currency)} per rotation. Resubscribe on ${cycleStatus.phaseEndDate.format(dateFormatter)}."
             }
             Text(
                 text = footerText,

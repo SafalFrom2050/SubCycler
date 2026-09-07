@@ -28,14 +28,47 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.draw.drawBehind
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtrack.feature.analytics.AnalyticsRoute
 import com.subtrack.feature.dashboard.DashboardRoute
+import com.subtrack.feature.onboarding.OnboardingRoute
 import com.subtrack.feature.planner.PlannerRoute
 import com.subtrack.feature.rotator.PairedRotatorRoute
 import com.subtrack.core.ui.theme.PrimarySky
 
 @Composable
 fun SubTrackApp(
+    onRequestNotificationPermission: () -> Unit = {},
+    appViewModel: AppViewModel = hiltViewModel()
+) {
+    val launchState by appViewModel.launchState.collectAsStateWithLifecycle()
+
+    when (launchState) {
+        AppLaunchState.LOADING -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                CircularProgressIndicator(color = PrimarySky)
+            }
+        }
+        AppLaunchState.ONBOARDING -> {
+            OnboardingRoute(
+                onFinished = { requestNotificationPermission ->
+                    appViewModel.onOnboardingFinished()
+                    if (requestNotificationPermission) {
+                        onRequestNotificationPermission()
+                    }
+                }
+            )
+        }
+        AppLaunchState.MAIN_CONTENT -> SubTrackMainNavigation()
+    }
+}
+
+@Composable
+private fun SubTrackMainNavigation(
     navController: NavHostController = rememberNavController()
 ) {
     val haptic = LocalHapticFeedback.current

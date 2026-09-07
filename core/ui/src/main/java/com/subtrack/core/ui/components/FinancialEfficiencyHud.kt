@@ -1,5 +1,6 @@
 package com.subtrack.core.ui.components
 
+import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import com.subtrack.core.ui.theme.PrimarySky
 @Composable
 fun FinancialEfficiencyHud(
     summary: PortfolioSummary,
+    currencyCode: String = "USD",
     modifier: Modifier = Modifier
 ) {
     val efficiencyFraction = if (summary.totalMonthlyStandardCost > 0) {
@@ -79,7 +81,7 @@ fun FinancialEfficiencyHud(
 
         // Large Stark Annual Hero Number
         Text(
-            text = "$${String.format("%.2f", summary.totalAnnualSavings)}",
+            text = MoneyFormatter.format(summary.totalAnnualSavings, currencyCode),
             fontSize = 34.sp,
             fontWeight = FontWeight.Black,
             color = MaterialTheme.colorScheme.onSurface,
@@ -122,7 +124,7 @@ fun FinancialEfficiencyHud(
                 )
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
-                    text = "$${String.format("%.2f", summary.totalMonthlyOptimizedCost)}/mo Active",
+                    text = "${MoneyFormatter.format(summary.totalMonthlyOptimizedCost, currencyCode)}/mo Active",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -138,7 +140,7 @@ fun FinancialEfficiencyHud(
                 )
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
-                    text = "$${String.format("%.2f", monthlySaved)}/mo Saved",
+                    text = "${MoneyFormatter.format(monthlySaved, currencyCode)}/mo Saved",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = PrimarySky

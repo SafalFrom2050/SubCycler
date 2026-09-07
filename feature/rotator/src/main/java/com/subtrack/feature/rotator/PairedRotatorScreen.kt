@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtrack.core.domain.model.Subscription
+import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.ui.theme.*
 
 @Composable
@@ -178,18 +179,27 @@ fun PairedRotatorScreen(
                             Column {
                                 Text("Cost (Simultaneous)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text("$${String.format("%.2f", uiState.combinedMonthlyCostBefore)}/mo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Text("${MoneyFormatter.format(uiState.combinedMonthlyCostBefore, uiState.currencyCode)}/mo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                             Column {
                                 Text("Cost (Alternating)", fontSize = 11.sp, color = PrimarySky)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text("$${String.format("%.2f", uiState.combinedMonthlyCostAfter)}/mo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PrimarySky)
+                                Text("${MoneyFormatter.format(uiState.combinedMonthlyCostAfter, uiState.currencyCode)}/mo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = PrimarySky)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text("Annual Savings", fontSize = 11.sp, color = PrimarySky)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text("$${String.format("%.2f", uiState.combinedAnnualSavings)}/yr", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = PrimarySky)
+                                Text("${MoneyFormatter.format(uiState.combinedAnnualSavings, uiState.currencyCode)}/yr", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = PrimarySky)
                             }
+                        }
+
+                        if (uiState.hasMixedCurrencies) {
+                            Text(
+                                text = "Choose services billed in the same currency. SubCycler never guesses exchange rates.",
+                                modifier = Modifier.padding(top = 10.dp),
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -201,7 +211,7 @@ fun PairedRotatorScreen(
                                 onAction(PairedRotatorAction.AlignAndActivate)
                                 showSuccessSnackbar = true
                             },
-                            enabled = uiState.service1 != null && uiState.service2 != null,
+                            enabled = uiState.service1 != null && uiState.service2 != null && !uiState.hasMixedCurrencies,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp),
@@ -274,7 +284,7 @@ private fun ServiceDropdown(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selected?.let { "${it.name} ($${String.format("%.2f", it.cost)}/mo)" } ?: "Select a service",
+            value = selected?.let { "${it.name} (${MoneyFormatter.format(it.cost, it.currency)}/mo)" } ?: "Select a service",
             onValueChange = {},
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -289,7 +299,7 @@ private fun ServiceDropdown(
         ) {
             subscriptions.forEach { sub ->
                 DropdownMenuItem(
-                    text = { Text("${sub.name} ($${String.format("%.2f", sub.cost)}/mo)") },
+                    text = { Text("${sub.name} (${MoneyFormatter.format(sub.cost, sub.currency)}/mo)") },
                     onClick = {
                         onSelect(sub)
                         expanded = false

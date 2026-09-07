@@ -1,5 +1,6 @@
 package com.subtrack.core.ui.components
 
+import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -114,7 +115,7 @@ fun SubscriptionCard(
                 // Cost display
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "$${String.format("%.2f", sub.cost)}",
+                        text = MoneyFormatter.format(sub.cost, sub.currency),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -273,7 +274,7 @@ fun SubscriptionCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "$${String.format("%.2f", cycleStatus.optimizedAnnualCost)} (Saves $${String.format("%.2f", cycleStatus.annualSavings)}/yr)",
+                                text = "${MoneyFormatter.format(cycleStatus.optimizedAnnualCost, sub.currency)} (Saves ${MoneyFormatter.format(cycleStatus.annualSavings, sub.currency)}/yr)",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = ActiveGreen

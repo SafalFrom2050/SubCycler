@@ -16,6 +16,7 @@ class UserPreferencesTest {
         assertEquals("USD", prefs.currency)
         assertEquals(3, prefs.notificationLeadDays)
         assertEquals(true, prefs.isAutoCancelApprovalRequired)
+        assertEquals(false, prefs.isOnboardingCompleted)
     }
 
     @Test
@@ -23,10 +24,12 @@ class UserPreferencesTest {
         repository.setCurrency("EUR")
         repository.setNotificationLeadDays(5)
         repository.setAutoCancelApprovalRequired(false)
+        repository.setOnboardingCompleted(true)
 
         val updated = repository.userPreferences.first()
         assertEquals("EUR", updated.currency)
         assertEquals(5, updated.notificationLeadDays)
         assertEquals(false, updated.isAutoCancelApprovalRequired)
+        assertEquals(true, updated.isOnboardingCompleted)
     }
 }

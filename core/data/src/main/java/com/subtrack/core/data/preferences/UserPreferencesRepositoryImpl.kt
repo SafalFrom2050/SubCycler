@@ -14,13 +14,15 @@ import java.io.IOException
 val Context.userDataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
 class UserPreferencesRepositoryImpl(
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val defaultCurrencyCode: String
 ) : UserPreferencesRepository {
 
     private object PreferencesKeys {
         val CURRENCY = stringPreferencesKey("currency")
         val NOTIFICATION_LEAD_DAYS = intPreferencesKey("notification_lead_days")
         val AUTO_CANCEL_APPROVAL = booleanPreferencesKey("auto_cancel_approval")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
 
     override val userPreferences: Flow<UserPreferences> = dataStore.data
@@ -33,9 +35,10 @@ class UserPreferencesRepositoryImpl(
         }
         .map { preferences ->
             UserPreferences(
-                currency = preferences[PreferencesKeys.CURRENCY] ?: "USD",
+                currency = preferences[PreferencesKeys.CURRENCY] ?: defaultCurrencyCode,
                 notificationLeadDays = preferences[PreferencesKeys.NOTIFICATION_LEAD_DAYS] ?: 3,
-                isAutoCancelApprovalRequired = preferences[PreferencesKeys.AUTO_CANCEL_APPROVAL] ?: true
+                isAutoCancelApprovalRequired = preferences[PreferencesKeys.AUTO_CANCEL_APPROVAL] ?: true,
+                isOnboardingCompleted = preferences[PreferencesKeys.ONBOARDING_COMPLETED] ?: false
             )
         }
 
@@ -54,6 +57,11 @@ class UserPreferencesRepositoryImpl(
     override suspend fun setAutoCancelApprovalRequired(required: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.AUTO_CANCEL_APPROVAL] = required
+        }
+    }
+    override suspend fun setOnboardingCompleted(completed: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ONBOARDING_COMPLETED] = completed
         }
     }
 }

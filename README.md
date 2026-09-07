@@ -51,6 +51,18 @@ The biggest friction with subscription hopping is remembering to cancel and reac
 
 ---
 
+## 🤖 AI Agent Documentation Map
+
+This repository contains structured architectural blueprints and guardrails tailored for autonomous AI agents:
+
+- **[`PLANS.md`](file:///c:/Users/safal/develop/SubCycler/PLANS.md)**: Master feature registry, roadmap statuses, and specification links.
+- **[`plans/CORE.md`](file:///c:/Users/safal/develop/SubCycler/plans/CORE.md)**: Foundational architecture, 45-day rotation math, and persistence blueprint.
+- **[`plans/features/`](file:///c:/Users/safal/develop/SubCycler/plans/features)**: Detailed feature specifications with state machines, code templates, and test matrices.
+- **[`ARCHITECTURE.md`](file:///c:/Users/safal/develop/SubCycler/ARCHITECTURE.md)**: Clean Architecture boundaries, SOLID guidelines, and multi-module dependency graphs.
+- **[`DESIGN.md`](file:///c:/Users/safal/develop/SubCycler/DESIGN.md)**: OLED Obsidian design tokens and strict negative constraints ("anti-rules") for agents.
+
+---
+
 ## 🛠️ Tech Stack
 
 - **Mobile Client**: Kotlin 2.0 + Jetpack Compose + Material 3 (Dynamic Color)

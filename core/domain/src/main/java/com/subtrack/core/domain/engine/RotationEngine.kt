@@ -1,5 +1,6 @@
 package com.subtrack.core.domain.engine
 
+import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.model.*
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -34,7 +35,7 @@ object RotationEngine {
 
             val nextAction = NextAction(
                 title = "Continuous Renewal",
-                description = "Renews in $daysRemaining days on $cycleEnd ($${String.format("%.2f", subscription.cost)})",
+                description = "Renews in $daysRemaining days on $cycleEnd (${MoneyFormatter.format(subscription.cost, subscription.currency)})",
                 targetDate = cycleEnd,
                 urgency = if (daysRemaining <= 3) ActionUrgency.WARNING else ActionUrgency.INFO,
                 actionType = ActionType.CANCEL_AUTO_RENEW

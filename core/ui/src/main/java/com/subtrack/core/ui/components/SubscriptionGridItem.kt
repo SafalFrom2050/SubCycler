@@ -1,5 +1,6 @@
 package com.subtrack.core.ui.components
 
+import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -121,7 +122,7 @@ fun SubscriptionGridItem(
 
                 // Cost
                 Text(
-                    text = "$${String.format("%.2f", sub.cost)}/mo",
+                    text = "${MoneyFormatter.format(sub.cost, sub.currency)}/mo",
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

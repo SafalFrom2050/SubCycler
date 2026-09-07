@@ -32,6 +32,10 @@ class FakeSubscriptionRepository : SubscriptionRepository {
         return assignedId
     }
 
+    override suspend fun addSubscriptions(subscriptions: List<Subscription>): List<Long> {
+        return subscriptions.map { addSubscription(it) }
+    }
+
     override suspend fun updateSubscription(subscription: Subscription) {
         val currentList = subscriptionsFlow.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == subscription.id }

@@ -11,6 +11,7 @@ import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.usecase.GetPortfolioSummaryUseCase
 import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
 import com.subtrack.core.domain.usecase.ManageSubscriptionUseCase
+import com.subtrack.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
@@ -33,6 +34,9 @@ data class DashboardUiState(
         overallSavingsPercentage = 0.0,
         urgentActionsCount = 0
     ),
+    val currencyCode: String = "USD",
+    val preferredCurrencyCode: String = "USD",
+    val excludedCurrencyCount: Int = 0,
     val selectedFilter: SubscriptionFilter = SubscriptionFilter.ALL,
     val isLoading: Boolean = true
 )
@@ -57,6 +61,7 @@ class DashboardViewModel @Inject constructor(
     private val getCycleStatusesUseCase: GetSubscriptionCycleStatusesUseCase,
     private val getPortfolioSummaryUseCase: GetPortfolioSummaryUseCase,
     private val manageSubscriptionUseCase: ManageSubscriptionUseCase,
+    private val userPreferencesRepository: UserPreferencesRepository,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
@@ -65,9 +70,18 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         getCycleStatusesUseCase(),
-        _selectedFilter
-    ) { statuses, filter ->
-        val portfolio = getPortfolioSummaryUseCase(statuses)
+        _selectedFilter,
+        userPreferencesRepository.userPreferences
+    ) { statuses, filter, preferences ->
+        val currencies = statuses.map { it.subscription.currency }.distinct()
+        val summaryCurrencyCode = when {
+            currencies.isEmpty() -> preferences.currency
+            currencies.size == 1 -> currencies.single()
+            preferences.currency in currencies -> preferences.currency
+            else -> currencies.first()
+        }
+        val summaryStatuses = statuses.filter { it.subscription.currency == summaryCurrencyCode }
+        val portfolio = getPortfolioSummaryUseCase(summaryStatuses)
         val urgent = statuses.filter { it.nextAction.urgency != ActionUrgency.INFO }
 
         val filteredStatuses = when (filter) {
@@ -81,6 +95,9 @@ class DashboardViewModel @Inject constructor(
             cycleStatuses = filteredStatuses,
             urgentStatuses = urgent,
             portfolioSummary = portfolio,
+            currencyCode = summaryCurrencyCode,
+            preferredCurrencyCode = preferences.currency,
+            excludedCurrencyCount = statuses.size - summaryStatuses.size,
             selectedFilter = filter,
             isLoading = false
         )

@@ -1,5 +1,6 @@
 package com.subtrack.core.ui.components
 
+import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +21,7 @@ import com.subtrack.core.ui.theme.*
 @Composable
 fun SavingsSummaryCard(
     summary: PortfolioSummary,
+    currencyCode: String = "USD",
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -55,7 +57,7 @@ fun SavingsSummaryCard(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "$${String.format("%.2f", summary.totalAnnualSavings)}",
+                            text = MoneyFormatter.format(summary.totalAnnualSavings, currencyCode),
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.onSurface
@@ -105,7 +107,7 @@ fun SavingsSummaryCard(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "$${String.format("%.2f", summary.totalMonthlyOptimizedCost)}/mo",
+                            text = "${MoneyFormatter.format(summary.totalMonthlyOptimizedCost, currencyCode)}/mo",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -120,7 +122,7 @@ fun SavingsSummaryCard(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "$${String.format("%.2f", summary.totalMonthlyStandardCost)}/mo",
+                            text = "${MoneyFormatter.format(summary.totalMonthlyStandardCost, currencyCode)}/mo",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)

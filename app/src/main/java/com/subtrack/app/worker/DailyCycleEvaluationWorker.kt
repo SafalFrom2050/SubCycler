@@ -1,6 +1,7 @@
 package com.subtrack.app.worker
 
 import android.content.Context
+import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -45,7 +46,7 @@ class DailyCycleEvaluationWorker @AssistedInject constructor(
                                 context = applicationContext,
                                 notificationId = sub.id.toInt(),
                                 title = "Cancel Auto-Renew: ${sub.name}",
-                                message = "${sub.name} active window ends in $daysRemaining day(s). Cancel auto-renew to save $${String.format("%.2f", cycleStatus.annualSavings)}/yr!"
+                                message = "${sub.name} active window ends in $daysRemaining day(s). Cancel auto-renew to save ${MoneyFormatter.format(cycleStatus.annualSavings, sub.currency)}/yr!"
                             )
                         }
                     }

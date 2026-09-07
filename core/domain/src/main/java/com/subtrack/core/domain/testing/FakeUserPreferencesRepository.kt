@@ -25,4 +25,8 @@ class FakeUserPreferencesRepository(
     override suspend fun setAutoCancelApprovalRequired(required: Boolean) {
         preferencesFlow.value = preferencesFlow.value.copy(isAutoCancelApprovalRequired = required)
     }
+
+    override suspend fun setOnboardingCompleted(completed: Boolean) {
+        preferencesFlow.value = preferencesFlow.value.copy(isOnboardingCompleted = completed)
+    }
 }

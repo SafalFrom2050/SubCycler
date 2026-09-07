@@ -28,6 +28,10 @@ class SubscriptionRepositoryImpl(
         return dao.insertSubscription(subscription.toEntity())
     }
 
+    override suspend fun addSubscriptions(subscriptions: List<Subscription>): List<Long> {
+        return dao.insertAll(subscriptions.toEntity())
+    }
+
     override suspend fun updateSubscription(subscription: Subscription) {
         dao.updateSubscription(subscription.toEntity())
     }

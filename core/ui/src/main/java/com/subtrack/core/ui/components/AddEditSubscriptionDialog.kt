@@ -30,12 +30,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.subtrack.core.domain.model.*
+import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.ui.theme.*
 import java.time.LocalDate
 
 @Composable
 fun AddEditSubscriptionDialog(
     initialSubscription: Subscription? = null,
+    defaultCurrencyCode: String = "USD",
     onDismiss: () -> Unit,
     onSave: (Subscription) -> Unit
 ) {
@@ -51,6 +53,7 @@ fun AddEditSubscriptionDialog(
     var colorHex by remember { mutableStateOf(initialSubscription?.colorHex ?: "#10B981") }
     var notes by remember { mutableStateOf(initialSubscription?.notes ?: "") }
     var startDate by remember { mutableStateOf(initialSubscription?.startDate ?: LocalDate.now()) }
+    val currencyCode = initialSubscription?.currency ?: defaultCurrencyCode
 
     val isEditing = initialSubscription != null
 
@@ -148,7 +151,11 @@ fun AddEditSubscriptionDialog(
                                         modifier = Modifier.clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             name = preset.name
-                                            costStr = preset.defaultCost.toString()
+                                            costStr = if (currencyCode == "USD") {
+                                                preset.defaultCost.toString()
+                                            } else {
+                                                ""
+                                            }
                                             category = preset.category
                                             colorHex = preset.colorHex
                                             strategy = preset.suggestedStrategy
@@ -199,7 +206,8 @@ fun AddEditSubscriptionDialog(
                         OutlinedTextField(
                             value = costStr,
                             onValueChange = { costStr = it },
-                            label = { Text("Cost ($)") },
+                            label = { Text("Cost ($currencyCode)") },
+                            prefix = { Text(MoneyFormatter.symbol(currencyCode)) },
                             placeholder = { Text("15.49") },
                             modifier = Modifier.weight(0.9f),
                             singleLine = true,
@@ -419,10 +427,12 @@ fun AddEditSubscriptionDialog(
                         val newSubscription = (initialSubscription ?: Subscription(
                             name = name,
                             cost = parsedCost,
+                            currency = currencyCode,
                             startDate = startDate
                         )).copy(
                             name = name.ifBlank { "Subscription" },
                             cost = parsedCost,
+                            currency = currencyCode,
                             category = category,
                             strategy = strategy,
                             customActiveDays = parsedActive,

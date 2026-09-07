@@ -25,7 +25,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Temporary QA switch: start each new app session in onboarding.
+            buildConfigField("boolean", "FORCE_ONBOARDING_ON_EVERY_LAUNCH", "true")
+        }
         release {
+            buildConfigField("boolean", "FORCE_ONBOARDING_ON_EVERY_LAUNCH", "false")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -42,6 +47,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {
@@ -56,6 +62,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
     implementation(project(":feature:dashboard"))
+    implementation(project(":feature:onboarding"))
     implementation(project(":feature:planner"))
     implementation(project(":feature:rotator"))
     implementation(project(":feature:analytics"))

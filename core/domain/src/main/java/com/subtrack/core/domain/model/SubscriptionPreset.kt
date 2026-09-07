@@ -54,6 +54,14 @@ object PresetLibrary {
             suggestedStrategy = RotationStrategy.CONTINUOUS
         ),
         SubscriptionPreset(
+            name = "Apple Music",
+            defaultCost = 10.99,
+            category = SubscriptionCategory.MUSIC,
+            colorHex = "#FA243C",
+            iconName = "Music",
+            suggestedStrategy = RotationStrategy.CONTINUOUS
+        ),
+        SubscriptionPreset(
             name = "Apple TV+",
             defaultCost = 9.99,
             category = SubscriptionCategory.STREAMING,
@@ -86,6 +94,38 @@ object PresetLibrary {
             suggestedStrategy = RotationStrategy.ROTATION_45_DAYS
         ),
         SubscriptionPreset(
+            name = "Google AI Plus",
+            defaultCost = 9.99,
+            category = SubscriptionCategory.AI_TOOLS,
+            colorHex = "#4285F4",
+            iconName = "Cpu",
+            suggestedStrategy = RotationStrategy.ROTATION_45_DAYS
+        ),
+        SubscriptionPreset(
+            name = "Google AI Pro",
+            defaultCost = 19.99,
+            category = SubscriptionCategory.AI_TOOLS,
+            colorHex = "#4285F4",
+            iconName = "Cpu",
+            suggestedStrategy = RotationStrategy.ROTATION_45_DAYS
+        ),
+        SubscriptionPreset(
+            name = "Google AI Ultra",
+            defaultCost = 249.99,
+            category = SubscriptionCategory.AI_TOOLS,
+            colorHex = "#4285F4",
+            iconName = "Cpu",
+            suggestedStrategy = RotationStrategy.ROTATION_45_DAYS
+        ),
+        SubscriptionPreset(
+            name = "Notion Plus",
+            defaultCost = 10.00,
+            category = SubscriptionCategory.AI_TOOLS,
+            colorHex = "#333333",
+            iconName = "Layers",
+            suggestedStrategy = RotationStrategy.CONTINUOUS
+        ),
+        SubscriptionPreset(
             name = "Xbox Game Pass Ultimate",
             defaultCost = 19.99,
             category = SubscriptionCategory.GAMING,
@@ -102,10 +142,18 @@ object PresetLibrary {
             suggestedStrategy = RotationStrategy.ROTATION_45_DAYS
         ),
         SubscriptionPreset(
-            name = "iCloud+ (200 GB)",
+            name = "iCloud+",
             defaultCost = 2.99,
             category = SubscriptionCategory.CLOUD,
             colorHex = "#5E5CE6",
+            iconName = "Cloud",
+            suggestedStrategy = RotationStrategy.CONTINUOUS
+        ),
+        SubscriptionPreset(
+            name = "Google One",
+            defaultCost = 1.99,
+            category = SubscriptionCategory.CLOUD,
+            colorHex = "#4285F4",
             iconName = "Cloud",
             suggestedStrategy = RotationStrategy.CONTINUOUS
         )

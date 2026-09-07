@@ -112,7 +112,19 @@ fun DashboardScreen(
         ) {
             // Variation 3: Financial Efficiency Bar HUD (Borderless command header)
             item(key = "financial_efficiency_hud", contentType = "hud") {
-                FinancialEfficiencyHud(summary = uiState.portfolioSummary)
+                FinancialEfficiencyHud(
+                    summary = uiState.portfolioSummary,
+                    currencyCode = uiState.currencyCode
+                )
+            }
+
+            if (uiState.excludedCurrencyCount > 0) {
+                item(key = "currency_scope_notice", contentType = "notice") {
+                    CurrencyScopeNotice(
+                        currencyCode = uiState.currencyCode,
+                        excludedCurrencyCount = uiState.excludedCurrencyCount
+                    )
+                }
             }
 
             // Urgent / Due Next Action Banner
@@ -277,6 +289,7 @@ fun DashboardScreen(
     if (showAddDialog) {
         AddEditSubscriptionDialog(
             initialSubscription = subscriptionToEdit,
+            defaultCurrencyCode = uiState.preferredCurrencyCode,
             onDismiss = {
                 showAddDialog = false
                 subscriptionToEdit = null

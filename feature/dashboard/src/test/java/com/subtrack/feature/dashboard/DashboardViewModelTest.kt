@@ -5,6 +5,7 @@ import com.subtrack.core.domain.model.CyclePhase
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.testing.FakeSubscriptionRepository
+import com.subtrack.core.domain.testing.FakeUserPreferencesRepository
 import com.subtrack.core.domain.usecase.GetPortfolioSummaryUseCase
 import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
 import com.subtrack.core.domain.usecase.ManageSubscriptionUseCase
@@ -50,6 +51,7 @@ class DashboardViewModelTest {
             getCycleStatusesUseCase = getCycleStatusesUseCase,
             getPortfolioSummaryUseCase = getPortfolioSummaryUseCase,
             manageSubscriptionUseCase = manageSubscriptionUseCase,
+            userPreferencesRepository = FakeUserPreferencesRepository(),
             defaultDispatcher = testDispatcher
         )
     }
@@ -86,6 +88,26 @@ class DashboardViewModelTest {
         assertEquals(SubscriptionFilter.ACTIVE, state.selectedFilter)
         assertEquals(1, state.cycleStatuses.size)
         assertEquals(CyclePhase.ACTIVE, state.cycleStatuses.first().phase)
+    }
+
+    @Test
+    fun mixedCurrenciesAreNotAddedIntoOnePortfolioTotal() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        val today = LocalDate.of(2026, 8, 18)
+        fakeRepository.setSubscriptions(
+            listOf(
+                Subscription(id = 1, name = "Netflix", cost = 15.49, currency = "USD", startDate = today),
+                Subscription(id = 2, name = "Music", cost = 1_000.0, currency = "JPY", startDate = today)
+            )
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("USD", state.currencyCode)
+        assertEquals(1, state.portfolioSummary.totalSubscriptions)
+        assertEquals(1, state.excludedCurrencyCount)
     }
 
     @Test

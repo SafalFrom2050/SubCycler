@@ -28,15 +28,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        checkAndRequestNotificationPermission()
-
         setContent {
             SubTrackTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SubTrackApp()
+                    SubTrackApp(
+                        onRequestNotificationPermission = ::checkAndRequestNotificationPermission
+                    )
                 }
             }
         }

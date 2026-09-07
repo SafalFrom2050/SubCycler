@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtrack.core.ui.theme.*
+import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.ui.components.CurrencyScopeNotice
 
 @Composable
 fun AnalyticsRoute(
@@ -66,6 +68,15 @@ fun AnalyticsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 90.dp)
         ) {
+            if (uiState.excludedCurrencyCount > 0) {
+                item(key = "currency_scope_notice", contentType = "notice") {
+                    CurrencyScopeNotice(
+                        currencyCode = uiState.currencyCode,
+                        excludedCurrencyCount = uiState.excludedCurrencyCount
+                    )
+                }
+            }
+
             // Multi-Year Compounding Savings Card
             item(key = "multi_year_card", contentType = "card") {
                 Card(
@@ -106,16 +117,19 @@ fun AnalyticsScreen(
                             SavingsHorizonItem(
                                 label = "1 Year",
                                 amount = uiState.summary.totalAnnualSavings,
+                                currencyCode = uiState.currencyCode,
                                 subtitle = "Direct savings"
                             )
                             SavingsHorizonItem(
                                 label = "3 Years",
                                 amount = uiState.threeYearSavings,
+                                currencyCode = uiState.currencyCode,
                                 subtitle = "Accumulated"
                             )
                             SavingsHorizonItem(
                                 label = "5 Years",
                                 amount = uiState.fiveYearSavings,
+                                currencyCode = uiState.currencyCode,
                                 subtitle = "Compounded"
                             )
                         }
@@ -202,7 +216,7 @@ fun AnalyticsScreen(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "$${String.format("%.2f", uiState.simulatedAnnualSavings)}/yr",
+                                    text = "${MoneyFormatter.format(uiState.simulatedAnnualSavings, uiState.currencyCode)}/yr",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 18.sp,
                                     color = PrimarySky
@@ -252,6 +266,7 @@ fun AnalyticsScreen(
 private fun SavingsHorizonItem(
     label: String,
     amount: Double,
+    currencyCode: String,
     subtitle: String
 ) {
     Column {
@@ -263,7 +278,7 @@ private fun SavingsHorizonItem(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "$${String.format("%.0f", amount)}",
+            text = MoneyFormatter.format(amount, currencyCode, maximumFractionDigits = 0),
             fontSize = 20.sp,
             fontWeight = FontWeight.Black,
             color = PrimarySky
