@@ -4,18 +4,26 @@ import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,6 +49,8 @@ fun SubscriptionDetailBottomSheet(
 ) {
     val haptic = LocalHapticFeedback.current
     val sub = cycleStatus.subscription
+    val context = LocalContext.current
+    var showCancellationOptions by rememberSaveable(sub.id) { mutableStateOf(false) }
     val isActive = cycleStatus.phase == CyclePhase.ACTIVE
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -59,6 +69,7 @@ fun SubscriptionDetailBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 36.dp)
         ) {
@@ -256,7 +267,17 @@ fun SubscriptionDetailBottomSheet(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Checkbox to mark Auto-renew cancelled
+            OutlinedButton(
+                onClick = { showCancellationOptions = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Cancellation options")
+            }
+
+            // This existing checkbox records the user's confirmation, never an external link result.
             if (isActive && sub.strategy != RotationStrategy.CONTINUOUS) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -336,5 +357,13 @@ fun SubscriptionDetailBottomSheet(
                 }
             }
         }
+    }
+
+    if (showCancellationOptions) {
+        CancellationOptionsDialog(
+            subscriptionName = sub.name,
+            onDismiss = { showCancellationOptions = false },
+            onOpenLink = { openCancellationDestination(context, it) }
+        )
     }
 }

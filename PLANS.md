@@ -10,6 +10,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **Core Architecture & Rotation Engine** | Foundation & Architecture | v1.0.0 | `Completed` | [CORE.md](file:///c:/Users/safal/develop/SubCycler/plans/CORE.md) |
 | **First-Launch Service Stack Onboarding** | Onboarding & UX | v1.1.0 | `Implemented` | [ONBOARDING_SERVICE_PICKER_FEATURE.md](plans/features/ONBOARDING_SERVICE_PICKER_FEATURE.md) |
+| **Assisted Cancellation Links** | Subscription Management | Next release | `Implemented; device QA pending` | [CANCELLATION_DEEP_LINKS_FEATURE.md](plans/features/CANCELLATION_DEEP_LINKS_FEATURE.md) |
 | **AI In-App WebView Cancellation Co-Pilot** | Agentic AI & Automation | v1.2.0 | `Planned` | [AI_CANCELLATION_COPILOT_FEATURE.md](file:///c:/Users/safal/develop/SubCycler/plans/features/AI_CANCELLATION_COPILOT_FEATURE.md) |
 
 ---
@@ -44,9 +45,14 @@
 
 ---
 
+## Assisted Cancellation Links
+
+Implemented in the Dashboard subscription detail sheet. Users choose a curated service account/help page, Google Play, or Apple billing instructions. Opening a link leaves subscription state unchanged. The [integration and next-agent testing handoff](plans/features/CANCELLATION_DEEP_LINKS_FEATURE.md) records the catalog, code entry points, local validation, and pending device acceptance checks.
+
+---
+
 ## 🔮 Future Roadmap Items (Under Consideration)
 
-- **Assisted 1-Tap Cancellation Deep-Links**: Direct routing fallback to account cancellation portals (`netflix.com/cancelplan`, `disneyplus.com/account`).
 - **Calendar Event Sync**: Optional local calendar integration for renewal and blackout end dates.
 - **CSV & JSON Portfolio Backup/Restore**: Encrypted export and import of subscription rotation schedules.
 

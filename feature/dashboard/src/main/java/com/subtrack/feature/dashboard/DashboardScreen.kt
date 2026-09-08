@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.subtrack.core.domain.model.CycleStatus
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.ui.components.*
 import com.subtrack.core.ui.theme.OledBlack
@@ -48,7 +48,7 @@ fun DashboardScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var subscriptionToEdit by remember { mutableStateOf<Subscription?>(null) }
-    var selectedStatusForDetail by remember { mutableStateOf<CycleStatus?>(null) }
+    var selectedSubscriptionId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     Scaffold(
         topBar = {
@@ -249,7 +249,7 @@ fun DashboardScreen(
                                 SubscriptionGridItem(
                                     cycleStatus = cycleStatus,
                                     onClick = {
-                                        selectedStatusForDetail = cycleStatus
+                                        selectedSubscriptionId = cycleStatus.subscription.id
                                     }
                                 )
                             }
@@ -266,14 +266,12 @@ fun DashboardScreen(
     }
 
     // Detail Bottom Sheet when an item is tapped
-    selectedStatusForDetail?.let { status ->
+    uiState.cycleStatuses.find { it.subscription.id == selectedSubscriptionId }?.let { status ->
         SubscriptionDetailBottomSheet(
             cycleStatus = status,
-            onDismiss = { selectedStatusForDetail = null },
+            onDismiss = { selectedSubscriptionId = null },
             onToggleAutoRenew = {
                 onAction(DashboardAction.ToggleAutoRenew(status.subscription.id))
-                // Refresh local status reference
-                selectedStatusForDetail = uiState.cycleStatuses.find { it.subscription.id == status.subscription.id }
             },
             onEdit = {
                 subscriptionToEdit = status.subscription
