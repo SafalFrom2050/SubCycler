@@ -40,6 +40,8 @@ import com.subtrack.core.ui.theme.PrimarySky
 @Composable
 fun SubTrackApp(
     onRequestNotificationPermission: () -> Unit = {},
+    openSubscriptionId: Long? = null,
+    onOpenSubscriptionConsumed: () -> Unit = {},
     appViewModel: AppViewModel = hiltViewModel()
 ) {
     val launchState by appViewModel.launchState.collectAsStateWithLifecycle()
@@ -63,13 +65,18 @@ fun SubTrackApp(
                 }
             )
         }
-        AppLaunchState.MAIN_CONTENT -> SubTrackMainNavigation()
+        AppLaunchState.MAIN_CONTENT -> SubTrackMainNavigation(
+            openSubscriptionId = openSubscriptionId,
+            onOpenSubscriptionConsumed = onOpenSubscriptionConsumed
+        )
     }
 }
 
 @Composable
 private fun SubTrackMainNavigation(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    openSubscriptionId: Long? = null,
+    onOpenSubscriptionConsumed: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -177,7 +184,10 @@ private fun SubTrackMainNavigation(
             popExitTransition = { ExitTransition.None }
         ) {
             composable<DashboardDestination> {
-                DashboardRoute()
+                DashboardRoute(
+                    openSubscriptionId = openSubscriptionId,
+                    onOpenSubscriptionConsumed = onOpenSubscriptionConsumed
+                )
             }
             composable<PlannerDestination> {
                 PlannerRoute()

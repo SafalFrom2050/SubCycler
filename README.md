@@ -93,6 +93,50 @@ adb install "app/build/outputs/apk/debug/app-debug.apk"
 
 ---
 
+## 🤖 AI Agent & Android CLI Workflow
+
+This project is optimized for **Agent-First Development** using the official **Android CLI** (`android`). AI agents and developers should use the following workflow when setting up, testing, and interacting with the app:
+
+### 1. Environment Setup & Skill Initialization
+```bash
+# Initialize Android CLI environment and agent skills
+android init
+
+# Verify SDK path, environment variables, and connected devices
+android info
+```
+
+### 2. Fast Incremental Build & Deployment
+Use fast delta installs (transfers only modified bytecode & resources):
+```bash
+# Build, delta-install, and launch in one step
+android run --use-delta-install
+
+# Or install debug APK directly with delta optimization
+android install --use-delta-install --apks="app/build/outputs/apk/debug/app-debug.apk"
+```
+
+### 3. Agent UI Inspection & Debugging
+Instead of taking full screenshots, agents should inspect the active UI hierarchy directly via structured JSON:
+```bash
+# Dump active UI layout tree in JSON
+android layout --pretty
+
+# Inspect only UI elements that changed after an action (fast diffing)
+android layout --diff
+
+# Visual fallback with numbered target bounding boxes
+android screen capture --annotate -o app_screen.png
+```
+
+### 4. Compose Preview Rendering
+```bash
+# Render Compose previews from CLI without launching full emulator
+android studio render-compose-preview
+```
+
+---
+
 ## 📄 Open Source License
 
 Distributed under the **MIT License**. Free to use, fork, and build upon.

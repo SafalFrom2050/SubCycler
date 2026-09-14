@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.subtrack.core.domain.model.ActionUrgency
+import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.CycleStatus
 import com.subtrack.core.ui.theme.ErrorRose
 import com.subtrack.core.ui.theme.WarningAmber
@@ -20,6 +21,9 @@ import com.subtrack.core.ui.theme.WarningAmber
 @Composable
 fun NextActionBanner(
     urgentStatuses: List<CycleStatus>,
+    calendarSuggestion: CalendarAwareSuggestion? = null,
+    onCalendarPrimaryAction: () -> Unit = {},
+    onCalendarDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (urgentStatuses.isEmpty()) return
@@ -41,32 +45,47 @@ fun NextActionBanner(
             color = contentColor.copy(alpha = 0.35f)
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(14.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.WarningAmber,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${topUrgent.subscription.name}: $cleanTitle",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = contentColor
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${topUrgent.subscription.name}: $cleanTitle",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = contentColor
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = action.description,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            calendarSuggestion?.let { suggestion ->
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    text = action.description,
+                    text = suggestion.message,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onCalendarDismiss) { Text("Dismiss") }
+                    TextButton(onClick = onCalendarPrimaryAction) { Text(suggestion.primaryActionLabel) }
+                }
             }
         }
     }

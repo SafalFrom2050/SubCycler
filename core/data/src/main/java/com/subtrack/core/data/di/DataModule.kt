@@ -4,13 +4,19 @@ import android.content.Context
 import com.subtrack.core.common.time.DefaultTimeProvider
 import com.subtrack.core.common.time.TimeProvider
 import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.data.calendar.AndroidCalendarProviderDataSource
+import com.subtrack.core.data.calendar.CalendarAwarenessRepositoryImpl
+import com.subtrack.core.data.calendar.CalendarProviderDataSource
+import com.subtrack.core.data.calendar.calendarAwarenessDataStore
 import com.subtrack.core.data.local.AppDatabase
 import com.subtrack.core.data.local.SubscriptionDao
 import com.subtrack.core.data.preferences.UserPreferencesRepositoryImpl
 import com.subtrack.core.data.preferences.userDataStore
 import com.subtrack.core.data.repository.SubscriptionRepositoryImpl
+import com.subtrack.core.domain.repository.CalendarAwarenessRepository
 import com.subtrack.core.domain.repository.SubscriptionRepository
 import com.subtrack.core.domain.repository.UserPreferencesRepository
+import com.subtrack.core.domain.usecase.GetCalendarAwareSuggestionsUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -48,6 +54,24 @@ object DataModule {
             defaultCurrencyCode = MoneyFormatter.currencyCodeForLocale(locale)
         )
     }
+
+    @Provides
+    @Singleton
+    fun provideCalendarProviderDataSource(
+        implementation: AndroidCalendarProviderDataSource
+    ): CalendarProviderDataSource = implementation
+
+    @Provides
+    @Singleton
+    fun provideCalendarAwarenessRepository(
+        @ApplicationContext context: Context,
+        provider: CalendarProviderDataSource,
+        suggestionsUseCase: GetCalendarAwareSuggestionsUseCase
+    ): CalendarAwarenessRepository = CalendarAwarenessRepositoryImpl(
+        dataStore = context.calendarAwarenessDataStore,
+        provider = provider,
+        suggestionsUseCase = suggestionsUseCase
+    )
 
     @Provides
     @Singleton

@@ -1,11 +1,15 @@
 package com.subtrack.feature.dashboard
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -14,11 +18,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.core.app.NotificationManagerCompat
+import com.subtrack.core.domain.model.CalendarAwareSuggestion
+import com.subtrack.core.domain.model.CalendarSuggestionType
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.ui.components.*
 import com.subtrack.core.ui.theme.OledBlack
@@ -27,12 +38,28 @@ import com.subtrack.core.ui.theme.PrimarySky
 @Composable
 fun DashboardRoute(
     viewModel: DashboardViewModel = hiltViewModel(),
+    openSubscriptionId: Long? = null,
+    onOpenSubscriptionConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onAction(DashboardAction.CalendarPermissionResult(granted))
+    }
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.monitorCalendarWhileForeground()
+        }
+    }
     DashboardScreen(
         uiState = uiState,
         onAction = viewModel::onAction,
+        onRequestCalendarPermission = { calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR) },
+        openSubscriptionId = openSubscriptionId,
+        onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
         modifier = modifier
     )
 }
@@ -42,13 +69,33 @@ fun DashboardRoute(
 fun DashboardScreen(
     uiState: DashboardUiState,
     onAction: (DashboardAction) -> Unit,
+    onRequestCalendarPermission: () -> Unit = {},
+    openSubscriptionId: Long? = null,
+    onOpenSubscriptionConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     var subscriptionToEdit by remember { mutableStateOf<Subscription?>(null) }
     var selectedSubscriptionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var cancellationSuggestion by remember { mutableStateOf<CalendarAwareSuggestion?>(null) }
+
+    LaunchedEffect(openSubscriptionId, uiState.cycleStatuses) {
+        if (openSubscriptionId != null && uiState.cycleStatuses.any { it.subscription.id == openSubscriptionId }) {
+            selectedSubscriptionId = openSubscriptionId
+            onOpenSubscriptionConsumed()
+        }
+    }
+
+    val openSuggestion: (CalendarAwareSuggestion) -> Unit = { suggestion ->
+        when (suggestion.identity.suggestionType) {
+            CalendarSuggestionType.TRAVEL_REVIEW_CANCELLATION -> cancellationSuggestion = suggestion
+            CalendarSuggestionType.HOLIDAY_REVIEW_SUBSCRIPTION -> selectedSubscriptionId = suggestion.identity.subscriptionId
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -82,7 +129,12 @@ fun DashboardScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
-                )
+                ),
+                actions = {
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -130,7 +182,27 @@ fun DashboardScreen(
             // Urgent / Due Next Action Banner
             if (uiState.urgentStatuses.isNotEmpty()) {
                 item(key = "urgent_banner", contentType = "urgent") {
-                    NextActionBanner(urgentStatuses = uiState.urgentStatuses)
+                    val topUrgent = uiState.urgentStatuses.first()
+                    val mergedSuggestion = uiState.calendarSuggestion?.takeIf {
+                        it.identity.subscriptionId == topUrgent.subscription.id
+                    }
+                    NextActionBanner(
+                        urgentStatuses = uiState.urgentStatuses,
+                        calendarSuggestion = mergedSuggestion,
+                        onCalendarPrimaryAction = { mergedSuggestion?.let(openSuggestion) },
+                        onCalendarDismiss = {
+                            mergedSuggestion?.let { onAction(DashboardAction.DismissCalendarSuggestion(it.identity)) }
+                        }
+                    )
+                }
+            } else if (uiState.calendarSuggestion != null) {
+                item(key = "calendar_suggestion", contentType = "urgent") {
+                    val suggestion = uiState.calendarSuggestion
+                    CalendarSuggestionCard(
+                        suggestion = suggestion,
+                        onPrimaryAction = { openSuggestion(suggestion) },
+                        onDismiss = { onAction(DashboardAction.DismissCalendarSuggestion(suggestion.identity)) }
+                    )
                 }
             }
 
@@ -301,6 +373,78 @@ fun DashboardScreen(
                 showAddDialog = false
                 subscriptionToEdit = null
             }
+        )
+    }
+
+    if (showSettings) {
+        CalendarSettingsSheet(
+            enabled = uiState.calendarSettings.isEnabled,
+            selectedCalendarCount = uiState.calendarSettings.selectedCalendarIds.size,
+            accessIssue = uiState.calendarSettings.accessIssue,
+            notificationsAvailable = NotificationManagerCompat.from(context).areNotificationsEnabled(),
+            onEnabledChange = { enabled ->
+                showSettings = false
+                onAction(
+                    if (enabled) DashboardAction.BeginCalendarSetup
+                    else DashboardAction.DisableCalendarAwareness
+                )
+            },
+            onOpenCalendars = {
+                showSettings = false
+                onAction(DashboardAction.OpenCalendarSelection)
+            },
+            onDismiss = { showSettings = false }
+        )
+    }
+
+    if (uiState.calendarSetupStep == CalendarSetupStep.EXPLAINING) {
+        AlertDialog(
+            onDismissRequest = { onAction(DashboardAction.CancelCalendarSetup) },
+            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+            title = { Text("Calendar-aware suggestions") },
+            text = {
+                Text(
+                    "Event titles and dates are processed locally on this device. After granting read access, you choose which calendars SubCycler may check."
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { onAction(DashboardAction.CancelCalendarSetup) }) { Text("Cancel") }
+            },
+            confirmButton = {
+                TextButton(onClick = onRequestCalendarPermission) { Text("Continue") }
+            }
+        )
+    }
+
+    if (uiState.calendarSetupStep == CalendarSetupStep.LOADING_CALENDARS) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Loading calendars") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Checking accessible device calendars…")
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    if (uiState.calendarSetupStep == CalendarSetupStep.SELECTING_CALENDARS) {
+        CalendarSelectionSheet(
+            calendars = uiState.accessibleCalendars,
+            initiallySelectedIds = uiState.calendarSelectionSeed,
+            onConfirm = { onAction(DashboardAction.ConfirmCalendarSelection(it)) },
+            onDismiss = { onAction(DashboardAction.CancelCalendarSetup) }
+        )
+    }
+
+    cancellationSuggestion?.let { suggestion ->
+        CancellationOptionsDialog(
+            subscriptionName = suggestion.subscriptionName,
+            onDismiss = { cancellationSuggestion = null },
+            onOpenLink = { openCancellationDestination(context, it) }
         )
     }
 }

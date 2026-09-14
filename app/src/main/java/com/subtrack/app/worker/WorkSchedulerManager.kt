@@ -42,4 +42,33 @@ object WorkSchedulerManager {
             oneTimeWorkRequest
         )
     }
+
+    fun scheduleCalendarReconciliation(context: Context) {
+        val request = PeriodicWorkRequestBuilder<CalendarReconciliationWorker>(
+            repeatInterval = 24,
+            repeatIntervalTimeUnit = TimeUnit.HOURS,
+            flexTimeInterval = 2,
+            flexTimeIntervalUnit = TimeUnit.HOURS
+        )
+            .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
+            .build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            CalendarReconciliationWorker.UNIQUE_PERIODIC_WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    fun enqueueImmediateCalendarReconciliation(context: Context) {
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            CalendarReconciliationWorker.UNIQUE_IMMEDIATE_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<CalendarReconciliationWorker>().build()
+        )
+    }
+
+    fun cancelCalendarReconciliation(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(CalendarReconciliationWorker.UNIQUE_PERIODIC_WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(CalendarReconciliationWorker.UNIQUE_IMMEDIATE_WORK_NAME)
+    }
 }

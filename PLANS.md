@@ -11,6 +11,7 @@
 | **Core Architecture & Rotation Engine** | Foundation & Architecture | v1.0.0 | `Completed` | [CORE.md](file:///c:/Users/safal/develop/SubCycler/plans/CORE.md) |
 | **First-Launch Service Stack Onboarding** | Onboarding & UX | v1.1.0 | `Implemented` | [ONBOARDING_SERVICE_PICKER_FEATURE.md](plans/features/ONBOARDING_SERVICE_PICKER_FEATURE.md) |
 | **Assisted Cancellation Links** | Subscription Management | Next release | `Implemented; device QA pending` | [CANCELLATION_DEEP_LINKS_FEATURE.md](plans/features/CANCELLATION_DEEP_LINKS_FEATURE.md) |
+| **Optional Calendar Awareness** | Reminders & Recommendations | TBD | `Planned; implementation handoff ready` | [OPTIONAL_CALENDAR_AWARENESS_FEATURE.md](plans/features/OPTIONAL_CALENDAR_AWARENESS_FEATURE.md) |
 | **AI In-App WebView Cancellation Co-Pilot** | Agentic AI & Automation | v1.2.0 | `Planned` | [AI_CANCELLATION_COPILOT_FEATURE.md](file:///c:/Users/safal/develop/SubCycler/plans/features/AI_CANCELLATION_COPILOT_FEATURE.md) |
 
 ---
@@ -53,7 +54,7 @@ Implemented in the Dashboard subscription detail sheet. Users choose a curated s
 
 ## 🔮 Future Roadmap Items (Under Consideration)
 
-- **Calendar Event Sync**: Optional local calendar integration for renewal and blackout end dates.
+- **Optional Calendar Awareness**: [Implementation plan](plans/features/OPTIONAL_CALENDAR_AWARENESS_FEATURE.md). Disabled by default; selected device calendars inform compact subscription suggestions only after opt-in. No manual plans, new calendar tab, or calendar writes. Replaces the earlier Calendar Event Sync proposal.
 - **CSV & JSON Portfolio Backup/Restore**: Encrypted export and import of subscription rotation schedules.
 
 ---

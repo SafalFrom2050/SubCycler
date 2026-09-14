@@ -170,3 +170,23 @@ When adding a new feature (e.g. `:feature:settings` or `:feature:export`):
    - Separate stateful `*Route` (collects `*ViewModel` state) and stateless `*Screen` (accepts `(uiState, onAction)`).
 4. **Navigation Registration**: Register the route in `:app`'s `Screen.kt` and add a composable destination in `SubTrackNavHost.kt`.
 
+---
+
+## 7. Agentic Workflows & Android CLI Integration 🤖
+
+For autonomous AI coding assistants (Antigravity/Gemini) and automated agentic pipelines interacting with this codebase:
+
+1. **Environment Setup**:
+   - Ensure the Android CLI is installed (`android --version`).
+   - Run `android init` to configure SDK paths and initialize agent skills.
+   - Run `android info` to verify connected AVDs and SDK levels.
+2. **Fast Builds & Running**:
+   - Prefer `android run --use-delta-install` for sub-second hot redeployments.
+   - Run unit test suites via `./gradlew testDebugUnitTest`.
+3. **UI State & Verification**:
+   - Execute `android layout --pretty` to read UI component tree bounds and clickability in JSON without image rendering.
+   - Use `android layout --diff` after triggering actions to verify UI transitions concisely.
+   - Use `android studio render-compose-preview` for headless preview validations.
+4. **Knowledge Base & Skills**:
+   - Query authoritative Android documentation via `android docs search "<keyword>"`.
+

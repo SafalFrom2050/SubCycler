@@ -4,14 +4,18 @@ import com.subtrack.core.common.time.FakeTimeProvider
 import com.subtrack.core.domain.model.CyclePhase
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.Subscription
+import com.subtrack.core.domain.model.DeviceCalendar
 import com.subtrack.core.domain.testing.FakeSubscriptionRepository
 import com.subtrack.core.domain.testing.FakeUserPreferencesRepository
+import com.subtrack.core.domain.testing.FakeCalendarAwarenessRepository
+import com.subtrack.core.domain.testing.FakeCalendarAwarenessScheduler
 import com.subtrack.core.domain.usecase.GetPortfolioSummaryUseCase
 import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
 import com.subtrack.core.domain.usecase.ManageSubscriptionUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -21,6 +25,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
@@ -36,6 +42,8 @@ class DashboardViewModelTest {
     private val manageSubscriptionUseCase = ManageSubscriptionUseCase(fakeRepository)
 
     private lateinit var viewModel: DashboardViewModel
+    private lateinit var calendarRepository: FakeCalendarAwarenessRepository
+    private lateinit var calendarScheduler: FakeCalendarAwarenessScheduler
 
     @Before
     fun setUp() {
@@ -47,11 +55,16 @@ class DashboardViewModelTest {
                 Subscription(id = 2, name = "Disney+", cost = 13.99, startDate = today.minusDays(35), strategy = RotationStrategy.ROTATION_45_DAYS)
             )
         )
+        calendarRepository = FakeCalendarAwarenessRepository()
+        calendarScheduler = FakeCalendarAwarenessScheduler()
         viewModel = DashboardViewModel(
             getCycleStatusesUseCase = getCycleStatusesUseCase,
             getPortfolioSummaryUseCase = getPortfolioSummaryUseCase,
             manageSubscriptionUseCase = manageSubscriptionUseCase,
             userPreferencesRepository = FakeUserPreferencesRepository(),
+            calendarAwarenessRepository = calendarRepository,
+            calendarAwarenessScheduler = calendarScheduler,
+            timeProvider = fakeTimeProvider,
             defaultDispatcher = testDispatcher
         )
     }
@@ -139,5 +152,44 @@ class DashboardViewModelTest {
         val subs = fakeRepository.getAllSubscriptionsList()
         assertEquals(1, subs.size)
         assertEquals(2L, subs.first().id)
+    }
+
+    @Test
+    fun calendarSetupDoesNotEnableUntilASelectionIsConfirmed() = runTest {
+        calendarRepository.setPermissionGranted(true)
+        calendarRepository.setAvailableCalendars(
+            listOf(DeviceCalendar(7, "Personal", "person@example.com", "Google"))
+        )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+        viewModel.onAction(DashboardAction.BeginCalendarSetup)
+        advanceUntilIdle()
+        assertEquals(CalendarSetupStep.EXPLAINING, viewModel.uiState.value.calendarSetupStep)
+        assertFalse(calendarScheduler.isEnabled)
+
+        viewModel.onAction(DashboardAction.CalendarPermissionResult(true))
+        advanceUntilIdle()
+        assertEquals(CalendarSetupStep.SELECTING_CALENDARS, viewModel.uiState.value.calendarSetupStep)
+        assertFalse(calendarRepository.settings.first().isEnabled)
+
+        viewModel.onAction(DashboardAction.ConfirmCalendarSelection(setOf(7L)))
+        advanceUntilIdle()
+        assertTrue(calendarRepository.settings.first().isEnabled)
+        assertTrue(calendarScheduler.isEnabled)
+    }
+
+    @Test
+    fun disablingCalendarAwarenessClearsSelectionAndStopsScheduler() = runTest {
+        calendarRepository.setPermissionGranted(true)
+        calendarRepository.enable(setOf(7L))
+        calendarScheduler.enable()
+
+        viewModel.onAction(DashboardAction.DisableCalendarAwareness)
+        advanceUntilIdle()
+
+        val settings = calendarRepository.settings.first()
+        assertFalse(settings.isEnabled)
+        assertTrue(settings.selectedCalendarIds.isEmpty())
+        assertFalse(calendarScheduler.isEnabled)
     }
 }
