@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and unit tests
+    name: Build, unit tests, and lint
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -23,5 +23,5 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - name: Build the debug APK and run unit tests
-        run: ./gradlew --no-daemon :app:assembleDebug testDebugUnitTest
+      - name: Verify the debug build
+        run: ./gradlew --no-daemon :app:assembleDebug testDebugUnitTest lintDebug
