@@ -12,19 +12,19 @@ cd SubCycler
 git switch -c describe-your-change
 ```
 
-Follow the [build instructions](README.md#build-and-run) to set up JDK 17, Android SDK Platform 35, and an emulator or device. For command-line builds, set `ANDROID_HOME` to the installed SDK if Android Studio hasn't generated `local.properties`.
+Follow Quick Start in the [README](README.md) to set up JDK 17, Android SDK Platform 35, and an emulator or device.
 
 Debug builds open onboarding on each cold launch so the first-run flow is easy to test. Complete or skip onboarding to reach the dashboard.
 
 ## Test your change
 
-Run the same build and JVM unit tests as GitHub Actions.
+Run the same build, JVM unit tests, and lint checks as GitHub Actions.
 
 ```bash
-./gradlew :app:assembleDebug testDebugUnitTest
+./gradlew :app:assembleDebug testDebugUnitTest lintDebug
 ```
 
-On Windows PowerShell, use `./gradlew.bat :app:assembleDebug testDebugUnitTest`.
+On Windows PowerShell, use `./gradlew.bat :app:assembleDebug testDebugUnitTest lintDebug`.
 
 For UI or Android integration changes, try the affected flow on an emulator or device. Run `./gradlew :app:connectedDebugAndroidTest` with a test device connected to run the instrumentation suite. Use sample subscriptions and calendar events in screenshots and test data.
 

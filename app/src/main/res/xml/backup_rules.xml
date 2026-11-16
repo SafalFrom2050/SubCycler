@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
+   <!-- The calendar DataStore is in the file domain, outside this allowlist. -->
    <include domain="database" path="."/>
    <include domain="sharedpref" path="."/>
-   <exclude domain="file" path="datastore/calendar_awareness.preferences_pb"/>
 </full-backup-content>
