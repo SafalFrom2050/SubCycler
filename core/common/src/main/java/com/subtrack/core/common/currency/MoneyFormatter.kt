@@ -29,6 +29,9 @@ object MoneyFormatter {
     fun symbol(currencyCode: String, locale: Locale = Locale.getDefault()): String =
         currency(currencyCode).getSymbol(locale)
 
+    fun isZeroDecimal(currencyCode: String): Boolean =
+        currency(currencyCode).defaultFractionDigits <= 0
+
     fun displayName(currencyCode: String, locale: Locale = Locale.getDefault()): String =
         currency(currencyCode).getDisplayName(locale)
 

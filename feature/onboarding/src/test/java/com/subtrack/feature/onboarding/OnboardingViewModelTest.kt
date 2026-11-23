@@ -48,6 +48,17 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun startsAtWelcomeAndNavigatesToServiceSelectionAndBack() {
+        assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
+
+        viewModel.onAction(OnboardingAction.BeginSelection)
+        assertEquals(OnboardingStep.SELECT_SERVICES, viewModel.uiState.value.step)
+
+        viewModel.onAction(OnboardingAction.Back)
+        assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
+    }
+
+    @Test
     fun selectionSearchesAcrossCategoriesAndAdvances() {
         viewModel.onAction(OnboardingAction.SetCategory(OnboardingCategory.VIDEO))
         viewModel.onAction(OnboardingAction.SetSearchQuery("Google One"))
@@ -92,13 +103,31 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun nonUsdCurrencyDoesNotRelabelUsdPresetPrices() = runTest(dispatcher) {
-        viewModel.onAction(OnboardingAction.SetCurrency("EUR"))
+    fun uncataloguedCurrencyDoesNotRelabelUsdPresetPrices() = runTest(dispatcher) {
+        viewModel.onAction(OnboardingAction.SetCurrency("CHF"))
         advanceUntilIdle()
 
-        assertEquals("EUR", viewModel.uiState.value.currencyCode)
+        assertEquals("CHF", viewModel.uiState.value.currencyCode)
         assertTrue(viewModel.uiState.value.services.all { it.costInput.isBlank() })
-        assertEquals("EUR", preferencesRepository.userPreferences.first().currency)
+        assertEquals("CHF", preferencesRepository.userPreferences.first().currency)
+    }
+
+    @Test
+    fun regionalCurrencyAutoFillsLocalizedTiersAndSupportsYearlySelection() = runTest(dispatcher) {
+        viewModel.onAction(OnboardingAction.SetCurrency("JPY"))
+        advanceUntilIdle()
+
+        val prime = viewModel.uiState.value.services.first { it.preset.name == "Amazon Prime Video" }
+        assertEquals("600", prime.costInput)
+        val yearlyTier = prime.availableTiers.first { it.billingPeriod == com.subtrack.core.domain.model.BillingPeriod.YEARLY }
+
+        viewModel.onAction(OnboardingAction.ToggleService("Amazon Prime Video"))
+        viewModel.onAction(OnboardingAction.SelectPlanTier("Amazon Prime Video", yearlyTier))
+
+        val updatedPrime = viewModel.uiState.value.selectedServices.single()
+        assertEquals("5900", updatedPrime.costInput)
+        assertEquals(com.subtrack.core.domain.model.BillingPeriod.YEARLY, updatedPrime.billingPeriod)
+        assertEquals(RotationStrategy.CONTINUOUS, updatedPrime.effectiveStrategy)
     }
 
     @Test

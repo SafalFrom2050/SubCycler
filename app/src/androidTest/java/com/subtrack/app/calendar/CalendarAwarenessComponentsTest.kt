@@ -10,6 +10,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.CalendarSuggestionIdentity
@@ -110,5 +112,35 @@ class CalendarAwarenessComponentsTest {
             assertTrue(reviewed)
             assertTrue(dismissed)
         }
+    }
+
+    @Test
+    fun changingCurrencyInSettingsShowsManualConversionWarningBeforeApplying() {
+        var appliedCurrency: String? = null
+        compose.setContent {
+            CalendarSettingsSheet(
+                enabled = false,
+                selectedCalendarCount = 0,
+                accessIssue = null,
+                notificationsAvailable = true,
+                onEnabledChange = {},
+                onOpenCalendars = {},
+                onDismiss = {},
+                currencyCode = "USD",
+                hasExistingSubscriptions = true,
+                onCurrencySelected = { appliedCurrency = it }
+            )
+        }
+
+        compose.onNodeWithText("App currency").performScrollTo().performClick()
+        compose.onNodeWithText("Choose currency").assertIsDisplayed()
+        compose.onNodeWithText("Search code or currency").performTextInput("JPY")
+        compose.onNodeWithText("Japanese Yen").performClick()
+        compose.onNodeWithText("Switch app currency to JPY?").assertIsDisplayed()
+        compose.onNodeWithText("does not convert currencies automatically", substring = true).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(null, appliedCurrency) }
+
+        compose.onNodeWithText("Switch to JPY").performClick()
+        compose.runOnIdle { assertEquals("JPY", appliedCurrency) }
     }
 }

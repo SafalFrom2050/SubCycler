@@ -8,6 +8,7 @@ fun SubscriptionEntity.toDomain(): Subscription = Subscription(
     name = name,
     cost = cost,
     currency = currency,
+    billingPeriod = billingPeriod,
     category = category,
     startDate = startDate,
     strategy = strategy,
@@ -17,7 +18,13 @@ fun SubscriptionEntity.toDomain(): Subscription = Subscription(
     iconName = iconName,
     notes = notes,
     isAutoRenewCancelled = isAutoRenewCancelled,
-    pairedWithSubscriptionId = pairedWithSubscriptionId
+    pairedWithSubscriptionId = pairedWithSubscriptionId,
+    isBillingDateConfirmed = isBillingDateConfirmed,
+    isStrategyConfirmed = isStrategyConfirmed,
+    cancelledCycleIndex = cancelledCycleIndex,
+    completedBreaksCount = completedBreaksCount,
+    earnedSavingsTotal = earnedSavingsTotal,
+    bonusActiveDays = bonusActiveDays
 )
 
 fun Subscription.toEntity(): SubscriptionEntity = SubscriptionEntity(
@@ -25,6 +32,7 @@ fun Subscription.toEntity(): SubscriptionEntity = SubscriptionEntity(
     name = name,
     cost = cost,
     currency = currency,
+    billingPeriod = billingPeriod,
     category = category,
     startDate = startDate,
     strategy = strategy,
@@ -34,7 +42,13 @@ fun Subscription.toEntity(): SubscriptionEntity = SubscriptionEntity(
     iconName = iconName,
     notes = notes,
     isAutoRenewCancelled = isAutoRenewCancelled,
-    pairedWithSubscriptionId = pairedWithSubscriptionId
+    pairedWithSubscriptionId = pairedWithSubscriptionId,
+    isBillingDateConfirmed = isBillingDateConfirmed,
+    isStrategyConfirmed = isStrategyConfirmed,
+    cancelledCycleIndex = cancelledCycleIndex,
+    completedBreaksCount = completedBreaksCount,
+    earnedSavingsTotal = earnedSavingsTotal,
+    bonusActiveDays = bonusActiveDays
 )
 
 fun List<SubscriptionEntity>.toDomain(): List<Subscription> = map { it.toDomain() }

@@ -1,24 +1,48 @@
 package com.subtrack.app.ui.navigation
 
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -27,15 +51,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.ui.draw.drawBehind
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.subtrack.core.ui.components.ExpressiveCookie12Shape
+import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
+import com.subtrack.core.ui.components.ReactiveIcon
+import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.feature.analytics.AnalyticsRoute
 import com.subtrack.feature.dashboard.DashboardRoute
 import com.subtrack.feature.onboarding.OnboardingRoute
 import com.subtrack.feature.planner.PlannerRoute
-import com.subtrack.feature.rotator.PairedRotatorRoute
-import com.subtrack.core.ui.theme.PrimarySky
 
 @Composable
 fun SubTrackApp(
@@ -50,9 +74,9 @@ fun SubTrackApp(
         AppLaunchState.LOADING -> {
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = androidx.compose.ui.Alignment.Center
+                contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = PrimarySky)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
         AppLaunchState.ONBOARDING -> {
@@ -81,122 +105,362 @@ private fun SubTrackMainNavigation(
     val haptic = LocalHapticFeedback.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val isOnDashboard = currentDestination?.hierarchy?.any {
+        it.hasRoute(DashboardDestination::class)
+    } != false
+    var pendingAddSubscription by remember { mutableStateOf(false) }
+    var pendingOpenPairedSwap by remember { mutableStateOf(false) }
+    var internalOpenSubId by remember { mutableStateOf<Long?>(null) }
+    val effectiveOpenSubId = openSubscriptionId ?: internalOpenSubId
+    val isDark = LocalSubCyclerDarkTheme.current
 
-    var isNavBarExpanded by rememberSaveable { mutableStateOf(true) }
-
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < -10f) {
-                    if (isNavBarExpanded) isNavBarExpanded = false
-                } else if (available.y > 10f) {
-                    if (!isNavBarExpanded) isNavBarExpanded = true
-                }
-                return Offset.Zero
+    fun navigateToTab(destination: Any) {
+        navController.navigate(destination) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
             }
+            launchSingleTop = true
+            restoreState = true
         }
     }
 
-    LaunchedEffect(currentDestination) {
-        isNavBarExpanded = true
+    // Ensure notification & home-screen widget deep-links switch back to Subscriptions from Planner/Savings
+    LaunchedEffect(effectiveOpenSubId) {
+        if (effectiveOpenSubId != null && !isOnDashboard) {
+            navigateToTab(DashboardDestination)
+        }
     }
 
-    val navBarHeight by animateDpAsState(
-        targetValue = if (isNavBarExpanded) 80.dp else 54.dp,
-        animationSpec = spring(
-            stiffness = Spring.StiffnessMediumLow,
-            dampingRatio = Spring.DampingRatioNoBouncy
-        ),
-        label = "navBarHeight"
-    )
-
-    Scaffold(
-        modifier = Modifier.nestedScroll(nestedScrollConnection),
-        bottomBar = {
-            val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-            NavigationBar(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(navBarHeight)
-                    .drawBehind {
-                        drawLine(
-                            color = outlineColor,
-                            start = Offset(0f, 0f),
-                            end = Offset(size.width, 0f),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    },
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp
-            ) {
-                NavigationItems.items.forEach { item ->
-                    val selected = currentDestination?.hierarchy?.any { it.hasRoute(item.destination::class) } == true
-                    NavigationBarItem(
-                        selected = selected,
-                        alwaysShowLabel = isNavBarExpanded,
-                        onClick = {
-                            if (!selected) {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                navController.navigate(item.destination) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                contentDescription = item.title
+    ExpressiveScreenBackdrop {
+        // True edge-to-edge scroll-under: content fills full screen behind floating toolbar
+        Box(modifier = Modifier.fillMaxSize()) {
+            NavHost(
+                navController = navController,
+                startDestination = DashboardDestination,
+                modifier = Modifier.fillMaxSize(),
+                enterTransition = {
+                    fadeIn(animationSpec = tween(200)) +
+                        scaleIn(
+                            initialScale = 0.96f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow
                             )
-                        },
-                        label = if (isNavBarExpanded) {
-                            {
-                                Text(
-                                    text = item.title,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    maxLines = 1
-                                )
-                            }
-                        } else null,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = PrimarySky,
-                            selectedTextColor = PrimarySky,
-                            indicatorColor = PrimarySky.copy(alpha = 0.15f),
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(140)) +
+                        scaleOut(targetScale = 0.98f, animationSpec = tween(140))
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(200)) +
+                        scaleIn(
+                            initialScale = 0.96f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(140))
+                }
+            ) {
+                composable<DashboardDestination> {
+                    DashboardRoute(
+                        openSubscriptionId = effectiveOpenSubId,
+                        onOpenSubscriptionConsumed = {
+                            if (openSubscriptionId != null) {
+                                onOpenSubscriptionConsumed()
+                            }
+                            internalOpenSubId = null
+                        },
+                        pendingAddSubscription = pendingAddSubscription,
+                        onAddSubscriptionConsumed = { pendingAddSubscription = false },
+                        onNavigateToSavings = { navigateToTab(AnalyticsDestination) }
+                    )
+                }
+                composable<PlannerDestination> {
+                    PlannerRoute(
+                        pendingOpenPairedSwap = pendingOpenPairedSwap,
+                        onOpenPairedSwapConsumed = { pendingOpenPairedSwap = false },
+                        onOpenSubscription = { subId ->
+                            internalOpenSubId = subId
+                            navigateToTab(DashboardDestination)
+                        }
+                    )
+                }
+                composable<AnalyticsDestination> {
+                    AnalyticsRoute(
+                        onOpenPairedSwap = {
+                            pendingOpenPairedSwap = true
+                            navigateToTab(PlannerDestination)
+                        }
                     )
                 }
             }
-        }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = DashboardDestination,
-            modifier = Modifier.padding(innerPadding),
-            enterTransition = { EnterTransition.None },
-            exitTransition = { ExitTransition.None },
-            popEnterTransition = { EnterTransition.None },
-            popExitTransition = { ExitTransition.None }
-        ) {
-            composable<DashboardDestination> {
-                DashboardRoute(
-                    openSubscriptionId = openSubscriptionId,
-                    onOpenSubscriptionConsumed = onOpenSubscriptionConsumed
-                )
-            }
-            composable<PlannerDestination> {
-                PlannerRoute()
-            }
-            composable<RotatorDestination> {
-                PairedRotatorRoute()
-            }
-            composable<AnalyticsDestination> {
-                AnalyticsRoute()
+
+            // Smooth 4-stop bottom fade scrim so scrolling cards glide cleanly behind the floating dock
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(132.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            0.0f to Color.Transparent,
+                            0.42f to MaterialTheme.colorScheme.background.copy(alpha = 0.56f),
+                            0.78f to MaterialTheme.colorScheme.background.copy(alpha = 0.90f),
+                            1.0f to MaterialTheme.colorScheme.background.copy(alpha = 0.99f)
+                        )
+                    )
+            )
+
+            // Pixel-Locked M3 Expressive Split Floating Bottom Toolbar (zero horizontal drift across tabs!)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    modifier = Modifier
+                        .widthIn(max = 360.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val dockContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                    val dockBorder = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.7f else 0.85f)
+                    )
+
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(999.dp),
+                        color = dockContainerColor,
+                        border = dockBorder,
+                        shadowElevation = if (isDark) 6.dp else 10.dp,
+                        tonalElevation = 0.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            NavigationItems.items.forEach { item ->
+                                val isSelected = currentDestination?.hierarchy?.any {
+                                    it.hasRoute(item.destination::class)
+                                } == true
+                                val interactionSource = remember { MutableInteractionSource() }
+                                val isPressed by interactionSource.collectIsPressedAsState()
+                                var tapTrigger by remember { mutableIntStateOf(0) }
+                                val iconMotion = when (item.destination) {
+                                    AnalyticsDestination -> ReactiveMotionType.PIGGY_BOUNCE
+                                    else -> ReactiveMotionType.POP_BOUNCE
+                                }
+
+                                val pillScale by animateFloatAsState(
+                                    targetValue = if (isPressed) 0.90f else 1f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    ),
+                                    label = "navTabScale"
+                                )
+                                val pillColor by animateColorAsState(
+                                    targetValue = if (isSelected) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                    animationSpec = tween(200),
+                                    label = "navTabBg"
+                                )
+                                val contentColor by animateColorAsState(
+                                    targetValue = if (isSelected) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    animationSpec = tween(200),
+                                    label = "navTabContent"
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .then(if (isSelected) Modifier.weight(1f) else Modifier.width(52.dp))
+                                        .height(48.dp)
+                                        .graphicsLayer {
+                                            scaleX = pillScale
+                                            scaleY = pillScale
+                                        }
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(pillColor, RoundedCornerShape(999.dp))
+                                        .semantics {
+                                            role = Role.Tab
+                                            selected = isSelected
+                                        }
+                                        .clickable(
+                                            interactionSource = interactionSource,
+                                            indication = null
+                                        ) {
+                                            tapTrigger++
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            if (!isSelected) {
+                                                navigateToTab(item.destination)
+                                            }
+                                        }
+                                        .padding(horizontal = if (isSelected) 14.dp else 0.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ReactiveIcon(
+                                            imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                            contentDescription = item.title,
+                                            tint = contentColor,
+                                            size = 20.dp,
+                                            motion = iconMotion,
+                                            isPressed = isPressed,
+                                            triggerKey = Pair(isSelected, tapTrigger)
+                                        )
+                                        AnimatedVisibility(
+                                            visible = isSelected,
+                                            enter = expandHorizontally(
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                                    stiffness = Spring.StiffnessMediumLow
+                                                )
+                                            ) + fadeIn(animationSpec = tween(160)),
+                                            exit = shrinkHorizontally(
+                                                animationSpec = tween(150)
+                                            ) + fadeOut(animationSpec = tween(110))
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Spacer(modifier = Modifier.width(7.dp))
+                                                Text(
+                                                    text = item.title,
+                                                    style = MaterialTheme.typography.labelLarge,
+                                                    color = contentColor,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = (-0.15).sp,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Detached 12-Petal Scalloped '+' Action Button (anchored stably on all tabs!)
+                    val fabInteraction = remember { MutableInteractionSource() }
+                    val fabPressed by fabInteraction.collectIsPressedAsState()
+                    var fabTapCount by remember { mutableIntStateOf(0) }
+                    val fabScale by animateFloatAsState(
+                        targetValue = if (fabPressed) 0.89f else 1f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        ),
+                        label = "detachedFabScale"
+                    )
+                    val fabCookieRotation by animateFloatAsState(
+                        targetValue = if (fabPressed) 18f else 0f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        label = "detachedFabRot"
+                    )
+                    val fabBgColor by animateColorAsState(
+                        targetValue = if (isOnDashboard) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer
+                        },
+                        animationSpec = tween(220),
+                        label = "detachedFabBg"
+                    )
+                    val fabIconColor by animateColorAsState(
+                        targetValue = if (isOnDashboard) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        },
+                        animationSpec = tween(220),
+                        label = "detachedFabIcon"
+                    )
+
+                    val fabShadowColor = Color.Black.copy(alpha = if (isDark) 0.36f else 0.18f)
+                    val fabRimColor = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.38f else 0.28f)
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .drawBehind {
+                                // Custom soft radial shadow for Outline.Generic scalloped cookie on all Android APIs
+                                val shadowRadius = size.minDimension * 0.64f
+                                val shadowCenter = Offset(size.width / 2f, size.height / 2f + 4.dp.toPx())
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            fabShadowColor,
+                                            fabShadowColor.copy(alpha = fabShadowColor.alpha * 0.45f),
+                                            Color.Transparent
+                                        ),
+                                        center = shadowCenter,
+                                        radius = shadowRadius
+                                    ),
+                                    radius = shadowRadius,
+                                    center = shadowCenter
+                                )
+                            }
+                            .graphicsLayer {
+                                scaleX = fabScale
+                                scaleY = fabScale
+                                rotationZ = fabCookieRotation
+                            }
+                            .clip(ExpressiveCookie12Shape)
+                            .background(fabBgColor, ExpressiveCookie12Shape)
+                            .then(
+                                if (!isOnDashboard) {
+                                    Modifier.border(1.dp, fabRimColor, ExpressiveCookie12Shape)
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .clickable(
+                                interactionSource = fabInteraction,
+                                indication = null,
+                                role = Role.Button
+                            ) {
+                                fabTapCount++
+                                pendingAddSubscription = true
+                                if (!isOnDashboard) {
+                                    navigateToTab(DashboardDestination)
+                                }
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ReactiveIcon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Subscription",
+                            tint = fabIconColor,
+                            size = 26.dp,
+                            motion = ReactiveMotionType.PLUS_TWIST,
+                            isPressed = fabPressed,
+                            triggerKey = fabTapCount
+                        )
+                    }
+                }
             }
         }
     }

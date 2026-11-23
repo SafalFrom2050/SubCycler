@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.subtrack.core.common.time.TimeProvider
 import com.subtrack.core.domain.engine.RotationEngine
+import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.PresetLibrary
+import com.subtrack.core.domain.model.RegionalPriceCatalog
 import com.subtrack.core.domain.model.RotationStrategy
+import com.subtrack.core.domain.model.ServicePlanTier
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.model.SubscriptionCategory
 import com.subtrack.core.domain.model.SubscriptionPreset
@@ -24,6 +27,7 @@ import java.util.Locale
 import javax.inject.Inject
 
 enum class OnboardingStep {
+    WELCOME,
     SELECT_SERVICES,
     REVIEW_DETAILS,
     STARTER_PLAN
@@ -47,19 +51,37 @@ data class OnboardingServiceDraft(
     val isPopular: Boolean,
     val isCustom: Boolean = false,
     val isSelected: Boolean = false,
-    val costInput: String = String.format(Locale.US, "%.2f", preset.defaultCost),
-    val nextBillingDate: LocalDate? = null
+    val costInput: String = "",
+    val billingPeriod: BillingPeriod = BillingPeriod.MONTHLY,
+    val availableTiers: List<ServicePlanTier> = emptyList(),
+    val selectedTierLabel: String? = null,
+    val nextBillingDate: LocalDate? = null,
+    val strategyOverride: RotationStrategy? = null
 ) {
     val parsedCost: Double?
         get() = costInput.toDoubleOrNull()?.takeIf { it > 0.0 }
+
+    val monthlyEquivalentCost: Double
+        get() {
+            val raw = parsedCost ?: 0.0
+            return if (billingPeriod == BillingPeriod.YEARLY) raw / 12.0 else raw
+        }
+
+    val effectiveStrategy: RotationStrategy
+        get() = when {
+            billingPeriod == BillingPeriod.YEARLY -> RotationStrategy.CONTINUOUS
+            strategyOverride != null -> strategyOverride
+            else -> preset.suggestedStrategy
+        }
 }
 
 data class OnboardingUiState(
-    val step: OnboardingStep = OnboardingStep.SELECT_SERVICES,
-    val services: List<OnboardingServiceDraft> = OnboardingServiceCatalog.services,
+    val step: OnboardingStep = OnboardingStep.WELCOME,
+    val services: List<OnboardingServiceDraft> = OnboardingServiceCatalog.services.forCurrency("USD"),
     val searchQuery: String = "",
     val selectedCategory: OnboardingCategory = OnboardingCategory.POPULAR,
     val currencyCode: String = "USD",
+    val remindersEnabled: Boolean = true,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val isCompleted: Boolean = false,
@@ -71,12 +93,12 @@ data class OnboardingUiState(
     val visibleServices: List<OnboardingServiceDraft>
         get() {
             val normalizedQuery = searchQuery.trim().lowercase(Locale.getDefault())
-            return services.filter { service ->
+            val filtered = services.filter { service ->
                 val matchesCategory = if (normalizedQuery.isNotEmpty()) {
                     true
                 } else {
                     when (selectedCategory) {
-                        OnboardingCategory.POPULAR -> service.isPopular
+                        OnboardingCategory.POPULAR -> service.isPopular || service.isCustom
                         else -> service.preset.category == selectedCategory.subscriptionCategory
                     }
                 }
@@ -84,15 +106,20 @@ data class OnboardingUiState(
                     service.preset.name.lowercase(Locale.getDefault()).contains(normalizedQuery)
                 matchesCategory && matchesQuery
             }
+            // Surface user-added custom services first so they are immediately visible when added.
+            return if (normalizedQuery.isEmpty() && selectedCategory == OnboardingCategory.POPULAR) {
+                filtered.sortedByDescending { it.isCustom }
+            } else {
+                filtered
+            }
         }
 
     val monthlyCost: Double
-        get() = selectedServices.sumOf { it.parsedCost ?: 0.0 }
+        get() = selectedServices.sumOf { it.monthlyEquivalentCost }
 
     val potentialAnnualSavings: Double
         get() = selectedServices.sumOf { draft ->
-            val cost = draft.parsedCost ?: 0.0
-            if (draft.preset.suggestedStrategy == RotationStrategy.CONTINUOUS) {
+            if (draft.effectiveStrategy == RotationStrategy.CONTINUOUS) {
                 0.0
             } else {
                 val preview = draft.toSubscription(
@@ -105,6 +132,7 @@ data class OnboardingUiState(
 }
 
 sealed interface OnboardingAction {
+    data object BeginSelection : OnboardingAction
     data class SetSearchQuery(val query: String) : OnboardingAction
     data class SetCategory(val category: OnboardingCategory) : OnboardingAction
     data class SetCurrency(val currencyCode: String) : OnboardingAction
@@ -112,15 +140,20 @@ sealed interface OnboardingAction {
     data class AddCustomService(
         val serviceName: String,
         val category: SubscriptionCategory,
-        val costInput: String
+        val costInput: String,
+        val billingPeriod: BillingPeriod = BillingPeriod.MONTHLY
     ) : OnboardingAction
     data object ContinueToReview : OnboardingAction
     data object Back : OnboardingAction
     data class UpdateCost(val serviceName: String, val costInput: String) : OnboardingAction
+    data class SelectPlanTier(val serviceName: String, val tier: ServicePlanTier) : OnboardingAction
+    data class SetBillingPeriod(val serviceName: String, val billingPeriod: BillingPeriod) : OnboardingAction
+    data class ToggleStrategy(val serviceName: String) : OnboardingAction
     data class SetNextBillingDate(
         val serviceName: String,
         val nextBillingDate: LocalDate?
     ) : OnboardingAction
+    data class SetRemindersEnabled(val enabled: Boolean) : OnboardingAction
     data object ShowStarterPlan : OnboardingAction
     data object CompleteOnboarding : OnboardingAction
     data object SkipOnboarding : OnboardingAction
@@ -143,6 +176,9 @@ class OnboardingViewModel @Inject constructor(
 
     fun onAction(action: OnboardingAction) {
         when (action) {
+            OnboardingAction.BeginSelection -> _uiState.update {
+                it.copy(step = OnboardingStep.SELECT_SERVICES, errorMessage = null)
+            }
             is OnboardingAction.SetSearchQuery -> _uiState.update {
                 it.copy(searchQuery = action.query)
             }
@@ -157,10 +193,36 @@ class OnboardingViewModel @Inject constructor(
             OnboardingAction.ContinueToReview -> continueToReview()
             OnboardingAction.Back -> goBack()
             is OnboardingAction.UpdateCost -> updateService(action.serviceName) { draft ->
-                draft.copy(costInput = action.costInput)
+                draft.copy(costInput = action.costInput, selectedTierLabel = null)
+            }
+            is OnboardingAction.SelectPlanTier -> updateService(action.serviceName) { draft ->
+                val currency = _uiState.value.currencyCode
+                draft.copy(
+                    costInput = RegionalPriceCatalog.formatEditablePrice(action.tier.price, currency),
+                    billingPeriod = action.tier.billingPeriod,
+                    selectedTierLabel = action.tier.label
+                )
+            }
+            is OnboardingAction.SetBillingPeriod -> updateService(action.serviceName) { draft ->
+                draft.copy(billingPeriod = action.billingPeriod, selectedTierLabel = null)
+            }
+            is OnboardingAction.ToggleStrategy -> updateService(action.serviceName) { draft ->
+                if (draft.billingPeriod == BillingPeriod.YEARLY) {
+                    draft
+                } else {
+                    val nextStrategy = if (draft.effectiveStrategy == RotationStrategy.CONTINUOUS) {
+                        RotationStrategy.ROTATION_45_DAYS
+                    } else {
+                        RotationStrategy.CONTINUOUS
+                    }
+                    draft.copy(strategyOverride = nextStrategy)
+                }
             }
             is OnboardingAction.SetNextBillingDate -> updateService(action.serviceName) { draft ->
                 draft.copy(nextBillingDate = action.nextBillingDate)
+            }
+            is OnboardingAction.SetRemindersEnabled -> _uiState.update {
+                it.copy(remindersEnabled = action.enabled)
             }
             OnboardingAction.ShowStarterPlan -> showStarterPlan()
             OnboardingAction.CompleteOnboarding -> completeOnboarding()
@@ -207,7 +269,7 @@ class OnboardingViewModel @Inject constructor(
 
         if (serviceName.isBlank() || cost == null) {
             _uiState.update {
-                it.copy(errorMessage = "Enter a service name and a valid monthly price.")
+                it.copy(errorMessage = "Enter a service name and a valid price.")
             }
             return
         }
@@ -219,7 +281,12 @@ class OnboardingViewModel @Inject constructor(
             val updatedServices = if (existingService != null) {
                 state.services.map { draft ->
                     if (draft === existingService) {
-                        draft.copy(isSelected = true, costInput = action.costInput)
+                        draft.copy(
+                            isSelected = true,
+                            costInput = action.costInput,
+                            billingPeriod = action.billingPeriod,
+                            selectedTierLabel = null
+                        )
                     } else {
                         draft
                     }
@@ -229,7 +296,7 @@ class OnboardingViewModel @Inject constructor(
                     name = serviceName,
                     defaultCost = cost,
                     category = action.category,
-                    colorHex = "#38BDF8",
+                    colorHex = "#0C6B4E",
                     iconName = action.category.iconName,
                     suggestedStrategy = defaultCustomStrategy(action.category)
                 )
@@ -239,7 +306,8 @@ class OnboardingViewModel @Inject constructor(
                     isPopular = false,
                     isCustom = true,
                     isSelected = true,
-                    costInput = action.costInput
+                    costInput = action.costInput,
+                    billingPeriod = action.billingPeriod
                 )
             }
 
@@ -283,7 +351,8 @@ class OnboardingViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 step = when (state.step) {
-                    OnboardingStep.SELECT_SERVICES -> OnboardingStep.SELECT_SERVICES
+                    OnboardingStep.WELCOME -> OnboardingStep.WELCOME
+                    OnboardingStep.SELECT_SERVICES -> OnboardingStep.WELCOME
                     OnboardingStep.REVIEW_DETAILS -> OnboardingStep.SELECT_SERVICES
                     OnboardingStep.STARTER_PLAN -> OnboardingStep.REVIEW_DETAILS
                 },
@@ -296,7 +365,7 @@ class OnboardingViewModel @Inject constructor(
         _uiState.update { state ->
             val invalidService = state.selectedServices.firstOrNull { it.parsedCost == null }
             if (invalidService != null) {
-                state.copy(errorMessage = "Enter a valid monthly price for ${invalidService.preset.name}.")
+                state.copy(errorMessage = "Enter a valid price for ${invalidService.preset.name}.")
             } else {
                 state.copy(step = OnboardingStep.STARTER_PLAN, errorMessage = null)
             }
@@ -323,7 +392,7 @@ class OnboardingViewModel @Inject constructor(
                     it.copy(
                         isSaving = false,
                         isCompleted = true,
-                        shouldRequestNotificationPermission = subscriptions.isNotEmpty()
+                        shouldRequestNotificationPermission = subscriptions.isNotEmpty() && state.remindersEnabled
                     )
                 }
             } catch (cancellation: CancellationException) {
@@ -372,23 +441,27 @@ private fun OnboardingServiceDraft.toSubscription(
     today: LocalDate,
     currency: String
 ): Subscription {
-    val startDate = nextBillingDate?.minusDays(preset.suggestedActiveDays.toLong()) ?: today
+    val cycleBackOffsetDays = if (billingPeriod == BillingPeriod.YEARLY) {
+        365L
+    } else {
+        preset.suggestedActiveDays.toLong()
+    }
+    val startDate = nextBillingDate?.minusDays(cycleBackOffsetDays) ?: today
+    val effective = effectiveStrategy
     return Subscription(
         name = preset.name,
         cost = parsedCost ?: preset.defaultCost,
         currency = currency,
+        billingPeriod = billingPeriod,
         category = preset.category,
         startDate = startDate,
-        strategy = preset.suggestedStrategy,
-        customActiveDays = preset.suggestedActiveDays,
-        customBlackoutDays = preset.suggestedBlackoutDays,
+        strategy = effective,
+        customActiveDays = if (effective == RotationStrategy.ROTATION_45_DAYS) 30 else preset.suggestedActiveDays,
+        customBlackoutDays = if (effective == RotationStrategy.ROTATION_45_DAYS) 15 else preset.suggestedBlackoutDays,
         colorHex = preset.colorHex,
         iconName = preset.iconName,
-        notes = if (nextBillingDate == null) {
-            "Added during onboarding. Next billing date not confirmed."
-        } else {
-            "Added during onboarding. Next bill: $nextBillingDate."
-        }
+        notes = "",
+        isBillingDateConfirmed = nextBillingDate != null
     )
 }
 
@@ -410,21 +483,21 @@ private object OnboardingServiceCatalog {
     )
 
     private val initialsByName = mapOf(
-        "Netflix" to "N",
+        "Netflix" to "NF",
         "Disney+" to "D+",
-        "Max (HBO)" to "M",
-        "YouTube Premium" to "Y",
-        "Spotify" to "S",
-        "Apple Music" to "A",
+        "Max (HBO)" to "MX",
+        "YouTube Premium" to "YT",
+        "Spotify" to "SP",
+        "Apple Music" to "AM",
         "Apple TV+" to "TV",
-        "Amazon Prime Video" to "P",
+        "Amazon Prime Video" to "PV",
         "ChatGPT Plus" to "AI",
-        "Claude Pro" to "C",
+        "Claude Pro" to "CL",
         "Google AI Plus" to "G+",
         "Google AI Pro" to "GP",
         "Google AI Ultra" to "GU",
-        "Notion Plus" to "No",
-        "Xbox Game Pass Ultimate" to "X",
+        "Notion Plus" to "NO",
+        "Xbox Game Pass Ultimate" to "XB",
         "PlayStation Plus" to "PS",
         "iCloud+" to "iC",
         "Google One" to "G1"
@@ -461,11 +534,25 @@ private fun defaultCustomStrategy(category: SubscriptionCategory): RotationStrat
 
 private fun List<OnboardingServiceDraft>.forCurrency(currencyCode: String): List<OnboardingServiceDraft> =
     map { draft ->
-        draft.copy(
-            costInput = if (currencyCode == "USD" && !draft.isCustom) {
-                String.format(Locale.US, "%.2f", draft.preset.defaultCost)
+        if (draft.isCustom) {
+            draft.copy(costInput = "", availableTiers = emptyList(), selectedTierLabel = null)
+        } else {
+            val tiers = RegionalPriceCatalog.tiersFor(draft.preset.name, currencyCode)
+            val defaultTier = RegionalPriceCatalog.defaultTierFor(draft.preset.name, currencyCode)
+            if (defaultTier != null) {
+                draft.copy(
+                    costInput = RegionalPriceCatalog.formatEditablePrice(defaultTier.price, currencyCode),
+                    billingPeriod = defaultTier.billingPeriod,
+                    availableTiers = tiers,
+                    selectedTierLabel = defaultTier.label
+                )
             } else {
-                ""
+                draft.copy(
+                    costInput = "",
+                    billingPeriod = BillingPeriod.MONTHLY,
+                    availableTiers = emptyList(),
+                    selectedTierLabel = null
+                )
             }
-        )
+        }
     }

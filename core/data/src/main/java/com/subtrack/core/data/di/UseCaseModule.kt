@@ -1,7 +1,9 @@
 package com.subtrack.core.data.di
 
 import com.subtrack.core.common.time.TimeProvider
+import com.subtrack.core.domain.repository.SubscriptionReminderScheduler
 import com.subtrack.core.domain.repository.SubscriptionRepository
+import com.subtrack.core.domain.repository.UserPreferencesRepository
 import com.subtrack.core.domain.usecase.AlignPairedSubscriptionsUseCase
 import com.subtrack.core.domain.usecase.GetPortfolioSummaryUseCase
 import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
@@ -35,16 +37,29 @@ object UseCaseModule {
     @Singleton
     fun provideAlignPairedSubscriptionsUseCase(
         repository: SubscriptionRepository,
-        timeProvider: TimeProvider
+        timeProvider: TimeProvider,
+        reminderScheduler: SubscriptionReminderScheduler,
+        userPreferencesRepository: UserPreferencesRepository
     ): AlignPairedSubscriptionsUseCase {
-        return AlignPairedSubscriptionsUseCase(repository, timeProvider)
+        return AlignPairedSubscriptionsUseCase(
+            repository = repository,
+            timeProvider = timeProvider,
+            reminderScheduler = reminderScheduler,
+            userPreferencesRepository = userPreferencesRepository
+        )
     }
 
     @Provides
     @Singleton
     fun provideManageSubscriptionUseCase(
-        repository: SubscriptionRepository
+        repository: SubscriptionRepository,
+        reminderScheduler: SubscriptionReminderScheduler,
+        userPreferencesRepository: UserPreferencesRepository
     ): ManageSubscriptionUseCase {
-        return ManageSubscriptionUseCase(repository)
+        return ManageSubscriptionUseCase(
+            repository = repository,
+            reminderScheduler = reminderScheduler,
+            userPreferencesRepository = userPreferencesRepository
+        )
     }
 }

@@ -1,144 +1,103 @@
-# SubCycler Design System: OLED Obsidian Precision
+# SubCycler Design System: Botanical Emerald Monochromatic Material 3 Expressive
 
-> **Document Version**: 1.0.0  
-> **Target Theme**: Pure Pitch Black OLED (`#000000`) with Material Sky Blue & Cyber Indigo Accents  
+> **Document Version**: 3.5.0  
+> **Target Theme**: True Edge-to-Edge Adaptive Light & Dark 70% Neutral / 30% Botanical Emerald Material 3 Expressive ("Botanical Kinetic Architecture") with Continuous Shape Primitives, Connected Segmented Groups, Cycle Rhythm Tracks & Variable Editorial Typography  
 > **Intended Audience**: Human Engineers & Future AI Coding Agents
 
 ---
 
 ## 1. Design Philosophy & Aesthetic Identity
 
-SubCycler uses the **OLED Obsidian Precision** design system. It is designed for maximum visual clarity, zero battery drain on OLED screens, and a minimalist luxury feel.
+SubCycler uses a refined **70% Architectural Neutral / 30% Botanical Emerald Material 3 Expressive** brand identity. Clean neutral alabaster/white (Light) and refined obsidian-graphite (Dark) surfaces keep the UI calm and never overly green, while signature **Botanical Emerald (`#0C6B4E` / `#7CE6C1`)** and the bundled sculptural **fluid silk waves** masked backdrop anchor the Hero bento cards, active controls, and primary CTAs.
 
 ### Core Principles:
-1. **True OLED Pitch Black Canvas (`#000000`)**: The root scaffold background is always pure `#000000` (0-watt pixel power draw, infinite contrast).
-2. **Elevation via Luminance & Hairline Outlines**: Shadows are invisible on pitch black. Elevation is created through subtle surface stepping (`#000000` -> `#0A0A0A` -> `#0D0D0D` -> `#161616`) combined with whisper-thin **1dp hairline borders** (`Color.White.copy(alpha = 0.08f)` or `Color(0xFF1C1C1E)`).
-3. **Zero Diffuse Glows / Zero Heavy Gradients**: Reject neon blurs, halo glows, or saturated card fills. Keep all vector geometry flat, crisp, and matte.
-4. **Strict 3-Tier Accent Color Hierarchy**: Accent colors must be used sparingly to avoid chromatic noise.
+1. **70/30 Neutral-to-Emerald Restraint**: Neutral surfaces (`#F5F6F5` / `#FFFFFF` Light; `#101213` / `#1B1F21` Dark) carry the layout cleanly; Botanical Emerald concentrates on Hero duotone backdrops, active pills, the `Saved /yr` scalloped sticker, and the detached scalloped `+` button.
+2. **Editorial Masked Photo Backdrop (`ExpressiveBackdrop.kt`)**: Bundles a lightweight (~52 KB) offline monochrome sculptural fluid silk waves artwork (`R.drawable.bg_expressive_silk_waves`) rendered quietly behind the canvas (`ExpressiveScreenBackdrop`) and vibrantly beneath a translucent emerald gradient mask inside Hero Bento cards (`ExpressiveHeroCardBackdrop`).
+3. **Adaptive Light & Dark Themes (`isSystemInDarkTheme()`) — Distinct Brand Identity**: Follows system Light/Dark mode with adaptive status/navigation bars without adopting Android dynamic wallpaper colors.
+4. **M3 Expressive Split Floating Bottom Toolbar (`SubTrackNavHost.kt`)**: A crisp neutral floating pill dock where the active tab expands smoothly with spring physics to reveal **Icon + Label** inside a tonal emerald pill while inactive tabs collapse to clean icons, paired side-by-side with a **detached 12-petal scalloped `+` button** on `Subscriptions` so cards are never overlapped.
+5. **Balanced Badge Shades & Tactile Spring Physics**: Service badges mix Warm Sand and Cool Slate neutrals with Fresh Mint, Cool Jade, and Bold Emerald accents, powered by `Spring.DampingRatioMediumBouncy` reactive icons.
 
 ---
 
-## 2. Color Palette & Token System
+## 2. Signature Brand Token System (`Color.kt` & `Theme.kt`)
 
-### 🌌 Canvas & Surface Hierarchy
-| Token | Hex / Value | Purpose |
+### Light Mode (70% Crisp Neutral Alabaster & White · 30% Botanical Emerald)
+| Role | Hex | Usage |
 | :--- | :--- | :--- |
-| `OledBlack` | `#000000` | Root background for all screens and scaffolds |
-| `DarkSurface` | `#0A0A0A` | Top navigation bars, Bottom navigation bar, Explainer cards |
-| `DarkSurfaceVariant` / `DarkCard` | `#0D0D0D` | App Drawer Grid tiles, interactive cards |
-| `DarkSurfaceElevated` | `#121212` / `#161616` | Dialog surfaces, Modal Bottom Sheets, Monogram icon boxes |
-| `DarkBorder` | `#1C1C1E` | 1dp hairline border for cards, dialogs, and dividers |
-| `DarkBorderSubtle` | `Color.White.copy(alpha = 0.08f)` | Hairline stroke for subtle component framing |
+| `background` / `surface` | `#F5F6F5` | Calm neutral alabaster canvas |
+| `surfaceContainerLow` | `#FAFBFA` | Modal sheets, dialogs |
+| `surfaceContainer` | `#FFFFFF` | Pure crisp white bento cards |
+| `BrandLightHeroContainer` | `#CDEFE0` | Masked duotone Home & Savings Hero cards |
+| `surfaceContainerHigh` | `#ECEFED` | Neutral stone-mist inputs, chips & nested pills |
+| `primary` / `primaryContainer` | `#0C6B4E` / `#D2F2E3` | Botanical Emerald CTAs, active nav pill, detached scalloped `+` button |
+| `secondary` / `secondaryContainer` | `#196B64` / `#D6F0ED` | Cool Jade complementary shade |
+| `tertiary` / `tertiaryContainer` | `#4C5D6B` / `#E3E9EE` | Calm Cool Slate paused/break states |
 
----
-
-### 🎨 Accent Color Hierarchy
-
-```
-Primary Accent (Sky Blue #38BDF8)
-   └── Active cycles, ROI badges, Active progress bars, Selected tabs/chips, FAB
-        │
-        ▼
-Secondary Accent (Cyber Indigo #6366F1)
-   └── Blackout / Paused cycles, Paused progress bars, Secondary timeline blocks
-        │
-        ▼
-Semantic Alert (Crimson Red #EF4444)
-   └── Urgent cancellation deadlines (due within 24h), Delete buttons
-```
-
-| Token | Hex / Value | Usage Rules |
+### Dark Mode (70% Refined Obsidian-Graphite · 30% Botanical Mint)
+| Role | Hex | Usage |
 | :--- | :--- | :--- |
-| **`PrimarySky`** | `#38BDF8` | **Primary Brand Accent**: Savings ROI pills, active status pills, active progress bars, selected navigation tab pill, selected filter chip, circular FAB. |
-| **`PrimarySkyDark`** | `#0EA5E9` | Pressed state / gradient endpoint for Sky Blue elements. |
-| **`PrimarySkyContainer`**| `PrimarySky.copy(alpha = 0.15f)` | Container tint for active pills, selected chips, and badges. |
-| **`CyberIndigo`** | `#6366F1` | **Secondary Accent (Sparse)**: 15-day blackout / paused status pills and partner rotation indicators. |
-| **`CyberIndigoLight`** | `#818CF8` | Blackout badge text on dark surfaces. |
-| **`AlertCrimson`** / `ErrorRose` | `#EF4444` | **Semantic Alert**: Urgent cancellation alerts (`ActionUrgency.ACTION_DUE`), destructive actions. |
-| **`WarningAmber`** | `#F59E0B` | **Warning**: Approaching deadlines, non-critical action notices. |
+| `background` / `surface` | `#101213` | Clean architectural obsidian-graphite canvas |
+| `surfaceContainerLow` | `#16191B` | Modal sheets, dialogs |
+| `surfaceContainer` | `#1B1F21` | Velvet charcoal-graphite bento cards |
+| `BrandDarkHeroContainer` | `#133A2E` | Masked duotone Home & Savings Hero cards |
+| `surfaceContainerHigh` | `#24292C` | Neutral elevated floating dock, inputs & nested pills |
+| `primary` / `primaryContainer` | `#7CE6C1` / `#164636` | Luminous soft mint CTAs, active nav pill & detached `+` button |
+| `secondary` / `secondaryContainer` | `#84DBD4` / `#164341` | Cool Seafoam Jade shade |
+| `tertiary` / `tertiaryContainer` | `#B3C3CF` / `#28333B` | Calm Cool Slate paused/break states |
 
 ---
 
-### ✍️ Typography Colors
-| Token | Hex / Value | Purpose |
-| :--- | :--- | :--- |
-| `TextPrimaryDark` | `#EDEDED` / `#FFFFFF` | Primary headers, hero metric numbers, card titles |
-| `TextSecondaryDark` | `#8E8E93` / `#A1A1AA` | Subtitles, prices, strategy tags, inactive chip text |
-| `TextMutedDark` | `#71717A` / `#52525B` | Section labels, captions, metadata |
+## 3. Material 3 Expressive Variable Typography (`Type.kt` & `ExpressiveTypography.kt`)
+
+SubCycler bundles two 100% offline **SIL Open Font License (OFL)** variable fonts inside `core/ui/src/main/res/font/` (preserving zero `INTERNET` permission):
+
+- **`bricolage_grotesque_variable.ttf`** (`opsz` 12–96, `wdth` 75–100, `wght` 200–800):
+  - `DisplayHeroFontFamily` (`opsz = 64–84sp`, `wdth = 90–94%`): Sculptural, slightly condensed high-contrast display voice for hero spend numerals, screen headlines, and `"Sub"` in the brand wordmark.
+  - `DisplayFontFamily` (`opsz = 24–48sp`, `wdth = 94–98%`): Warm editorial display voice for dialog/sheet headers, Bento service card names, `"Cycler"` in the wordmark, and organic monogram badges (`NF`, `PV`, `AI`, `D+`, `SP`).
+- **`plus_jakarta_sans_variable.ttf`** (`wght` 200–800):
+  - `BodyFontFamily`: Crisp modern geometric sans across all body copy, pills, form inputs, tabs, and wide-tracked uppercase editorial eyebrows.
+
+### Creative Typography Primitives (`ExpressiveTypography.kt`):
+- **`ExpressiveMoneyText`**: Locale-safe split-scale currency renderer (works across `$12.16`, `¥6,469`, `CA$16.49`, `12,99 €`) pairing an elevated softer currency symbol, oversized tabular `DisplayHeroFontFamily` integer digits (`tnum`), and baseline-anchored smaller fractional cents.
+- **`ExpressiveBrandWordmark`**: Two-tone, weight-contrasted `"Sub"` (Black `DisplayHeroFontFamily` in `onBackground`) + `"Cycler"` (SemiBold `DisplayFontFamily` in signature Botanical Emerald `primary`).
+- **`ExpressiveEyebrow`**: Wide-tracked (`1.4sp`) `11sp` ExtraBold uppercase section eyebrows (`EFFECTIVE MONTHLY`, `PROJECTED 5-YEAR SAVINGS`, `DATE INSPECTOR`) creating editorial rhythm against tightly tracked display headlines.
 
 ---
 
-## 3. Core Component Guidelines
+## 4. Core Component Guidelines
 
-### 1. Financial Efficiency Bar HUD (`FinancialEfficiencyHud.kt`)
-- **Container**: **Borderless**. Sits directly on the root `#000000` canvas (never wrap in a bordered card).
-- **Hero Annual Number**: Stark white `34sp` / `36sp` font (`FontWeight.Black`, letter-spacing `-0.5sp`).
-- **ROI Pill**: Compact `#121212` container with `1dp PrimarySky.copy(alpha = 0.35f)` border and `PrimarySky` bold text (`-26.1%`).
-- **Efficiency Track**: `4dp` height with `2dp` rounded corners.
-  - Active spend segment: `PrimarySky`.
-  - Retained savings segment: `Color(0xFF27272A)` (muted zinc).
-- **Telemetry Row**: `12sp` bold micro-metrics (`$Active/mo`, `$Saved/mo` in Sky Blue, `Active · Paused` counts).
+### 1. Expressive Hero Bento Card (`FinancialEfficiencyHud.kt`)
+- Masked silk-waves duotone hero card (`RoundedCornerShape(28.dp)`, `20dp` padding).
+- Left column: `ExpressiveEyebrow("EFFECTIVE MONTHLY")`, `46sp` split-scale `ExpressiveMoneyText` total, `"Down from $X/mo · -32%"` reconciliation subtitle, and an active/paused summary pill.
+- Right side: Touch-reactive tilted (`-6°`) `90dp` `ExpressiveCookie12Shape` scalloped savings sticker (`SAVE $X/yr`) in `boldPrimary()` tonal fill that navigates directly to the Savings tab.
 
----
-
-### 2. App Drawer Grid Tile (`SubscriptionGridItem.kt`)
-- **Layout**: 3-column responsive grid (`GridCells.Fixed(3)` or chunked rows of 3 in `LazyColumn`).
-- **Card Styling**: `RoundedCornerShape(14.dp)`, `Color(0xFF0D0D0D)` container, `1dp` subtle outline border.
-- **Monogram Icon**: Centered `40x40dp` box (`RoundedCornerShape(10.dp)`), `Color(0xFF181818)` background, `1dp` outline, stark white 2-letter monogram. **Do not use random saturated brand colors**.
-- **Floating Alert Dot `(!)`**: If `action.urgency == ACTION_DUE`, float a `16dp` Crimson circular badge with `Icons.Default.PriorityHigh` in the top-right corner.
-- **Service Name & Cost**: 1-line title (`13sp`, `FontWeight.Bold`, ellipsis) + Price (`11sp`, muted zinc).
-- **Micro Status Pill**:
-  - Active: `PrimarySky.copy(alpha = 0.10f)` background, `1dp PrimarySky.copy(alpha = 0.25f)` border, `PrimarySky` bold text (`1d left`).
-  - Paused: `Color(0xFF161616)` background, subtle outline border, muted zinc text (`Paused · 10d`).
-- **Hairline Progress**: `2dp` height progress bar (Active = `PrimarySky`, Paused = `#3F3F46`).
-
----
+### 2. Expressive 2-Column Bento Cards (`SubscriptionGridItem.kt`)
+- **Layout**: 2-column responsive bento grid (`chunked(2)` in `LazyColumn`, equal row height via `IntrinsicSize.Min`, `12dp` spacing) with bouncy press-scale (`0.95f`).
+- **Styling**: `RoundedCornerShape(24.dp)` in `surfaceContainer` with subtle `1dp` `outlineVariant` hairline strokes in Light mode (softly tinted `tertiaryContainer` when Paused or `errorContainer` when Action Due).
+- **Content**: Top row pairs a `46dp` borderless organic `ExpressiveServiceBadge` (with curated `ExpressivePalettes.initialsForService()` monograms in `DisplayFontFamily`) and a full-pill status badge (`29d left`, `Paused · 12d`, `Yearly · 340d`). Bottom block displays the full readable service name in `DisplayFontFamily` (up to 2 lines), tabular price (`tnum`) with cadence (`$17.99/mo · 45d`), and a slim cycle progress bar.
 
 ### 3. Interactive Detail Bottom Sheet (`SubscriptionDetailBottomSheet.kt`)
-- **Container**: `ModalBottomSheet` with `containerColor = Color(0xFF0F0F0F)`.
-- **Drag Handle**: `#333333`.
-- **Content**:
-  - Header: Monogram (`46dp`) + Full Service Name (`18sp`, Bold) + Category + Cost.
-  - Status pill + `3dp` progress indicator.
-  - Next Action callout (if any action pending).
-  - Auto-renew cancellation toggle checkbox with `PrimarySky` checkmark.
-  - Optimized annual savings summary.
-  - Action buttons: Outlined "Edit" and Outlined "Delete" (in `ErrorRose`).
+- `ModalBottomSheet` (`32dp` top corners, `surfaceContainerLow`) obeying strict 70/30 Neutral-to-Emerald restraint and minimalism: `54dp` organic badge, `ExpressiveMoneyText` price header, hairline neutral billing-date prompt (when unconfirmed), one unified neutral `surfaceContainer` Status & Annual Savings card (quiet status-dot pill, animated emerald `WavyProgressIndicator`, inline renewal note, hairline divider, and `Estimated annual cost` with emerald `Saves $X/yr` text), contextual break-skip button only when a break is within 10 days, ONE focal Botanical Emerald billing CTA, clean manual cancel/resume toggle below it, and neutral `Edit` / neutral-with-red-ink `Delete` pills (with confirmation + Undo snackbar).
+
+### 4. Pixel-Locked Split Floating Pill Toolbar & Scalloped Cookie Controls
+- **Split Floating Pill Toolbar (`SubTrackNavHost.kt`)**: Crisp neutral floating capsule (`RoundedCornerShape(999.dp)`, bounded width) where the active tab fills available pill space (`weight(1f)`) with **Icon + Label** inside a `primaryContainer` pill while inactive tabs hold fixed `52dp` icon circles, paired side-by-side with a **detached `60dp` `ExpressiveCookie12Shape` `+` button** anchored pixel-stably across all 3 tabs.
+- **Scalloped Settings (`DashboardScreen.kt`)**: `44dp` `ExpressiveCookie12Shape` Settings button (`minimumInteractiveComponentSize()`, `Role.Button`) opening the consolidated offline Settings sheet.
+
+### 5. Touch- & Interaction-Reactive Animated Icons (`AnimatedExpressiveIcons.kt`)
+- **Primitives**: `ReactiveIcon`, `ExpressiveReactiveIconButton`, and `ReactiveMotionType`.
+- **Dual-Stage Response**: Press-hold squash (`0.84f`) + micro-tilt, followed by bespoke GPU-accelerated `Animatable` spring choreographies (`GEAR_SPIN`, `PLUS_TWIST`, `CYCLE_SPIN`, `SWAP_FLIP`, `BELL_RING`, `NUDGE_LEFT`/`NUDGE_RIGHT`, `PIGGY_BOUNCE`, `POP_BOUNCE`).
+
+### 6. Interactive Cycle Strategy Studio & Multi-Step Add/Edit Form (`InteractiveCycleStrategyPicker.kt`, `AddEditSubscriptionDialog.kt`)
+- **Multi-Step Sheet**: Split into 3 compact, breathable steps (`Basics`, `Cycle`, `Notes`) inside a whisper-quiet neutral capsule switcher with spring transitions, **automatic real-time saving** (zero Save buttons, race-free insert-then-update), and swipe-down dismissal blocked (`confirmValueChange = { it != SheetValue.Hidden }`) so users close deliberately via `×`, `Done`, or Back without losing work. Unfinished entries save cleanly in a progressive **Incomplete** state (`Setup · 1/4`, `Needs price`, `Needs date`, `Needs cycle`) without triggering premature alerts or savings estimates, and jump directly to their first missing step via **`Finish setup`**.
+- **Interactive Cycle Strategy Studio**: Single neutral `surfaceContainer` card pairing 4 mode pills (`Always`, `Smart`, `Swap`, `Custom`), a plain-English bills/year & live savings badge, an animated spring-proportional 90-day rhythm ribbon (`Active` vs `Break (not billed)`), a tactile `Break between bills` slider (`0d–45d`) with haptic ticks and clickable scale marks, and a collapsible `Active window` stepper under `Custom`.
+- **Single App-Wide Currency Model**: Chosen upfront on the first-launch Welcome screen (and adjustable during onboarding), with **no per-subscription currency selector** in Add/Edit forms. Changing **App currency** later in Settings shows an explicit offline manual-conversion warning dialog before unifying existing subscriptions to the new currency without altering numeric amounts.
 
 ---
 
-### 4. Navigation & Floating Action Button
-- **Bottom Navigation Bar (`SubTrackNavHost.kt`)**:
-  - Full-width dark obsidian (`#0A0A0A`) with a `1dp` top hairline divider line.
-  - Selected tab: `PrimarySky` icon and text with `PrimarySky.copy(alpha = 0.15f)` indicator pill.
-  - Inactive tabs: Muted zinc (`#71717A`).
-  - Exactly 4 Tabs: `Subscriptions`, `45d Planner`, `Paired Swap`, `Savings & ROI`.
-- **Floating Action Button (FAB)**:
-  - `CircleShape`, container = `PrimarySky` (`#38BDF8`), content = `OledBlack` (`#000000`), `Icons.Default.Add` (`24dp`).
-  - Nested Scaffold insets: Parent `NavHost` must use `Modifier.padding(innerPadding)` so child screens place their FABs directly floating above the bottom navigation bar.
+## 5. Mandatory Rules for AI Agents
 
----
-
-### 5. Filter Chips
-- **Container**: `RoundedCornerShape(8.dp)`, `1dp` border.
-- **Active State**:
-  - `containerColor = PrimarySky.copy(alpha = 0.16f)`
-  - `selectedLabelColor = PrimarySky`
-  - `borderColor = PrimarySky.copy(alpha = 0.85f)`
-  - `fontWeight = FontWeight.Bold`
-- **Inactive State**:
-  - `containerColor = Color(0xFF0D0D0D)`
-  - `labelColor = Color(0xFF8E8E93)`
-  - `borderColor = Color(0xFF222222)`
-  - `fontWeight = FontWeight.Medium`
-
----
-
-## 4. Mandatory Rules for AI Agents
-
-1. ❌ **NEVER add diffuse glow/shadow effects** (e.g. `Modifier.blur()`, `Modifier.shadow()` with colored glows).
-2. ❌ **NEVER put multicolored brand backgrounds on avatars** (e.g. green for Spotify, blue for Disney, pink for Netflix). Always use monochromatic `#181818` with stark white initials.
-3. ❌ **NEVER wrap the top HUD in a standard card container**. The top HUD must remain borderless on the pitch-black OLED background.
-4. ❌ **NEVER add emojis to status badges or headers** (e.g. no `🟢`, `⏸️`, `⚡`, `🔔`). Use vector icons and typography.
-5. ✅ **ALWAYS maintain the 3-tier accent hierarchy**: `PrimarySky` for active, `CyberIndigo` for paused, and `AlertCrimson` only for urgent deadlines.
-6. ✅ **ALWAYS keep borders subtle**: Standard border is `1dp` with `alpha = 0.25f` to `0.35f`. Do not make thick or high-contrast white borders.
+1. ❌ **NEVER hardcode dark-only hex backgrounds or neon wireframe borders** (e.g. `#000000`, `#0D0F14`, `#38BDF8` outlines). Always use `MaterialTheme.colorScheme` surface containers and `ExpressivePalettes` composable helpers so Light and Dark modes stay seamless.
+2. ❌ **NEVER enable Android dynamic wallpaper colors** (`dynamicLightColorScheme` / `dynamicDarkColorScheme`). SubCycler maintains its own distinct brand identity.
+3. ❌ **NEVER bundle third-party trademarked brand logos**. Use trademark-safe organic `ExpressiveServiceBadge` shapes and shared `ExpressivePalettes.initialsForService()` monograms.
+4. ❌ **NEVER add emojis to status badges or headers** (e.g. no `🟢`, `⏸️`, `⚡`, `🔔`). Use reactive vector icons and typography.
+5. ✅ **ALWAYS preserve zero `INTERNET` and zero `USE_EXACT_ALARM` permissions**, offline-only regional price estimation without fabricated currency conversion, and Room migration safety.

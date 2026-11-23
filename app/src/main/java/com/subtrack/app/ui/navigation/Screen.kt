@@ -3,8 +3,10 @@ package com.subtrack.app.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.automirrored.outlined.ListAlt
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 
@@ -13,9 +15,6 @@ object DashboardDestination
 
 @Serializable
 object PlannerDestination
-
-@Serializable
-object RotatorDestination
 
 @Serializable
 object AnalyticsDestination
@@ -37,19 +36,13 @@ object NavigationItems {
         ),
         NavigationTabItem(
             destination = PlannerDestination,
-            title = "45d Planner",
+            title = "Planner",
             selectedIcon = Icons.Filled.CalendarMonth,
             unselectedIcon = Icons.Outlined.CalendarMonth
         ),
         NavigationTabItem(
-            destination = RotatorDestination,
-            title = "Paired Swap",
-            selectedIcon = Icons.Filled.SwapHoriz,
-            unselectedIcon = Icons.Outlined.SwapHoriz
-        ),
-        NavigationTabItem(
             destination = AnalyticsDestination,
-            title = "Savings & ROI",
+            title = "Savings",
             selectedIcon = Icons.Filled.Savings,
             unselectedIcon = Icons.Outlined.Savings
         )
