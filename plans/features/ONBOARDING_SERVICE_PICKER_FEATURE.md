@@ -46,35 +46,32 @@ Selection uses brand-colored monograms, light haptic feedback, friendly stack-bu
 
 ## 3. User Flow
 
-### Step 1: Build Your Stack
+### Step 0: Expressive Welcome & App Currency Selection (v1.3.0)
 
-- Presents popular services in a compact three-column grid.
-- Supports category filters for video, music, software, gaming, and cloud services.
-- Search operates across the entire catalog, regardless of the active category.
-- Suggests the ISO 4217 currency associated with the device locale and keeps a searchable currency selector beside the custom-service action.
-- Treats the locale currency as a suggestion, not a fixed country rule; the user can switch currencies before choosing services.
-- **Add a custom service** is always visible and accepts a name, category, and the user's actual monthly price.
-- A non-matching search term pre-fills the custom-service form instead of ending in a dead end.
+- Adaptive Light & Dark Botanical Emerald Material 3 Expressive welcome screen introducing SubCycler's core promises: **45-day smart cycles**, **100% offline & private (zero internet permission)**, and **quiet action tracking**.
+- Includes an upfront **App currency** selector (locale-suggested, opening the searchable `CurrencyPickerDialog`) so the user establishes SubCycler's single app-wide currency once at first launch instead of per subscription.
+- Top-right **Skip** action lets experienced users jump directly to an empty dashboard; bottom **Get started** CTA enters the service selector.
+
+### Step 1: Service Selector (v1.3.0)
+
+- Compact top bar holds the **Back** button, live **App currency pill** (`¥ JPY ▾` / `$ USD ▾`), and **Skip** action—keeping the bottom area uncluttered for a single primary CTA (`Continue · N selected`).
+- Slim search bar sits inline with a compact **`+ Custom`** button so adding unlisted services takes one tap without an extra row.
+- Category filter chips (`Popular`, `Video`, `Music`, `Software`, `Gaming`, `Cloud`) use the Material 3 Expressive neutral/emerald chip system; search still operates across the entire catalog regardless of the active category.
+- Adaptive Light/Dark service tiles with organic monogram badges (`ExpressiveServiceBadge`) and Botanical Emerald check indicators match the Home Bento cards seamlessly.
 - Every tap produces light haptic feedback and an immediate selected state.
-- The primary action includes the live selection count.
-- **I’ll add services later** completes onboarding without creating records.
 
-Primary copy:
-
-> **What are you paying for?**
-> Tap everything that looks familiar. No logins, linking, or detective work.
-
-### Step 2: Quick Check
+### Step 2: Confirm Prices (Quick Check + Regional 1-Tap Tier Chips)
 
 - Shows only selected services.
-- Pre-fills editable USD price estimates from `PresetLibrary` only when USD is selected; estimates may vary by tier, promotion, and region.
-- Leaves preset prices blank for every other currency so a USD estimate is never relabeled as local money or presented as a guessed exchange conversion.
+- Uses the offline curated `RegionalPriceCatalog` (`USD`, `JPY`, `EUR`, `GBP`, `CAD`, `AUD`, `INR`, `KRW`) to pre-fill an editable default local tier and render **1-tap plan tier chips** (e.g., `With Ads`, `Standard`, `Premium`, `Monthly`, `Yearly`) directly inside each service card.
+- Leaves preset prices blank for uncatalogued currencies (e.g., `CHF`) so a USD estimate is never relabeled as local money or presented as a guessed exchange conversion.
+- Includes a compact `Mo` / `Yr` billing period toggle per service; yearly plans automatically default to continuous 365-day annual renewal tracking and normalize to monthly spend in portfolio totals.
 - Formats symbols, grouping, decimal separators, and currency-specific fraction digits using the selected currency and device locale.
 - Allows an optional next billing date per service.
-- Labels the suggested plan as either continuous or a 45-day rotation.
+- Labels the suggested plan as continuous, annual, or a 45-day rotation.
 - Rejects empty, zero, or invalid prices before continuing.
 
-When a next billing date is provided, the initial cycle start is derived by subtracting the preset active-period length. When omitted, today becomes the initial reference date and the subscription is marked for later refinement in its notes.
+When a next billing date is provided, the initial cycle start is derived by subtracting the preset active-period length and `isBillingDateConfirmed` is set to `true`. When omitted, today becomes the initial reference date with `isBillingDateConfirmed = false` (keeping `notes` clean and surfacing a quiet prompt / Incomplete state to confirm the renewal date later).
 
 ### Step 3: Starter Plan Reveal
 

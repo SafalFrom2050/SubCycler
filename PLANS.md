@@ -10,9 +10,10 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **Core Architecture & Rotation Engine** | Foundation & Architecture | v1.0.0 | `Completed` | [CORE.md](plans/CORE.md) |
 | **First-Launch Service Stack Onboarding** | Onboarding & UX | v1.1.0 | `Implemented` | [ONBOARDING_SERVICE_PICKER_FEATURE.md](plans/features/ONBOARDING_SERVICE_PICKER_FEATURE.md) |
-| **Assisted Cancellation Links** | Subscription Management | Next release | `Implemented; device QA pending` | [CANCELLATION_DEEP_LINKS_FEATURE.md](plans/features/CANCELLATION_DEEP_LINKS_FEATURE.md) |
-| **Optional Calendar Awareness** | Reminders & Recommendations | TBD | `Implemented; device QA ongoing` | [OPTIONAL_CALENDAR_AWARENESS_FEATURE.md](plans/features/OPTIONAL_CALENDAR_AWARENESS_FEATURE.md) |
-| **AI In-App WebView Cancellation Co-Pilot** | Agentic AI & Automation | TBD | `Proposal` | [AI_CANCELLATION_COPILOT_FEATURE.md](plans/features/AI_CANCELLATION_COPILOT_FEATURE.md) |
+| **Assisted Cancellation Links** | Subscription Management | v1.1.0 | `Implemented; device QA pending` | [CANCELLATION_DEEP_LINKS_FEATURE.md](plans/features/CANCELLATION_DEEP_LINKS_FEATURE.md) |
+| **Optional Calendar Awareness** | Reminders & Recommendations | v1.1.0 | `Implemented; device QA ongoing` | [OPTIONAL_CALENDAR_AWARENESS_FEATURE.md](plans/features/OPTIONAL_CALENDAR_AWARENESS_FEATURE.md) |
+| **Minimal Home UX & Subscribe/Unsubscribe Progress Notification** | Core UX & Notifications | v1.2.0 | `Implemented` | [MINIMAL_UX_AND_ACTION_NOTIFICATION_FEATURE.md](plans/features/MINIMAL_UX_AND_ACTION_NOTIFICATION_FEATURE.md) |
+| **Material 3 Expressive Redesign, Auto-Saving Multi-Step UX & Offline Resilience** | Design System, Core UX & Backup | v1.3.0 | `Implemented & Device-Verified` | [MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md](plans/features/MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md) |
 
 ---
 
@@ -30,25 +31,34 @@
 ### 2. [First-Launch Service Stack Onboarding](plans/features/ONBOARDING_SERVICE_PICKER_FEATURE.md)
 * **Goal**: Reach a useful starter portfolio in under a minute through an explicit, playful service picker without installed-app access or account linking.
 * **Key Components**:
-  * **Build Your Stack Picker**: Searchable, category-filtered service tiles with brand monograms, haptics, and live selection feedback.
-  * **Quick Review**: Editable price estimates and optional next-billing dates before anything is saved.
+  * **Upfront App Currency & Welcome**: Sets SubCycler's single app-wide currency directly on the Welcome screen (locale-suggested, editable anytime in Settings with an offline manual-conversion warning).
+  * **Build Your Stack Picker**: Searchable, category-filtered service tiles with organic monograms, haptics, and live selection feedback.
+  * **Quick Review & Regional Tiers**: Offline curated 1-tap regional tier chips (`USD`, `JPY`, `EUR`, `GBP`, `CAD`, `AUD`, `INR`, `KRW`), `Mo`/`Yr` cadence toggle, and optional next-billing dates before anything is saved.
   * **Starter Plan Reveal**: Personalized tracked spend and potential savings followed by one atomic batch import.
 * **Full Specification**: [Read the complete implementation plan](plans/features/ONBOARDING_SERVICE_PICKER_FEATURE.md).
 
-### 3. [AI In-App WebView Cancellation Co-Pilot](plans/features/AI_CANCELLATION_COPILOT_FEATURE.md)
-* **Goal**: Autonomous, zero-touch subscription cancellation co-pilot utilizing pre-authenticated in-app WebViews and Cloud AI reasoning.
+### 3. [Minimal Home UX & Assisted Subscribe / Unsubscribe Progress Notification](plans/features/MINIMAL_UX_AND_ACTION_NOTIFICATION_FEATURE.md)
+* **Goal**: Deliver a clutter-free minimalist Home Screen, 3-tab navigation, and a 100% offline subscribe/unsubscribe tracking flow powered by a silent active notification and persistent next-launch recovery popup.
 * **Key Components**:
-  * **Persistent Session Pre-Login**: The user logs in once; Android `CookieManager` preserves valid sessions for months, bypassing 2FA and CAPTCHAs.
-  * **Semantic DOM Pruner**: Injected JS compresses 2.5MB HTML pages into 4KB semantic JSON trees of actionable buttons and text.
-  * **Cloud AI Reasoning**: AI agent detects retention dark patterns ("Stay for $6.99") and autonomously guides navigation to the final cancellation confirmation.
-  * **Human-in-the-Loop Fallback**: Smooth transition to a visible WebView if a re-authentication prompt or security puzzle is triggered.
-* **Full Specification**: [Read the complete implementation plan](plans/features/AI_CANCELLATION_COPILOT_FEATURE.md).
+  * **Decluttered 3-Tab Navigation**: Consolidated `Subscriptions`, `Planner` (with integrated Paired Swap), and `Savings` tabs, retiring `:feature:rotator`.
+  * **Non-Interruptive Active Notification**: Silent `IMPORTANCE_LOW` notification with direct **Completed** and **Cancel** actions when subscribing or unsubscribing.
+  * **Launch / Resume Recovery Popup**: DataStore persistence ensures that if the notification does not survive, the user is prompted with a simple one-tap **Completed / Cancel** dialog on the next app launch or resume.
+* **Full Specification**: [Read the complete implementation plan](plans/features/MINIMAL_UX_AND_ACTION_NOTIFICATION_FEATURE.md).
+
+### 4. [Material 3 Expressive Redesign, Auto-Saving Multi-Step UX & Offline Resilience](plans/features/MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md)
+* **Goal**: Elevate SubCycler with an adaptive Light & Dark Botanical Emerald Material 3 Expressive visual system, effortless auto-saving multi-step subscription setup with progressive Incomplete tracking, single app-wide currency clarity, offline JSON/CSV backup, and a home-screen widget.
+* **Key Components**:
+  * **Botanical Kinetic Architecture (`DESIGN.md` v3.5.0)**: Adaptive 70% Neutral / 30% Botanical Emerald Light & Dark theme, bundled offline OFL variable fonts (`Bricolage Grotesque` + `Plus Jakarta Sans`), masked silk-waves hero backdrop, scalloped shape primitives, and spring-reactive icons.
+  * **Auto-Saving 3-Step Form & Incomplete State**: Compact `Basics / Cycle / Notes` sheet with whisper-quiet capsule navigation, automatic debounced + `Mutex`-guarded saving (zero Save buttons), swipe-down dismissal protection, and first-class `Incomplete` setup tracking (`Finish setup` jumps to first missing step).
+  * **Single App-Wide Currency & Interactive Cycle Strategy Studio**: Upfront currency selection with explicit offline manual-conversion warning in Settings, plus an interactive 90-day live rhythm ribbon and tactile `0d–45d` break slider.
+  * **Offline Backup, Deduplicated Reminders & Widget**: Local JSON/CSV export & import (`SubscriptionBackupCodec`), Room v1→v5 migrations, inexact `AlarmManager` + `WorkManager` + `ReminderDeduplicator` (zero `USE_EXACT_ALARM`), and `SubCyclerWidgetProvider`.
+* **Full Specification**: [Read the complete implementation plan & decision log](plans/features/MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md).
 
 ---
 
 ## Assisted Cancellation Links
 
-Implemented in the Dashboard subscription detail sheet. Users choose a curated service account/help page, Google Play, or Apple billing instructions. Opening a link leaves subscription state unchanged. The [integration and next-agent testing handoff](plans/features/CANCELLATION_DEEP_LINKS_FEATURE.md) records the catalog, code entry points, local validation, and pending device acceptance checks.
+Implemented in the Dashboard subscription detail sheet. Users choose a curated service account/help page, Google Play, or Apple billing instructions. The [integration and next-agent testing handoff](plans/features/CANCELLATION_DEEP_LINKS_FEATURE.md) records the catalog, code entry points, local validation, and pending device acceptance checks.
 
 ---
 
@@ -56,9 +66,18 @@ Implemented in the Dashboard subscription detail sheet. Users choose a curated s
 
 Disabled by default. After opt-in, selected device calendars inform subscription suggestions. The [feature plan](plans/features/OPTIONAL_CALENDAR_AWARENESS_FEATURE.md) records implemented behavior and remaining device checks.
 
+---
+
 ## 🔮 Future Roadmap Items (Under Consideration)
 
-- **CSV & JSON Portfolio Backup/Restore**: Encrypted export and import of subscription rotation schedules.
+- **Passphrase-Encrypted Offline Backups**: Optional AES-GCM encryption layer on top of SubCycler's existing local JSON/CSV export and import.
+- **Expanded Accessibility & Large-Screen Layouts**: Adaptive two-pane tablet/foldable layouts and formal TalkBack / font-scale audits across all expressive components.
+
+---
+
+## ⏸️ Postponed Plans
+
+- **AI In-App WebView Cancellation Co-Pilot**: Postponed in favor of a 100% offline, zero-internet-permission architecture with active notification tracking and next-launch recovery. [Archived specification](plans/features/postponed/AI_CANCELLATION_COPILOT_FEATURE.md).
 
 ---
 

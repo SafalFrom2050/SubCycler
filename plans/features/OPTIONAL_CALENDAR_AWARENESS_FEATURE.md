@@ -204,7 +204,19 @@ ADB validation used a connected Huawei WAS-LX2J running Android 8.0/API 26:
 - The real Calendar Provider selector distinguished a selected Google calendar from an unchecked Phone calendar and showed account/provider context. No calendar event was created, edited or deleted.
 - After disabling, Settings showed OFF and the calendar DataStore contained only `enabled=false` plus the incremented generation token. Selected IDs, derived suggestions, dismissals and notification state were absent. Android's `READ_CALENDAR` grant remained, as intended; `WRITE_CALENDAR` was absent. The ordinary daily subscription WorkManager job remained scheduled.
 
-Not yet demonstrated: deriving a visible suggestion from a seeded real-provider occurrence, recurrence/exception behavior against multiple vendor providers, Android 13/15 permission behavior, Pixel/Samsung coverage, TalkBack/large-text/landscape checks, or reliable background notification timing under Doze/force-stop. These remain device/provider acceptance work and are not inferred from compilation or the Huawei pass.
+Not yet demonstrated: deriving a visible suggestion from a seeded real-provider occurrence, recurrence/exception behavior against multiple vendor providers, Android 15 permission behavior, Samsung coverage, TalkBack/large-text/landscape checks, or reliable background notification timing under Doze/force-stop. These remain device/provider acceptance work and are not inferred from compilation or the Huawei/Pixel passes.
+
+### Pixel 4 (Android 13 / API 33) Device Validation — 2026-11-18
+
+ADB and `android layout` validation used a connected **Google Pixel 4 (`flame`) running Android 13 (API 33)**:
+
+- Full instrumentation test suite (`CalendarAwarenessComponentsTest`, `CancellationLinkLauncherTest`, `CancellationOptionsDialogTest`) passed on-device: `OK (12 tests)` in 8.5s.
+- Verified the opt-in flow on Android 13:
+  1. Settings opens with **Calendar-aware suggestions** OFF by default.
+  2. Toggling ON displays the local-processing explanation dialog before requesting Android's `READ_CALENDAR` runtime permission.
+  3. Granting `READ_CALENDAR` loads the `Choose calendars` sheet with all visible Google calendars and account contexts (`<redacted>@gmail.com · com.google`), all unchecked initially and `Use selected` disabled until at least one calendar is checked.
+  4. Selecting two calendars (`Holidays in Japan`, `Holidays in Nepal`) and tapping `Use selected` persists the selection and updates Settings to show `Calendars · 2 selected` (`Change`) alongside the quiet notification-disabled notice when `POST_NOTIFICATIONS` is off.
+- **UX Bug Caught & Fixed on Pixel 4**: When a device has 5+ calendars across multiple accounts, `CalendarSelectionSheet` previously opened in Material 3's partially-expanded bottom sheet state, pushing the `Cancel` and `Use selected` buttons below the screen fold until manually dragged up. Fixed by setting `rememberModalBottomSheetState(skipPartiallyExpanded = true)`, applying `Modifier.heightIn(max = 360.dp)` to the scrollable calendar list, and aligning both `CalendarSettingsSheet` and `CalendarSelectionSheet` with the `#0F0F0F` OLED Obsidian surface palette.
 
 ## 9. Completion criteria
 
