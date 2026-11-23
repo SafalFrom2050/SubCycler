@@ -1,6 +1,7 @@
 package com.subtrack.core.data.local
 
 import androidx.room.TypeConverter
+import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.SubscriptionCategory
 import java.time.LocalDate
@@ -34,5 +35,15 @@ class Converters {
     @TypeConverter
     fun toCategory(value: String?): SubscriptionCategory? {
         return value?.let { SubscriptionCategory.valueOf(it) }
+    }
+
+    @TypeConverter
+    fun fromBillingPeriod(value: BillingPeriod?): String? {
+        return value?.name
+    }
+
+    @TypeConverter
+    fun toBillingPeriod(value: String?): BillingPeriod {
+        return value?.let { runCatching { BillingPeriod.valueOf(it) }.getOrNull() } ?: BillingPeriod.MONTHLY
     }
 }
