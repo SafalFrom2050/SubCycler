@@ -1,17 +1,18 @@
 package com.subtrack.app.worker
 
 import android.content.Context
-import com.subtrack.core.common.currency.MoneyFormatter
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.subtrack.core.domain.model.CyclePhase
-import com.subtrack.core.domain.repository.SubscriptionRepository
-import com.subtrack.core.domain.repository.UserPreferencesRepository
-import com.subtrack.core.common.time.TimeProvider
-import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
-import com.subtrack.core.domain.usecase.ManageSubscriptionUseCase
+import com.subtrack.app.notification.AlarmScheduler
 import com.subtrack.app.notification.NotificationHelper
+import com.subtrack.app.notification.ReminderDeduplicator
+import com.subtrack.app.widget.SubCyclerWidgetProvider
+import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.domain.engine.RotationEngine
+import com.subtrack.core.domain.model.CyclePhase
+import com.subtrack.core.domain.repository.UserPreferencesRepository
+import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -22,49 +23,89 @@ import kotlinx.coroutines.withContext
 class DailyCycleEvaluationWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val repository: SubscriptionRepository,
     private val getSubscriptionCycleStatusesUseCase: GetSubscriptionCycleStatusesUseCase,
-    private val manageSubscriptionUseCase: ManageSubscriptionUseCase,
-    private val userPreferencesRepository: UserPreferencesRepository,
-    private val timeProvider: TimeProvider
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             val userPrefs = userPreferencesRepository.userPreferences.first()
+            getSubscriptionCycleStatusesUseCase.refreshToday()
             val statuses = getSubscriptionCycleStatusesUseCase().first()
 
             statuses.forEach { cycleStatus ->
                 val sub = cycleStatus.subscription
+                // Never fire cancel-to-save alerts for incomplete, continuous, or yearly non-rotating subscriptions.
+                if (!sub.isRotating || sub.isIncomplete) return@forEach
+
                 val daysRemaining = cycleStatus.daysRemainingInPhase
+                val dedupKey = ReminderDeduplicator.dedupKey(
+                    subscriptionId = sub.id,
+                    phase = cycleStatus.phase,
+                    phaseEndDate = cycleStatus.phaseEndDate
+                )
+                val notificationId = ReminderDeduplicator.notificationIdFor(sub.id, cycleStatus.phase)
 
                 when (cycleStatus.phase) {
                     CyclePhase.ACTIVE -> {
-                        // Alert user when approaching blackout transition
-                        if (daysRemaining <= userPrefs.notificationLeadDays && !sub.isAutoRenewCancelled) {
+                        if (
+                            daysRemaining <= userPrefs.notificationLeadDays &&
+                            !cycleStatus.isAutoRenewCancelledForCurrentCycle &&
+                            !ReminderDeduplicator.hasFired(applicationContext, dedupKey)
+                        ) {
+                            val endFormatted = RotationEngine.formatReadableDate(cycleStatus.phaseEndDate)
+                            val annualSaveFormatted = MoneyFormatter.format(
+                                cycleStatus.annualSavings,
+                                sub.currency,
+                                maximumFractionDigits = 0
+                            )
+                            val whenText = if (daysRemaining <= 0) {
+                                "Active window ends today ($endFormatted)"
+                            } else {
+                                "Active window ends in $daysRemaining day${if (daysRemaining == 1) "" else "s"} ($endFormatted)"
+                            }
                             NotificationHelper.showNotification(
                                 context = applicationContext,
-                                notificationId = sub.id.toInt(),
-                                title = "Cancel Auto-Renew: ${sub.name}",
-                                message = "${sub.name} active window ends in $daysRemaining day(s). Cancel auto-renew to save ${MoneyFormatter.format(cycleStatus.annualSavings, sub.currency)}/yr!"
+                                notificationId = notificationId,
+                                title = "Cancel auto-renew: ${sub.name}",
+                                message = "$whenText. Turn off auto-renew to save ~$annualSaveFormatted/yr.",
+                                subscriptionId = sub.id
                             )
+                            ReminderDeduplicator.markFired(applicationContext, dedupKey)
                         }
                     }
                     CyclePhase.BLACKOUT -> {
-                        // Alert user when blackout is about to conclude
-                        if (daysRemaining <= 1) {
+                        if (daysRemaining <= 1 && !ReminderDeduplicator.hasFired(applicationContext, dedupKey)) {
+                            val watchlist = sub.notes.trim()
+                            val timing = if (daysRemaining <= 0) "today" else "tomorrow"
+                            val body = if (watchlist.isNotEmpty()) {
+                                "${sub.name} break ends $timing. Watchlist: $watchlist"
+                            } else {
+                                "${sub.name} break ends $timing. Ready for your next ${sub.activeDays}-day binge window."
+                            }
                             NotificationHelper.showNotification(
                                 context = applicationContext,
-                                notificationId = sub.id.toInt() + 10000,
-                                title = "Service Resuming: ${sub.name}",
-                                message = "${sub.name} blackout ends tomorrow! Prepare for your upcoming active rotation cycle."
+                                notificationId = notificationId,
+                                title = "Ready to re-subscribe: ${sub.name}",
+                                message = body,
+                                subscriptionId = sub.id
                             )
+                            ReminderDeduplicator.markFired(applicationContext, dedupKey)
                         }
                     }
                 }
+
+                // Keep upcoming phase/cycle alarms armed automatically across rollovers.
+                AlarmScheduler.scheduleSubscriptionAlert(
+                    context = applicationContext,
+                    subscription = sub,
+                    leadDays = userPrefs.notificationLeadDays
+                )
             }
+
+            SubCyclerWidgetProvider.requestUpdate(applicationContext)
             Result.success()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Result.retry()
         }
     }
