@@ -36,12 +36,17 @@ SubCycler:  [==== 30d Active ====][-- 15d Blackout --] -->  8 billings / yr
 
 Android's system backup and device transfer settings can include the subscription database.
 
-<details>
-<summary>See the dashboard with sample subscriptions</summary>
+---
 
-<img src="docs/screenshots/dashboard.png" alt="SubCycler dashboard showing projected savings and three sample subscriptions" width="300">
+## 📸 Screenshots
 
-</details>
+| Home (Light) | Home (Dark) | Auto-Saving Cycle Studio |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/dashboard.png" alt="SubCycler dashboard in adaptive Light Mode showing effective monthly spend, scalloped annual savings sticker, and 2-column Bento cards" width="250"> | <img src="docs/screenshots/dashboard_dark.png" alt="SubCycler dashboard in adaptive Dark Mode with Botanical Mint accents and Obsidian Graphite surfaces" width="250"> | <img src="docs/screenshots/cycle_strategy.png" alt="Auto-saving 3-step subscription form showing the Interactive Cycle Strategy Studio with 90-day rhythm preview and break slider" width="250"> |
+
+| Cycle Timeline & Date Inspector | 30d / 30d Paired Swap | Editorial Savings & 5-Year ROI |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/planner.png" alt="Planner Cycle Timeline showing Date Inspector and duration-proportional hatched break blocks" width="250"> | <img src="docs/screenshots/paired_swap.png" alt="Paired Swap planner showing the 60-day Baton-Pass alternating visualizer and yearly savings preview" width="250"> | <img src="docs/screenshots/savings.png" alt="Savings screen showing projected 5-year compounding growth curve, earned savings, and per-service breakdown" width="250"> |
 
 ---
 
