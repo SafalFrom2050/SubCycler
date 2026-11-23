@@ -1,23 +1,32 @@
 package com.subtrack.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.subtrack.app.ui.navigation.SubTrackApp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtrack.app.notification.NotificationHelper
+import com.subtrack.app.ui.navigation.AppViewModel
+import com.subtrack.app.ui.navigation.SubTrackApp
+import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.ui.theme.SubTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -28,16 +37,38 @@ class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        // Notification permission handled
+    ) { _: Boolean ->
+        // Handled reactively when returning to app / Settings.
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         openSubscriptionId = intent.calendarSubscriptionId()
 
         setContent {
-            SubTrackTheme {
+            val appViewModel: AppViewModel = hiltViewModel()
+            val themeMode by appViewModel.themeMode.collectAsStateWithLifecycle()
+            val systemDark = isSystemInDarkTheme()
+            val useDarkTheme = when (themeMode) {
+                AppThemeMode.SYSTEM -> systemDark
+                AppThemeMode.LIGHT -> false
+                AppThemeMode.DARK -> true
+            }
+
+            LaunchedEffect(useDarkTheme) {
+                val barStyle = if (useDarkTheme) {
+                    SystemBarStyle.dark(Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                }
+                enableEdgeToEdge(
+                    statusBarStyle = barStyle,
+                    navigationBarStyle = barStyle
+                )
+            }
+
+            SubTrackTheme(darkTheme = useDarkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -45,7 +76,8 @@ class MainActivity : ComponentActivity() {
                     SubTrackApp(
                         onRequestNotificationPermission = ::checkAndRequestNotificationPermission,
                         openSubscriptionId = openSubscriptionId,
-                        onOpenSubscriptionConsumed = { openSubscriptionId = null }
+                        onOpenSubscriptionConsumed = { openSubscriptionId = null },
+                        appViewModel = appViewModel
                     )
                 }
             }
