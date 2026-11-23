@@ -1,5 +1,7 @@
 package com.subtrack.core.domain.testing
 
+import com.subtrack.core.domain.model.AppThemeMode
+import com.subtrack.core.domain.model.PendingSubscriptionAction
 import com.subtrack.core.domain.model.UserPreferences
 import com.subtrack.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -28,5 +30,13 @@ class FakeUserPreferencesRepository(
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         preferencesFlow.value = preferencesFlow.value.copy(isOnboardingCompleted = completed)
+    }
+
+    override suspend fun setPendingSubscriptionAction(action: PendingSubscriptionAction?) {
+        preferencesFlow.value = preferencesFlow.value.copy(pendingSubscriptionAction = action)
+    }
+
+    override suspend fun setThemeMode(themeMode: AppThemeMode) {
+        preferencesFlow.value = preferencesFlow.value.copy(themeMode = themeMode)
     }
 }

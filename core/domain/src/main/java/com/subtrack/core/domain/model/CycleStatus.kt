@@ -9,7 +9,7 @@ enum class CyclePhase {
 
 enum class ActionUrgency {
     INFO,
-    WARNING,     // Cancel auto-renew coming up in <= 3 days
+    WARNING,     // Cancel auto-renew coming up soon
     ACTION_DUE   // Resubscribe today or Cancel today!
 }
 
@@ -44,11 +44,14 @@ data class CycleStatus(
     val phaseEndDate: LocalDate,
     val progressFraction: Float,   // 0.0 to 1.0 of current phase
     val nextAction: NextAction,
-    val timelineBlocks: List<TimelineBlock>, // 6-month projected timeline
-    
+    val timelineBlocks: List<TimelineBlock>, // Projected cycle timeline
+
     // Financial savings metrics
     val standardAnnualCost: Double,
     val optimizedAnnualCost: Double,
     val annualSavings: Double,
-    val savingsPercentage: Double
+    val savingsPercentage: Double,
+    val isAutoRenewCancelledForCurrentCycle: Boolean = subscription.isAutoRenewCancelled,
+    val perBreakSavings: Double = 0.0,
+    val hasUnbankedCompletedBreak: Boolean = false
 )
