@@ -1,22 +1,39 @@
 package com.subtrack.feature.onboarding
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -24,16 +41,20 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
@@ -52,45 +73,68 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.subtrack.core.domain.model.RotationStrategy
-import com.subtrack.core.domain.model.SubscriptionCategory
 import com.subtrack.core.common.currency.MoneyFormatter
-import com.subtrack.core.ui.theme.DarkBorder
-import com.subtrack.core.ui.theme.DarkSurface
-import com.subtrack.core.ui.theme.DarkSurfaceVariant
-import com.subtrack.core.ui.theme.OledBlack
-import com.subtrack.core.ui.theme.PrimarySky
-import com.subtrack.core.ui.theme.TextSecondaryDark
+import com.subtrack.core.domain.model.BillingPeriod
+import com.subtrack.core.domain.model.RotationStrategy
+import com.subtrack.core.domain.model.ServicePlanTier
+import com.subtrack.core.domain.model.SubscriptionCategory
+import com.subtrack.core.ui.components.CurrencyPickerDialog
+import com.subtrack.core.ui.components.ExpressiveBrandWordmark
+import com.subtrack.core.ui.components.ExpressiveClover4Shape
+import com.subtrack.core.ui.components.ExpressiveCookie12Shape
+import com.subtrack.core.ui.components.ExpressiveCookie8Shape
+import com.subtrack.core.ui.components.ExpressiveEyebrow
+import com.subtrack.core.ui.components.ExpressiveMoneyText
+import com.subtrack.core.ui.components.ExpressivePalettes
+import com.subtrack.core.ui.components.ExpressiveReactiveIconButton
+import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
+import com.subtrack.core.ui.components.ExpressiveServiceBadge
+import com.subtrack.core.ui.components.ExpressiveTonalPalette
+import com.subtrack.core.ui.components.ReactiveIcon
+import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.theme.DisplayFontFamily
+import com.subtrack.core.ui.theme.DisplayHeroFontFamily
+import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 fun OnboardingRoute(
@@ -125,42 +169,82 @@ fun OnboardingScreen(
     var customServiceSeed by rememberSaveable { mutableStateOf("") }
     var customServiceCategory by rememberSaveable { mutableStateOf(SubscriptionCategory.OTHER) }
 
-    BackHandler(enabled = uiState.step != OnboardingStep.SELECT_SERVICES) {
+    BackHandler(enabled = uiState.step != OnboardingStep.WELCOME) {
         onAction(OnboardingAction.Back)
     }
 
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = OledBlack
+    ExpressiveScreenBackdrop(
+        modifier = modifier,
+        emphasized = uiState.step == OnboardingStep.WELCOME || uiState.step == OnboardingStep.STARTER_PLAN
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 18.dp, vertical = 14.dp)
+                .systemBarsPadding()
+                .padding(horizontal = 18.dp, vertical = 12.dp)
         ) {
-            OnboardingProgress(step = uiState.step)
-            Spacer(modifier = Modifier.height(18.dp))
+            if (uiState.step != OnboardingStep.WELCOME) {
+                OnboardingProgress(step = uiState.step)
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
-            when (uiState.step) {
-                OnboardingStep.SELECT_SERVICES -> ServiceSelectionStep(
-                    uiState = uiState,
-                    onAction = onAction,
-                    onChooseCurrency = { showCurrencyDialog = true },
-                    onAddCustomService = { seed, category ->
-                        customServiceSeed = seed
-                        customServiceCategory = category
-                        showCustomServiceDialog = true
-                    }
-                )
-                OnboardingStep.REVIEW_DETAILS -> ServiceReviewStep(
-                    uiState = uiState,
-                    onAction = onAction,
-                    onChooseDate = { serviceRequestingDate = it }
-                )
-                OnboardingStep.STARTER_PLAN -> StarterPlanStep(
-                    uiState = uiState,
-                    onAction = onAction
-                )
+            AnimatedContent(
+                targetState = uiState.step,
+                modifier = Modifier.weight(1f),
+                transitionSpec = {
+                    val forward = targetState.ordinal >= initialState.ordinal
+                    val direction = if (forward) 1 else -1
+                    (slideInHorizontally(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ) { fullWidth -> direction * (fullWidth / 4) } +
+                        fadeIn(animationSpec = tween(220)) +
+                        scaleIn(
+                            initialScale = 0.96f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        )).togetherWith(
+                        slideOutHorizontally(
+                            animationSpec = tween(160)
+                        ) { fullWidth -> -direction * (fullWidth / 5) } +
+                            fadeOut(animationSpec = tween(140))
+                    )
+                },
+                label = "onboardingStepTransition"
+            ) { step ->
+                when (step) {
+                    OnboardingStep.WELCOME -> WelcomeStep(
+                        currencyCode = uiState.currencyCode,
+                        isSaving = uiState.isSaving,
+                        onChooseCurrency = { showCurrencyDialog = true },
+                        onGetStarted = { onAction(OnboardingAction.BeginSelection) },
+                        onSkip = { onAction(OnboardingAction.SkipOnboarding) }
+                    )
+                    OnboardingStep.SELECT_SERVICES -> ServiceSelectionStep(
+                        uiState = uiState,
+                        onAction = onAction,
+                        onChooseCurrency = { showCurrencyDialog = true },
+                        onAddCustomService = { seed, category ->
+                            customServiceSeed = seed
+                            customServiceCategory = category
+                            showCustomServiceDialog = true
+                        }
+                    )
+                    OnboardingStep.REVIEW_DETAILS -> ServiceReviewStep(
+                        uiState = uiState,
+                        onAction = onAction,
+                        onChooseCurrency = { showCurrencyDialog = true },
+                        onChooseDate = { serviceRequestingDate = it }
+                    )
+                    OnboardingStep.STARTER_PLAN -> StarterPlanStep(
+                        uiState = uiState,
+                        onAction = onAction
+                    )
+                }
             }
         }
     }
@@ -188,12 +272,13 @@ fun OnboardingScreen(
             initialCategory = customServiceCategory,
             currencyCode = uiState.currencyCode,
             onDismiss = { showCustomServiceDialog = false },
-            onAdd = { serviceName, category, costInput ->
+            onAdd = { serviceName, category, costInput, billingPeriod ->
                 onAction(
                     OnboardingAction.AddCustomService(
                         serviceName = serviceName,
                         category = category,
-                        costInput = costInput
+                        costInput = costInput,
+                        billingPeriod = billingPeriod
                     )
                 )
                 showCustomServiceDialog = false
@@ -215,18 +300,392 @@ fun OnboardingScreen(
 
 @Composable
 private fun OnboardingProgress(step: OnboardingStep) {
-    val activeStep = step.ordinal
+    val activeStep = (step.ordinal - 1).coerceAtLeast(0)
+    val totalSteps = OnboardingStep.entries.size - 1
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        repeat(OnboardingStep.entries.size) { index ->
+        repeat(totalSteps) { index ->
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(3.dp)
+                    .height(4.dp)
                     .clip(CircleShape)
-                    .background(if (index <= activeStep) PrimarySky else DarkBorder)
+                    .background(
+                        if (index <= activeStep) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHighest
+                        }
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun WelcomeStep(
+    currencyCode: String,
+    isSaving: Boolean,
+    onChooseCurrency: () -> Unit,
+    onGetStarted: () -> Unit,
+    onSkip: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    val isDark = LocalSubCyclerDarkTheme.current
+    val boldPalette = ExpressivePalettes.boldPrimary()
+    val oceanPalette = ExpressivePalettes.softOcean()
+    val slatePalette = ExpressivePalettes.softLavender()
+    val lightCardBorder = if (isDark) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Surface(
+                onClick = onSkip,
+                enabled = !isSaving,
+                shape = RoundedCornerShape(999.dp),
+                color = if (isDark) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+                border = lightCardBorder
+            ) {
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 44.dp)
+                        .padding(horizontal = 18.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Skip",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            val centerInteraction = remember { MutableInteractionSource() }
+            val centerPressed by centerInteraction.collectIsPressedAsState()
+            var centerSpinCount by remember { mutableIntStateOf(0) }
+            val centerScale by animateFloatAsState(
+                targetValue = if (centerPressed) 0.90f else 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                ),
+                label = "welcomeCenterScale"
+            )
+
+            Box(
+                modifier = Modifier.size(170.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(108.dp)
+                        .graphicsLayer {
+                            scaleX = centerScale
+                            scaleY = centerScale
+                        }
+                        .clip(ExpressiveCookie8Shape)
+                        .background(boldPalette.container, ExpressiveCookie8Shape)
+                        .clickable(
+                            interactionSource = centerInteraction,
+                            indication = null
+                        ) {
+                            centerSpinCount++
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    ReactiveIcon(
+                        imageVector = Icons.Default.Autorenew,
+                        contentDescription = null,
+                        tint = boldPalette.content,
+                        size = 46.dp,
+                        motion = ReactiveMotionType.CYCLE_SPIN,
+                        isPressed = centerPressed,
+                        triggerKey = centerSpinCount,
+                        animateOnFirstComposition = true
+                    )
+                }
+
+                // Decorative Top-Left 4-Leaf Clover Badge (-32%)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = 6.dp, y = 8.dp)
+                        .size(58.dp)
+                        .graphicsLayer { rotationZ = -12f }
+                        .clip(ExpressiveClover4Shape)
+                        .background(oceanPalette.container, ExpressiveClover4Shape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "-32%",
+                        color = oceanPalette.content,
+                        fontFamily = DisplayHeroFontFamily,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 13.sp,
+                        letterSpacing = (-0.4).sp
+                    )
+                }
+
+                // Decorative Bottom-Right Privacy Badge
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = (-2).dp, y = (-10).dp)
+                        .graphicsLayer { rotationZ = -10f }
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(slatePalette.container, RoundedCornerShape(999.dp))
+                        .padding(horizontal = 13.dp, vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "0% cloud",
+                        color = slatePalette.content,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.5.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            ExpressiveBrandWordmark(
+                fontSize = 44.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(
+                        SpanStyle(
+                            fontFamily = DisplayFontFamily,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = (-0.2).sp
+                        )
+                    ) {
+                        append("Pause. ")
+                    }
+                    withStyle(
+                        SpanStyle(
+                            fontFamily = DisplayHeroFontFamily,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-0.3).sp
+                        )
+                    ) {
+                        append("Binge. ")
+                    }
+                    withStyle(
+                        SpanStyle(
+                            fontFamily = DisplayHeroFontFamily,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.3).sp
+                        )
+                    ) {
+                        append("Save.")
+                    }
+                },
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(26.dp))
+
+            WelcomeFeatureRow(
+                shape = ExpressiveCookie8Shape,
+                palette = ExpressivePalettes.softSky(),
+                icon = Icons.Default.Autorenew,
+                title = "30 days on, 15 days off · save ~32% yearly",
+                border = lightCardBorder
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            WelcomeFeatureRow(
+                shape = CircleShape,
+                palette = oceanPalette,
+                icon = Icons.Default.Shield,
+                title = "100% offline · zero internet permission",
+                border = lightCardBorder
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            WelcomeFeatureRow(
+                shape = ExpressiveClover4Shape,
+                palette = slatePalette,
+                icon = Icons.Default.NotificationsNone,
+                title = "Quiet local reminders before renewal dates",
+                border = lightCardBorder
+            )
+        }
+
+        // First-launch single app-wide currency selector
+        Surface(
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onChooseCurrency()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = lightCardBorder
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = MoneyFormatter.symbol(currencyCode),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "App currency · $currencyCode",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${MoneyFormatter.displayName(currencyCode)} · used across all services",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Default.ExpandMore,
+                    contentDescription = "Change currency",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        PrimaryOnboardingButton(
+            text = "Let's build your stack →",
+            enabled = !isSaving,
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onGetStarted()
+            }
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+    }
+}
+
+@Composable
+private fun WelcomeFeatureRow(
+    shape: Shape,
+    palette: ExpressiveTonalPalette,
+    icon: ImageVector,
+    title: String,
+    border: BorderStroke?
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = border
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(shape)
+                    .background(palette.container, shape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = palette.content,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun CurrencyPillButton(
+    currencyCode: String,
+    onClick: () -> Unit
+) {
+    val isDark = LocalSubCyclerDarkTheme.current
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(999.dp),
+        color = if (isDark) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+        border = if (isDark) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+    ) {
+        Row(
+            modifier = Modifier
+                .heightIn(min = 44.dp)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${MoneyFormatter.symbol(currencyCode)} $currencyCode",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.5.sp
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Icon(
+                imageVector = Icons.Default.ExpandMore,
+                contentDescription = "Choose currency",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
             )
         }
     }
@@ -240,120 +699,194 @@ private fun ServiceSelectionStep(
     onAddCustomService: (String, SubscriptionCategory) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val searchSeed = uiState.searchQuery.trim()
+    val hasExactMatch = uiState.services.any {
+        it.preset.name.equals(searchSeed, ignoreCase = true)
+    }
+    val slatePalette = ExpressivePalettes.softLavender()
+    val bgFadeColor = MaterialTheme.colorScheme.background
 
     Column(modifier = Modifier.fillMaxSize()) {
-        OnboardingHeader(
-            eyebrow = "BUILD YOUR STACK",
-            title = "What are you paying for?",
-            subtitle = "Tap everything that looks familiar. No logins, linking, or detective work."
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = uiState.searchQuery,
-            onValueChange = { onAction(OnboardingAction.SetSearchQuery(it)) },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search a service") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            colors = onboardingTextFieldColors()
-        )
-
-        val searchSeed = uiState.searchQuery.trim()
-        val hasExactMatch = uiState.services.any {
-            it.preset.name.equals(searchSeed, ignoreCase = true)
-        }
-        val customButtonText = if (searchSeed.isNotEmpty() && !hasExactMatch) {
-            "Add \"$searchSeed\" as custom"
-        } else {
-            "Add a custom service"
-        }
+        // Compact Top Utility Row with >= 44-48dp ergonomic targets
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(
-                onClick = onChooseCurrency,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ExpressiveReactiveIconButton(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                onClick = { onAction(OnboardingAction.Back) },
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                iconTint = MaterialTheme.colorScheme.onSurface,
+                buttonSize = 44.dp,
+                iconSize = 19.dp,
+                motion = ReactiveMotionType.NUDGE_LEFT
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "${MoneyFormatter.symbol(uiState.currencyCode)} ${uiState.currencyCode}",
-                    fontWeight = FontWeight.Bold
+                CurrencyPillButton(
+                    currencyCode = uiState.currencyCode,
+                    onClick = onChooseCurrency
                 )
-                Icon(
-                    imageVector = Icons.Default.ExpandMore,
-                    contentDescription = "Choose currency",
-                    modifier = Modifier.size(17.dp)
-                )
+
+                TextButton(
+                    onClick = { onAction(OnboardingAction.SkipOnboarding) },
+                    enabled = !uiState.isSaving,
+                    modifier = Modifier.heightIn(min = 44.dp)
+                ) {
+                    Text(
+                        text = "Skip",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
-            TextButton(
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "What's in your rotation?",
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontSize = 28.sp,
+            lineHeight = 32.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-0.7).sp
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Pill Search Bar with clear 'X' + Soft Tonal '+ Custom' Pill
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = { onAction(OnboardingAction.SetSearchQuery(it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Search services…", fontSize = 13.sp) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { onAction(OnboardingAction.SetSearchQuery("")) }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Clear search",
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                    }
+                } else null,
+                singleLine = true,
+                shape = RoundedCornerShape(999.dp),
+                colors = onboardingTextFieldColors()
+            )
+
+            var customTapCount by remember { mutableIntStateOf(0) }
+            Surface(
                 onClick = {
+                    customTapCount++
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onAddCustomService(
                         searchSeed.takeIf { it.isNotEmpty() && !hasExactMatch }.orEmpty(),
                         uiState.selectedCategory.subscriptionCategory ?: SubscriptionCategory.OTHER
                     )
                 },
-                modifier = Modifier.weight(1f, fill = false),
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                modifier = Modifier.height(52.dp),
+                shape = RoundedCornerShape(999.dp),
+                color = slatePalette.container
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = customButtonText,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(2.dp))
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-            contentPadding = PaddingValues(end = 8.dp)
-        ) {
-            items(OnboardingCategory.entries, key = { it.name }) { category ->
-                val selected = category == uiState.selectedCategory
-                FilterChip(
-                    selected = selected,
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onAction(OnboardingAction.SetCategory(category))
-                    },
-                    label = {
-                        Text(
-                            text = category.displayName,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    },
-                    shape = RoundedCornerShape(999.dp),
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = DarkSurface,
-                        selectedContainerColor = PrimarySky.copy(alpha = 0.14f),
-                        labelColor = TextSecondaryDark,
-                        selectedLabelColor = PrimarySky
-                    ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = selected,
-                        borderColor = DarkBorder,
-                        selectedBorderColor = PrimarySky.copy(alpha = 0.7f)
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ReactiveIcon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add a custom service",
+                        tint = slatePalette.content,
+                        size = 16.dp,
+                        motion = ReactiveMotionType.PLUS_TWIST,
+                        triggerKey = customTapCount
                     )
-                )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Custom",
+                        color = slatePalette.content,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.5.sp
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
+        // Borderless Full-Pill Category Filter Chips with smooth trailing fade
+        Box(modifier = Modifier.fillMaxWidth()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                contentPadding = PaddingValues(end = 26.dp)
+            ) {
+                items(OnboardingCategory.entries, key = { it.name }) { category ->
+                    val selected = category == uiState.selectedCategory
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onAction(OnboardingAction.SetCategory(category))
+                        },
+                        label = {
+                            Text(
+                                text = category.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        shape = RoundedCornerShape(999.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        border = null
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(24.dp)
+                    .height(40.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.background
+                            )
+                        )
+                    )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Shape-Morphing 3-Column Service Grid with soft bottom fade
         if (uiState.visibleServices.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -361,31 +894,63 @@ private fun ServiceSelectionStep(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "No preset found — add it as a custom service above.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "No matching preset",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (searchSeed.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = {
+                                onAddCustomService(
+                                    searchSeed,
+                                    uiState.selectedCategory.subscriptionCategory ?: SubscriptionCategory.OTHER
+                                )
+                            }
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add \"$searchSeed\" as custom", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 2.dp)
-            ) {
-                items(
-                    items = uiState.visibleServices,
-                    key = { it.preset.name }
-                ) { service ->
-                    ServiceTile(
-                        service = service,
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onAction(OnboardingAction.ToggleService(service.preset.name))
-                        }
-                    )
+            Box(modifier = Modifier.weight(1f)) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                    contentPadding = PaddingValues(top = 2.dp, bottom = 26.dp)
+                ) {
+                    items(
+                        items = uiState.visibleServices,
+                        key = { it.preset.name }
+                    ) { service ->
+                        ServiceTile(
+                            service = service,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onAction(OnboardingAction.ToggleService(service.preset.name))
+                            }
+                        )
+                    }
                 }
+                // Soft gradient fade so bottom row never slices harshly above CTA
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(24.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, bgFadeColor.copy(alpha = 0.85f))
+                            )
+                        )
+                )
             }
         }
 
@@ -401,132 +966,20 @@ private fun ServiceSelectionStep(
             )
         }
 
-        val selectedCount = uiState.selectedServices.size
-        Text(
-            text = selectionMessage(selectedCount),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 8.dp),
-            color = if (selectedCount > 0) PrimarySky else TextSecondaryDark,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
-        )
+        Spacer(modifier = Modifier.height(8.dp))
 
+        val selectedCount = uiState.selectedServices.size
         PrimaryOnboardingButton(
             text = if (selectedCount == 0) {
-                "Review my stack"
+                "Pick at least 1 service"
             } else {
-                "Review $selectedCount service${if (selectedCount == 1) "" else "s"}"
+                "Continue · $selectedCount picked"
             },
             enabled = selectedCount > 0,
             onClick = { onAction(OnboardingAction.ContinueToReview) }
         )
-
-        TextButton(
-            onClick = { onAction(OnboardingAction.SkipOnboarding) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isSaving
-        ) {
-            Text("I’ll add services later", color = TextSecondaryDark)
-        }
+        Spacer(modifier = Modifier.height(6.dp))
     }
-}
-
-@Composable
-private fun CurrencyPickerDialog(
-    selectedCurrencyCode: String,
-    onDismiss: () -> Unit,
-    onSelect: (String) -> Unit
-) {
-    var query by rememberSaveable { mutableStateOf("") }
-    val locale = Locale.getDefault()
-    val currencies = remember(selectedCurrencyCode, locale) {
-        MoneyFormatter.availableCurrencyCodes(selectedCurrencyCode, locale)
-    }
-    val filteredCurrencies = remember(query, currencies, locale) {
-        val normalizedQuery = query.trim().lowercase(locale)
-        if (normalizedQuery.isEmpty()) {
-            currencies
-        } else {
-            currencies.filter { code ->
-                code.lowercase(locale).contains(normalizedQuery) ||
-                    MoneyFormatter.displayName(code, locale).lowercase(locale).contains(normalizedQuery)
-            }
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Choose your currency", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Suggested from your device, but you’re always in control. No exchange-rate conversion is applied.",
-                    color = TextSecondaryDark,
-                    fontSize = 12.sp
-                )
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search code or currency") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = onboardingTextFieldColors()
-                )
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 340.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    items(filteredCurrencies, key = { it }) { code ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(9.dp))
-                                .clickable { onSelect(code) }
-                                .padding(horizontal = 10.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = MoneyFormatter.symbol(code, locale),
-                                modifier = Modifier.width(38.dp),
-                                color = PrimarySky,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(code, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text(
-                                    text = MoneyFormatter.displayName(code, locale),
-                                    color = TextSecondaryDark,
-                                    fontSize = 10.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            if (code == selectedCurrencyCode) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = PrimarySky,
-                                    modifier = Modifier.size(17.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        },
-        containerColor = DarkSurfaceVariant
-    )
 }
 
 @Composable
@@ -535,29 +988,29 @@ private fun CustomServiceDialog(
     initialCategory: SubscriptionCategory,
     currencyCode: String,
     onDismiss: () -> Unit,
-    onAdd: (String, SubscriptionCategory, String) -> Unit
+    onAdd: (String, SubscriptionCategory, String, BillingPeriod) -> Unit
 ) {
     var serviceName by rememberSaveable(initialName) { mutableStateOf(initialName) }
     var costInput by rememberSaveable(initialName) { mutableStateOf("") }
     var category by rememberSaveable(initialCategory) { mutableStateOf(initialCategory) }
+    var billingPeriod by rememberSaveable(initialName) { mutableStateOf(BillingPeriod.MONTHLY) }
     val isValid = serviceName.trim().isNotEmpty() &&
         costInput.toDoubleOrNull()?.let { it > 0.0 } == true
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         title = {
             Text(
-                text = "Add your own service",
-                fontWeight = FontWeight.Bold
+                text = "Add custom service",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 21.sp
             )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Not in the catalog? Name it, enter what you actually pay, and it joins your stack.",
-                    color = TextSecondaryDark,
-                    fontSize = 12.sp
-                )
                 OutlinedTextField(
                     value = serviceName,
                     onValueChange = { serviceName = it.take(60) },
@@ -565,28 +1018,58 @@ private fun CustomServiceDialog(
                     label = { Text("Service name") },
                     placeholder = { Text("e.g. My VPN") },
                     singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = onboardingTextFieldColors()
                 )
                 OutlinedTextField(
                     value = costInput,
                     onValueChange = { costInput = it.take(12) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Monthly price ($currencyCode)") },
+                    label = { Text("${billingPeriod.displayName} price ($currencyCode)") },
                     prefix = { Text(MoneyFormatter.symbol(currencyCode)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     isError = costInput.isNotEmpty() && costInput.toDoubleOrNull()?.let { it > 0.0 } != true,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = onboardingTextFieldColors()
                 )
-                Text(
-                    text = "CATEGORY",
-                    color = TextSecondaryDark,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    BillingPeriod.entries.forEach { period ->
+                        val selected = billingPeriod == period
+                        Surface(
+                            onClick = { billingPeriod = period },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(999.dp),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .heightIn(min = 42.dp)
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = period.displayName,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                ExpressiveEyebrow(text = "CATEGORY")
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     SubscriptionCategory.entries.chunked(4).forEach { categoryRow ->
                         Row(
@@ -598,27 +1081,24 @@ private fun CustomServiceDialog(
                                     selected = option == category,
                                     onClick = { category = option },
                                     modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(999.dp),
                                     label = {
                                         Text(
                                             text = customCategoryLabel(option),
                                             modifier = Modifier.fillMaxWidth(),
-                                            fontSize = 10.sp,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (option == category) FontWeight.Bold else FontWeight.Medium,
                                             maxLines = 1,
                                             textAlign = TextAlign.Center
                                         )
                                     },
                                     colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = DarkSurface,
-                                        selectedContainerColor = PrimarySky.copy(alpha = 0.14f),
-                                        labelColor = TextSecondaryDark,
-                                        selectedLabelColor = PrimarySky
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                                     ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = option == category,
-                                        borderColor = DarkBorder,
-                                        selectedBorderColor = PrimarySky.copy(alpha = 0.7f)
-                                    )
+                                    border = null
                                 )
                             }
                         }
@@ -627,19 +1107,23 @@ private fun CustomServiceDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { onAdd(serviceName.trim(), category, costInput) },
-                enabled = isValid
+            Button(
+                onClick = { onAdd(serviceName.trim(), category, costInput, billingPeriod) },
+                enabled = isValid,
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
-                Text("Add to my stack")
+                Text("Add", fontWeight = FontWeight.ExtraBold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
             }
-        },
-        containerColor = DarkSurfaceVariant
+        }
     )
 }
 
@@ -659,68 +1143,103 @@ private fun ServiceTile(
     service: OnboardingServiceDraft,
     onClick: () -> Unit
 ) {
-    val brandColor = colorFromHex(service.preset.colorHex)
-    val borderColor = if (service.isSelected) PrimarySky else DarkBorder
-    val backgroundColor = if (service.isSelected) {
-        PrimarySky.copy(alpha = 0.13f)
-    } else {
-        DarkSurface
-    }
+    val isDark = LocalSubCyclerDarkTheme.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val cardScale by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 0.93f
+            service.isSelected -> 1.01f
+            else -> 1f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "serviceTileScale"
+    )
+    val cornerRadius by animateDpAsState(
+        targetValue = if (service.isSelected) 28.dp else 22.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "serviceTileCorner"
+    )
+    val backgroundColor by animateColorAsState(
+        targetValue = if (service.isSelected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        animationSpec = tween(180),
+        label = "serviceTileBg"
+    )
 
     Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1.05f)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(13.dp),
+            .heightIn(min = 110.dp)
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            },
+        shape = RoundedCornerShape(cornerRadius),
         color = backgroundColor,
-        border = BorderStroke(1.dp, borderColor)
+        border = if (!isDark && !service.isSelected) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+        } else null
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 12.dp)
+        ) {
             if (service.isSelected) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(7.dp)
-                        .size(18.dp)
-                        .background(PrimarySky, CircleShape),
+                        .size(20.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
+                    ReactiveIcon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Selected",
-                        tint = OledBlack,
-                        modifier = Modifier.size(12.dp)
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        size = 12.dp,
+                        motion = ReactiveMotionType.POP_BOUNCE,
+                        triggerKey = service.isSelected,
+                        animateOnFirstComposition = true
                     )
                 }
             }
 
             Column(
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = 6.dp),
+                    .fillMaxWidth()
+                    .align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .background(brandColor, RoundedCornerShape(11.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = service.initials,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.height(7.dp))
+                ExpressiveServiceBadge(
+                    serviceName = service.preset.name,
+                    initials = service.initials,
+                    size = 46.dp,
+                    fontSize = 14.sp,
+                    isSelected = service.isSelected,
+                    isPressed = isPressed
+                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = service.preset.name,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
+                    color = if (service.isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    fontSize = 11.5.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = if (service.isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
                 )
@@ -733,94 +1252,102 @@ private fun ServiceTile(
 private fun ServiceReviewStep(
     uiState: OnboardingUiState,
     onAction: (OnboardingAction) -> Unit,
+    onChooseCurrency: () -> Unit,
     onChooseDate: (String) -> Unit
 ) {
+    val hasRegionalEstimates = uiState.selectedServices.any { it.availableTiers.isNotEmpty() }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        BackTitleRow(onBack = { onAction(OnboardingAction.Back) })
-        OnboardingHeader(
-            eyebrow = "QUICK CHECK",
-            title = "Make the estimates yours.",
-            subtitle = "Fix what you know. Everything stays editable after setup."
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ExpressiveReactiveIconButton(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                onClick = { onAction(OnboardingAction.Back) },
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                iconTint = MaterialTheme.colorScheme.onSurface,
+                buttonSize = 44.dp,
+                iconSize = 19.dp,
+                motion = ReactiveMotionType.NUDGE_LEFT
+            )
+            CurrencyPillButton(
+                currencyCode = uiState.currencyCode,
+                onClick = onChooseCurrency
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Confirm prices",
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            fontSize = 28.sp,
+            lineHeight = 32.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-0.7).sp
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = if (hasRegionalEstimates) {
+                "Estimated ${uiState.currencyCode} plans pre-filled — tap a tier, cycle pill, or edit anytime."
+            } else {
+                "Enter what you pay in ${uiState.currencyCode}. Dates are optional."
+            },
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.5.sp
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            color = DarkSurface,
-            border = BorderStroke(1.dp, DarkBorder)
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp)) {
-                Text(
-                    text = "MONTHLY PRICE + NEXT BILL",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.7.sp
-                )
-                Text(
-                    text = if (uiState.currencyCode == "USD") {
-                        "Prices are editable USD estimates. Leave a date unset if you’re unsure."
-                    } else {
-                        "Enter the price you actually pay in ${uiState.currencyCode}; USD estimates are left blank."
-                    },
-                    color = TextSecondaryDark,
-                    fontSize = 11.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         LazyColumn(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
-            contentPadding = PaddingValues(bottom = 8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 12.dp)
         ) {
             items(uiState.selectedServices, key = { it.preset.name }) { service ->
                 ReviewServiceCard(
                     service = service,
                     currencyCode = uiState.currencyCode,
+                    showMissingPriceError = uiState.errorMessage != null,
                     onCostChanged = {
                         onAction(OnboardingAction.UpdateCost(service.preset.name, it))
+                    },
+                    onSelectTier = { tier ->
+                        onAction(OnboardingAction.SelectPlanTier(service.preset.name, tier))
+                    },
+                    onBillingPeriodChanged = { period ->
+                        onAction(OnboardingAction.SetBillingPeriod(service.preset.name, period))
+                    },
+                    onToggleStrategy = {
+                        onAction(OnboardingAction.ToggleStrategy(service.preset.name))
                     },
                     onChooseDate = { onChooseDate(service.preset.name) }
                 )
             }
         }
 
-        Text(
-            text = "✦ You can fine-tune rotation dates later",
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            color = TextSecondaryDark,
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center
-        )
-
         uiState.errorMessage?.let { message ->
             Text(
                 text = message,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 7.dp),
+                    .padding(vertical = 7.dp),
                 color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
             )
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+
         PrimaryOnboardingButton(
-            text = "Show my starter plan",
+            text = "Continue",
             onClick = { onAction(OnboardingAction.ShowStarterPlan) }
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        SecondaryOnboardingButton(
-            text = "Back to services",
-            onClick = { onAction(OnboardingAction.Back) }
-        )
+        Spacer(modifier = Modifier.height(6.dp))
     }
 }
 
@@ -828,115 +1355,246 @@ private fun ServiceReviewStep(
 private fun ReviewServiceCard(
     service: OnboardingServiceDraft,
     currencyCode: String,
+    showMissingPriceError: Boolean,
     onCostChanged: (String) -> Unit,
+    onSelectTier: (ServicePlanTier) -> Unit,
+    onBillingPeriodChanged: (BillingPeriod) -> Unit,
+    onToggleStrategy: () -> Unit,
     onChooseDate: () -> Unit
 ) {
-    val brandColor = colorFromHex(service.preset.colorHex)
+    val haptic = LocalHapticFeedback.current
+    val isDark = LocalSubCyclerDarkTheme.current
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+    val hasPriceError = (service.costInput.isNotEmpty() && service.parsedCost == null) ||
+        (showMissingPriceError && service.parsedCost == null)
+    val zeroDecimal = MoneyFormatter.isZeroDecimal(currencyCode)
+    val isMonthly = service.billingPeriod == BillingPeriod.MONTHLY
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = DarkSurface,
-        border = BorderStroke(1.dp, DarkBorder)
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = if (isDark) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(vertical = 16.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .background(brandColor, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = service.initials,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
+                    ExpressiveServiceBadge(
+                        serviceName = service.preset.name,
+                        initials = service.initials,
+                        size = 42.dp,
+                        fontSize = 13.sp
                     )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = service.preset.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        // Tappable Strategy Toggle Pill on Monthly plans
+                        if (isMonthly) {
+                            val isRotating = service.effectiveStrategy != RotationStrategy.CONTINUOUS
+                            Surface(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onToggleStrategy()
+                                },
+                                shape = RoundedCornerShape(999.dp),
+                                color = if (isRotating) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
+                                }
+                            ) {
+                                Text(
+                                    text = if (isRotating) "45-day cycle · tap to switch" else "Continuous · tap to rotate",
+                                    color = if (isRotating) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Annual renewal plan",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.width(9.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = service.preset.name,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = if (service.preset.suggestedStrategy == RotationStrategy.CONTINUOUS) {
-                            "Continuous plan"
-                        } else {
-                            "45-day rotation suggested"
-                        },
-                        color = if (service.preset.suggestedStrategy == RotationStrategy.CONTINUOUS) {
-                            TextSecondaryDark
-                        } else {
-                            PrimarySky
-                        },
-                        fontSize = 10.sp
-                    )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Ergonomic Monthly / Yearly Pill Switcher
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
+                    Row(modifier = Modifier.padding(3.dp)) {
+                        BillingPeriod.entries.forEach { period ->
+                            val selected = service.billingPeriod == period
+                            Surface(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onBillingPeriodChanged(period)
+                                },
+                                shape = RoundedCornerShape(999.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .heightIn(min = 36.dp)
+                                        .padding(horizontal = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (period == BillingPeriod.MONTHLY) "Mo" else "Yr",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        color = if (selected) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(9.dp))
+            // Full-bleed 1-Tap Localized Plan Tier Chips (no hard right-edge chopping)
+            if (service.availableTiers.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    items(service.availableTiers, key = { "${it.label}_${it.billingPeriod}" }) { tier ->
+                        val isTierSelected = service.selectedTierLabel == tier.label &&
+                            service.billingPeriod == tier.billingPeriod
+                        Surface(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onSelectTier(tier)
+                            },
+                            shape = RoundedCornerShape(999.dp),
+                            color = if (isTierSelected) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            }
+                        ) {
+                            Text(
+                                text = "${tier.label} · ${MoneyFormatter.format(tier.price, currencyCode, maximumFractionDigits = if (zeroDecimal) 0 else 2)}${tier.billingPeriod.shortSuffix}",
+                                color = if (isTierSelected) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isTierSelected) FontWeight.Bold else FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
+                TextField(
                     value = service.costInput,
                     onValueChange = onCostChanged,
-                    modifier = Modifier.weight(0.9f),
-                    label = { Text("Price ($currencyCode)") },
+                    modifier = Modifier.weight(0.95f),
+                    label = { Text("${service.billingPeriod.displayName} ($currencyCode)") },
+                    placeholder = {
+                        Text(
+                            text = if (zeroDecimal) "e.g. 1590" else "0.00",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    },
                     prefix = { Text(MoneyFormatter.symbol(currencyCode)) },
                     singleLine = true,
-                    isError = service.parsedCost == null,
+                    isError = hasPriceError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(9.dp),
-                    colors = onboardingTextFieldColors()
+                    shape = RoundedCornerShape(14.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        errorContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        errorIndicatorColor = MaterialTheme.colorScheme.error,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 )
 
                 Surface(
+                    onClick = onChooseDate,
                     modifier = Modifier
-                        .weight(1.25f)
-                        .height(56.dp)
-                        .clickable(onClick = onChooseDate),
-                    shape = RoundedCornerShape(9.dp),
-                    color = DarkSurfaceVariant,
-                    border = BorderStroke(1.dp, DarkBorder)
+                        .weight(1.15f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             imageVector = Icons.Default.CalendarMonth,
                             contentDescription = null,
-                            tint = PrimarySky,
-                            modifier = Modifier.size(17.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(7.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
                                 text = "NEXT BILL",
-                                color = TextSecondaryDark,
-                                fontSize = 9.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
                             )
                             Text(
-                                text = service.nextBillingDate?.format(dateFormatter) ?: "Not set",
+                                text = service.nextBillingDate?.format(dateFormatter) ?: "Optional",
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 11.sp,
-                                maxLines = 1
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -951,116 +1609,179 @@ private fun StarterPlanStep(
     uiState: OnboardingUiState,
     onAction: (OnboardingAction) -> Unit
 ) {
+    val isDark = LocalSubCyclerDarkTheme.current
     val rotatableCount = uiState.selectedServices.count {
-        it.preset.suggestedStrategy != RotationStrategy.CONTINUOUS
+        it.effectiveStrategy != RotationStrategy.CONTINUOUS
     }
+    val sagePalette = ExpressivePalettes.softSage()
+    val boldPalette = ExpressivePalettes.boldPrimary()
+    val lightBorder = if (isDark) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
+    Column(modifier = Modifier.fillMaxSize()) {
+        BackTitleRow(onBack = { onAction(OnboardingAction.Back) })
+
+        Column(
             modifier = Modifier
-                .size(124.dp)
-                .background(PrimarySky.copy(alpha = 0.08f), CircleShape),
-            contentAlignment = Alignment.Center
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(82.dp)
-                    .background(DarkSurface, CircleShape),
+                    .size(76.dp)
+                    .clip(ExpressiveCookie12Shape)
+                    .background(boldPalette.container, ExpressiveCookie12Shape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
+                ReactiveIcon(
+                    imageVector = Icons.Default.Check,
                     contentDescription = null,
-                    tint = PrimarySky,
-                    modifier = Modifier.size(34.dp)
+                    tint = boldPalette.content,
+                    size = 34.dp,
+                    motion = ReactiveMotionType.POP_BOUNCE,
+                    triggerKey = uiState.selectedServices.size,
+                    animateOnFirstComposition = true
                 )
             }
-        }
 
-        Spacer(modifier = Modifier.height(22.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-        Text(
-            text = "Your stack is ready.",
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 29.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = (-0.8).sp,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = "SubCycler built a starter rotation. Nothing is locked in.",
-            modifier = Modifier.padding(top = 8.dp, start = 20.dp, end = 20.dp),
-            color = TextSecondaryDark,
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        SelectedServiceAvatars(services = uiState.selectedServices)
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            PayoffCard(
-                label = "TRACKED MONTHLY",
-                value = MoneyFormatter.format(uiState.monthlyCost, uiState.currencyCode),
-                valueColor = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-            PayoffCard(
-                label = "POSSIBLE YEARLY SAVE",
-                value = MoneyFormatter.format(
-                    uiState.potentialAnnualSavings,
-                    uiState.currencyCode,
-                    maximumFractionDigits = 0
-                ),
-                valueColor = Color(0xFF4ADE80),
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Text(
-            text = if (rotatableCount == 0) {
-                "Your selected services start as continuous plans."
-            } else {
-                "$rotatableCount service${if (rotatableCount == 1) "" else "s"} start with a suggested smart rotation."
-            },
-            modifier = Modifier.padding(top = 12.dp),
-            color = TextSecondaryDark,
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center
-        )
-
-        Row(
-            modifier = Modifier.padding(top = 16.dp, bottom = 18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Shield,
-                contentDescription = null,
-                tint = Color(0xFF4ADE80),
-                modifier = Modifier.size(15.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Private, offline, and no accounts connected",
-                color = TextSecondaryDark,
-                fontSize = 11.sp
+                text = "Your stack is ready",
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 32.sp,
+                lineHeight = 36.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.9).sp,
+                textAlign = TextAlign.Center
             )
+            Text(
+                text = if (rotatableCount == 0) {
+                    "All selected services start as continuous plans."
+                } else {
+                    "$rotatableCount service${if (rotatableCount == 1) "" else "s"} set to smart 45-day cycles. Editable anytime."
+                },
+                modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            SelectedServiceAvatars(services = uiState.selectedServices)
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PayoffCard(
+                    label = "CURRENT MONTHLY",
+                    value = MoneyFormatter.format(uiState.monthlyCost, uiState.currencyCode),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    valueColor = MaterialTheme.colorScheme.onSurface,
+                    border = lightBorder,
+                    modifier = Modifier.weight(1f)
+                )
+                PayoffCard(
+                    label = "EST. YEARLY SAVINGS",
+                    value = MoneyFormatter.format(
+                        uiState.potentialAnnualSavings,
+                        uiState.currencyCode,
+                        maximumFractionDigits = 0
+                    ),
+                    containerColor = sagePalette.container,
+                    labelColor = sagePalette.content.copy(alpha = 0.78f),
+                    valueColor = sagePalette.content,
+                    border = null,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Transparent Notification Pre-Priming Card (explains local reminders before OS prompt)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = lightBorder
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(ExpressiveClover4Shape)
+                            .background(MaterialTheme.colorScheme.primaryContainer, ExpressiveClover4Shape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsNone,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Quiet renewal reminders",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "1 local alert 3 days before a billing date · 100% on-device",
+                            fontSize = 11.5.sp,
+                            lineHeight = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = uiState.remindersEnabled,
+                        onCheckedChange = { onAction(OnboardingAction.SetRemindersEnabled(it)) }
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.padding(top = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Shield,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "100% offline · zero internet permission",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.5.sp
+                )
+            }
         }
 
         uiState.errorMessage?.let { message ->
             Text(
                 text = message,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
                 color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
@@ -1068,19 +1789,12 @@ private fun StarterPlanStep(
         }
 
         PrimaryOnboardingButton(
-            text = if (uiState.isSaving) "Building your dashboard…" else "Open my dashboard",
+            text = if (uiState.isSaving) "Saving…" else "Open dashboard",
             enabled = !uiState.isSaving,
             onClick = { onAction(OnboardingAction.CompleteOnboarding) },
             showProgress = uiState.isSaving
         )
-
-        TextButton(
-            onClick = { onAction(OnboardingAction.Back) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isSaving
-        ) {
-            Text("Edit my answers", color = TextSecondaryDark)
-        }
+        Spacer(modifier = Modifier.height(6.dp))
     }
 }
 
@@ -1088,37 +1802,29 @@ private fun StarterPlanStep(
 private fun SelectedServiceAvatars(services: List<OnboardingServiceDraft>) {
     val visibleServices = services.take(5)
     Row(
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         visibleServices.forEach { service ->
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 2.dp)
-                    .size(39.dp)
-                    .background(colorFromHex(service.preset.colorHex), RoundedCornerShape(11.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = service.initials,
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            ExpressiveServiceBadge(
+                serviceName = service.preset.name,
+                initials = service.initials,
+                size = 44.dp,
+                fontSize = 13.sp
+            )
         }
         if (services.size > visibleServices.size) {
             Box(
                 modifier = Modifier
-                    .padding(start = 3.dp)
-                    .size(39.dp)
-                    .background(DarkSurfaceVariant, RoundedCornerShape(11.dp)),
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "+${services.size - visibleServices.size}",
-                    color = PrimarySky,
-                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1130,63 +1836,33 @@ private fun SelectedServiceAvatars(services: List<OnboardingServiceDraft>) {
 private fun PayoffCard(
     label: String,
     value: String,
+    containerColor: Color,
+    labelColor: Color,
     valueColor: Color,
+    border: BorderStroke? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = DarkSurface,
-        border = BorderStroke(1.dp, DarkBorder)
+        shape = RoundedCornerShape(22.dp),
+        color = containerColor,
+        border = border
     ) {
-        Column(modifier = Modifier.padding(13.dp)) {
-            Text(
+        Column(modifier = Modifier.padding(16.dp)) {
+            ExpressiveEyebrow(
                 text = label,
-                color = TextSecondaryDark,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.55.sp
+                fontSize = 11.sp,
+                color = labelColor
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
+            Spacer(modifier = Modifier.height(6.dp))
+            ExpressiveMoneyText(
+                formattedAmount = value,
+                heroFontSize = 26.sp,
                 color = valueColor,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Black
+                elevateCurrencySymbol = false
             )
         }
     }
-}
-
-@Composable
-private fun OnboardingHeader(
-    eyebrow: String,
-    title: String,
-    subtitle: String
-) {
-    Text(
-        text = eyebrow,
-        color = PrimarySky,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.3.sp
-    )
-    Spacer(modifier = Modifier.height(6.dp))
-    Text(
-        text = title,
-        color = MaterialTheme.colorScheme.onSurface,
-        fontSize = 28.sp,
-        lineHeight = 30.sp,
-        fontWeight = FontWeight.Black,
-        letterSpacing = (-0.7).sp
-    )
-    Spacer(modifier = Modifier.height(7.dp))
-    Text(
-        text = subtitle,
-        color = TextSecondaryDark,
-        fontSize = 13.sp,
-        lineHeight = 18.sp
-    )
 }
 
 @Composable
@@ -1194,19 +1870,20 @@ private fun BackTitleRow(onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(36.dp),
+            .heightIn(min = 44.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
+        ExpressiveReactiveIconButton(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = "Back",
             onClick = onBack,
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-        }
+            shape = CircleShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            iconTint = MaterialTheme.colorScheme.onSurface,
+            buttonSize = 44.dp,
+            iconSize = 19.dp,
+            motion = ReactiveMotionType.NUDGE_LEFT
+        )
     }
 }
 
@@ -1221,50 +1898,25 @@ private fun PrimaryOnboardingButton(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(50.dp),
+            .height(54.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(999.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = PrimarySky,
-            contentColor = OledBlack,
-            disabledContainerColor = Color(0xFF1F2C32),
-            disabledContentColor = Color(0xFF71818A)
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
         )
     ) {
         if (showProgress) {
             CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),
-                color = OledBlack,
+                color = MaterialTheme.colorScheme.onPrimary,
                 strokeWidth = 2.dp
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
-        Text(text = text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-    }
-}
-
-@Composable
-private fun SecondaryOnboardingButton(
-    text: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(13.dp),
-        color = DarkSurface,
-        border = BorderStroke(1.dp, DarkBorder)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = text,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
-            )
-        }
+        Text(text = text, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
     }
 }
 
@@ -1288,9 +1940,8 @@ private fun BillingDatePicker(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val selectedDate = pickerState.selectedDateMillis?.let { millis ->
-                        Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                    }
+                    val selectedMillis = pickerState.selectedDateMillis ?: initialMillis
+                    val selectedDate = Instant.ofEpochMilli(selectedMillis).atZone(ZoneOffset.UTC).toLocalDate()
                     onDateSelected(selectedDate)
                 }
             ) {
@@ -1322,29 +1973,12 @@ private fun BillingDatePicker(
 
 @Composable
 private fun onboardingTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedContainerColor = DarkSurfaceVariant,
-    unfocusedContainerColor = DarkSurface,
-    focusedBorderColor = PrimarySky,
-    unfocusedBorderColor = DarkBorder,
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = Color.Transparent,
     focusedTextColor = MaterialTheme.colorScheme.onSurface,
     unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-    focusedLabelColor = PrimarySky,
-    unfocusedLabelColor = TextSecondaryDark,
-    focusedPlaceholderColor = TextSecondaryDark,
-    unfocusedPlaceholderColor = TextSecondaryDark,
-    focusedLeadingIconColor = PrimarySky,
-    unfocusedLeadingIconColor = TextSecondaryDark
+    focusedLabelColor = MaterialTheme.colorScheme.primary,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
 )
-
-private fun selectionMessage(selectedCount: Int): String = when (selectedCount) {
-    0 -> "Pick your first service"
-    1 -> "1 picked · good start"
-    2 -> "2 picked · stack taking shape"
-    3 -> "3 picked · nice stack"
-    else -> "$selectedCount picked · ready for a quick check"
-}
-
-private fun colorFromHex(hex: String): Color {
-    return runCatching { Color(android.graphics.Color.parseColor(hex)) }
-        .getOrDefault(PrimarySky)
-}
