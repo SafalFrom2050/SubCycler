@@ -1,116 +1,172 @@
 package com.subtrack.core.ui.components
 
-import com.subtrack.core.common.currency.MoneyFormatter
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.domain.engine.RotationEngine
+import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.CyclePhase
 import com.subtrack.core.domain.model.CycleStatus
 import com.subtrack.core.domain.model.RotationStrategy
-import com.subtrack.core.ui.theme.*
+import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @Composable
 fun CycleTimelineView(
     cycleStatus: CycleStatus,
+    inspectedDate: LocalDate? = null,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val sub = cycleStatus.subscription
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d")
+    val isActiveNow = cycleStatus.phase == CyclePhase.ACTIVE
+    val isYearly = sub.billingPeriod == BillingPeriod.YEARLY
+    val phasePalette = if (isActiveNow) ExpressivePalettes.softSky() else ExpressivePalettes.softLavender()
+    val cardBorder = expressiveCardBorder()
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
+    val cardContent: @Composable () -> Unit = {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(vertical = 16.dp)
         ) {
-            // Subscription Header & Current Status
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = sub.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    ExpressiveServiceBadge(
+                        serviceName = sub.name,
+                        size = 42.dp,
+                        fontSize = 13.sp
                     )
-                    Text(
-                        text = if (sub.strategy == RotationStrategy.CONTINUOUS) "Continuous 30d Cycle" else "45-Day Cycle (30d Active + 15d Blackout)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = sub.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = when {
+                                isYearly -> "Annual 365d cycle"
+                                sub.strategy == RotationStrategy.CONTINUOUS -> "Always on · 30d"
+                                sub.strategy == RotationStrategy.ROTATION_45_DAYS -> "45d cycle · 30d on / 15d off"
+                                sub.strategy == RotationStrategy.ROTATION_60_DAYS -> "60d swap · 30d on / 30d off"
+                                else -> "${sub.activeDays}d on · ${sub.blackoutDays}d off"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
-                // Current Phase Badge
-                val currentBadgeColor = if (cycleStatus.phase == CyclePhase.ACTIVE) PrimarySky else CyberIndigo
+                Spacer(modifier = Modifier.width(8.dp))
+
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = currentBadgeColor.copy(alpha = 0.15f)
+                    shape = RoundedCornerShape(999.dp),
+                    color = phasePalette.container
                 ) {
                     Text(
-                        text = if (cycleStatus.phase == CyclePhase.ACTIVE) "NOW: Active" else "NOW: Blackout",
-                        color = currentBadgeColor,
+                        text = if (isActiveNow) "Active" else "Paused",
+                        color = phasePalette.content,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        fontSize = 11.5.sp,
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Horizontal Scrollable Timeline Blocks
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
+            // Full-bleed LazyRow prevents hard mid-character edge clipping
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                cycleStatus.timelineBlocks.forEachIndexed { index, block ->
+                items(
+                    items = cycleStatus.timelineBlocks,
+                    key = { "${it.startDate}_${it.phase}" }
+                ) { block ->
                     val isCurrent = block.isCurrent
-                    val blockColor = if (block.phase == CyclePhase.ACTIVE) PrimarySky else CyberIndigoLight
-                    val blockBg = if (block.phase == CyclePhase.ACTIVE) {
-                        PrimarySky.copy(alpha = 0.12f)
+                    val isInspected = inspectedDate != null &&
+                        !inspectedDate.isBefore(block.startDate) &&
+                        inspectedDate.isBefore(block.endDate)
+                    val blockPalette = if (block.phase == CyclePhase.ACTIVE) {
+                        ExpressivePalettes.softSky()
                     } else {
-                        CyberIndigo.copy(alpha = 0.12f)
+                        ExpressivePalettes.softLavender()
                     }
+
+                    val blockDays = ChronoUnit.DAYS.between(block.startDate, block.endDate).toInt().coerceAtLeast(1)
+                    // Proportional duration widths: 30d active looks visibly wider than a 7d or 15d break!
+                    val blockWidth = when {
+                        isYearly -> 178.dp
+                        else -> (blockDays * 4.2f + 64f).dp.coerceIn(112.dp, 190.dp)
+                    }
+                    val isPausedBlock = block.phase == CyclePhase.BLACKOUT
+                    val blockCorner = RoundedCornerShape(16.dp)
 
                     Box(
                         modifier = Modifier
-                            .width(130.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(blockBg)
-                            .then(
-                                if (isCurrent) Modifier.border(1.dp, blockColor, RoundedCornerShape(10.dp))
-                                else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                            .width(blockWidth)
+                            .clip(blockCorner)
+                            .background(
+                                if (isCurrent || isInspected) blockPalette.selectedContainer else blockPalette.container
                             )
-                            .padding(10.dp)
+                            .then(
+                                if (isPausedBlock) {
+                                    Modifier.diagonalHatchPattern(
+                                        color = blockPalette.content.copy(alpha = 0.08f),
+                                        spacing = 8.dp,
+                                        strokeWidth = 1.dp
+                                    )
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .then(
+                                if (isInspected && !isCurrent) {
+                                    Modifier.border(
+                                        1.8.dp,
+                                        MaterialTheme.colorScheme.primary,
+                                        blockCorner
+                                    )
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .padding(12.dp)
                     ) {
                         Column {
                             Row(
@@ -119,36 +175,61 @@ fun CycleTimelineView(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (block.phase == CyclePhase.ACTIVE) "ACTIVE" else "BLACKOUT",
-                                    fontSize = 10.sp,
+                                    text = if (block.phase == CyclePhase.ACTIVE) "ACTIVE" else "PAUSED",
+                                    fontSize = 10.5.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = blockColor
+                                    letterSpacing = 0.6.sp,
+                                    color = blockPalette.content
                                 )
-                                if (isCurrent) {
-                                    Text(
-                                        text = "CURRENT",
-                                        fontSize = 8.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = blockColor
-                                    )
+                                when {
+                                    isInspected && !isCurrent -> Surface(
+                                        shape = RoundedCornerShape(999.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                    ) {
+                                        Text(
+                                            text = "DATE",
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    isCurrent -> Surface(
+                                        shape = RoundedCornerShape(999.dp),
+                                        color = blockPalette.accent.copy(alpha = 0.18f)
+                                    ) {
+                                        Text(
+                                            text = "NOW",
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = blockPalette.accent,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(6.dp))
 
                             Text(
-                                text = "${block.startDate.format(dateFormatter)} - ${block.endDate.format(dateFormatter)}",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                text = "${block.startDate.format(dateFormatter)} – ${block.endDate.format(dateFormatter)}",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = blockPalette.content,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
 
                             Spacer(modifier = Modifier.height(2.dp))
 
                             Text(
-                                text = if (block.phase == CyclePhase.ACTIVE) "30 Days Active" else "15 Days Blackout",
-                                fontSize = 9.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = when {
+                                    isYearly -> "365d annual"
+                                    block.phase == CyclePhase.ACTIVE -> "${blockDays}d active"
+                                    else -> "${blockDays}d break"
+                                },
+                                fontSize = 11.sp,
+                                color = blockPalette.content.copy(alpha = 0.78f)
                             )
                         }
                     }
@@ -157,17 +238,45 @@ fun CycleTimelineView(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Action guidance footer
-            val footerText = when (cycleStatus.phase) {
-                CyclePhase.ACTIVE -> "💡 Tip: Auto-renew should be turned off before ${cycleStatus.phaseEndDate.format(dateFormatter)}."
-                CyclePhase.BLACKOUT -> "💡 Tip: Blackout saves you ~${MoneyFormatter.format(sub.cost * 0.50, sub.currency)} per rotation. Resubscribe on ${cycleStatus.phaseEndDate.format(dateFormatter)}."
+            val formattedEnd = RotationEngine.formatReadableDate(cycleStatus.phaseEndDate)
+            val footerText = when {
+                isYearly -> "Annual renewal on $formattedEnd."
+                !sub.isRotating -> "Continuous monthly renewal on $formattedEnd."
+                cycleStatus.phase == CyclePhase.ACTIVE && cycleStatus.isAutoRenewCancelledForCurrentCycle ->
+                    "Auto-renew cancelled · ${sub.blackoutDays}-day pause begins $formattedEnd."
+                cycleStatus.phase == CyclePhase.ACTIVE ->
+                    "Turn off auto-renew before $formattedEnd."
+                else ->
+                    "This break saves ~${MoneyFormatter.format(cycleStatus.perBreakSavings, sub.currency)}. Re-subscribe on $formattedEnd."
             }
             Text(
                 text = footerText,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
+    }
+
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = cardBorder,
+            tonalElevation = 0.dp,
+            content = cardContent
+        )
+    } else {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = cardBorder,
+            tonalElevation = 0.dp,
+            content = cardContent
+        )
     }
 }

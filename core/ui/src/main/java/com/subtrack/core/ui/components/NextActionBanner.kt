@@ -1,27 +1,36 @@
 package com.subtrack.core.ui.components
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.subtrack.core.domain.model.ActionUrgency
 import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.CycleStatus
-import com.subtrack.core.ui.theme.ErrorRose
-import com.subtrack.core.ui.theme.WarningAmber
 
 @Composable
 fun NextActionBanner(
     urgentStatuses: List<CycleStatus>,
     calendarSuggestion: CalendarAwareSuggestion? = null,
+    onUrgentActionClick: (CycleStatus) -> Unit = {},
     onCalendarPrimaryAction: () -> Unit = {},
     onCalendarDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -31,60 +40,95 @@ fun NextActionBanner(
     val topUrgent = urgentStatuses.first()
     val action = topUrgent.nextAction
     val isDue = action.urgency == ActionUrgency.ACTION_DUE
-
-    val containerColor = if (isDue) Color(0xFF160A0A) else Color(0xFF14120A)
-    val contentColor = if (isDue) ErrorRose else WarningAmber
-    val cleanTitle = action.title.replace("⚡ ", "").replace("⚠️ ", "").replace("🔔 ", "")
+    val palette = if (isDue) ExpressivePalettes.softRose() else ExpressivePalettes.softAmber()
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val bannerScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "urgentBannerScale"
+    )
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = containerColor,
-        border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = contentColor.copy(alpha = 0.35f)
-        )
+        onClick = { onUrgentActionClick(topUrgent) },
+        interactionSource = interactionSource,
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = bannerScale
+                scaleY = bannerScale
+            },
+        shape = RoundedCornerShape(24.dp),
+        color = palette.container
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .padding(16.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.WarningAmber,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(ExpressiveCookie8Shape)
+                        .background(palette.selectedContainer, ExpressiveCookie8Shape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ReactiveIcon(
+                        imageVector = Icons.Default.WarningAmber,
+                        contentDescription = null,
+                        tint = palette.content,
+                        size = 18.dp,
+                        motion = ReactiveMotionType.BELL_RING,
+                        isPressed = isPressed,
+                        triggerKey = topUrgent.subscription.id,
+                        animateOnFirstComposition = isDue
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "${topUrgent.subscription.name}: $cleanTitle",
+                        text = "${topUrgent.subscription.name}: ${action.title}",
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = contentColor
+                        fontSize = 14.5.sp,
+                        color = palette.content
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = action.description,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 12.sp,
+                        color = palette.content.copy(alpha = 0.78f)
                     )
                 }
+                ReactiveIcon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Open details",
+                    tint = palette.content.copy(alpha = 0.75f),
+                    size = 20.dp,
+                    motion = ReactiveMotionType.NUDGE_RIGHT,
+                    isPressed = isPressed
+                )
             }
             calendarSuggestion?.let { suggestion ->
                 Spacer(Modifier.height(10.dp))
-                HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
+                HorizontalDivider(color = palette.content.copy(alpha = 0.14f))
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = suggestion.message,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 12.sp,
+                    color = palette.content.copy(alpha = 0.85f)
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onCalendarDismiss) { Text("Dismiss") }
-                    TextButton(onClick = onCalendarPrimaryAction) { Text(suggestion.primaryActionLabel) }
+                    TextButton(onClick = onCalendarDismiss) {
+                        Text("Dismiss", color = palette.content.copy(alpha = 0.75f))
+                    }
+                    TextButton(onClick = onCalendarPrimaryAction) {
+                        Text(suggestion.primaryActionLabel, color = palette.content, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

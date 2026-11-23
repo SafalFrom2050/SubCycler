@@ -2,71 +2,79 @@ package com.subtrack.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ==========================================
-// OLED Pitch Black & Obsidian Hierarchy
-// ==========================================
-val OledBlack = Color(0xFF000000)
-val DarkBg = OledBlack
-val DarkSurface = Color(0xFF0A0A0A)
-val DarkSurfaceVariant = Color(0xFF121212)
-val DarkBorder = Color(0xFF1C1C1E)          // Subtle non-contrasty 1dp hairline border
-val DarkBorderSubtle = Color(0x14FFFFFF)    // 8% white hairline alpha
+// ============================================================
+// SubCycler Signature Material 3 Expressive Brand Palette (v3.1)
+// 70% Clean Architectural Neutral · 30% Botanical Emerald Focal Accent
+// ============================================================
 
+// Light Theme — Crisp Neutral Alabaster Canvas, Pure White Bento Cards & Botanical Emerald Accent
+val BrandLightBackground = Color(0xFFF5F6F5)             // Calm neutral alabaster (1% organic warmth)
+val BrandLightSurface = Color(0xFFF5F6F5)
+val BrandLightSurfaceContainerLowest = Color(0xFFFFFFFF)
+val BrandLightSurfaceContainerLow = Color(0xFFFAFBFA)    // Modal sheets & dialogs
+val BrandLightSurfaceContainer = Color(0xFFFFFFFF)       // Pure crisp white bento cards
+val BrandLightSurfaceContainerHigh = Color(0xFFECEFED)   // Neutral stone-mist inputs, chips & pills
+val BrandLightSurfaceContainerHighest = Color(0xFFE0E4E2)
 
-// ==========================================
-// Primary Bright Accent: Material Sky Blue
-// ==========================================
-val Sky200 = Color(0xFFBAE6FD)
-val Sky300 = Color(0xFF7DD3FC)
-val Sky400 = Color(0xFF38BDF8)
-val Sky500 = Color(0xFF0EA5E9)
-val Sky600 = Color(0xFF0284C7)
-val Sky700 = Color(0xFF0369A1)
-val SkyContainer = Color(0xFF082F49)
-val SkyBgSubtle = Color(0x1A38BDF8)
+val BrandLightPrimary = Color(0xFF0C6B4E)                // Signature Deep Botanical Emerald
+val BrandLightOnPrimary = Color(0xFFFFFFFF)
+val BrandLightPrimaryContainer = Color(0xFFD2F2E3)       // Fresh Mint highlight container
+val BrandLightOnPrimaryContainer = Color(0xFF053324)
 
-val PrimarySky = Sky400
-val PrimarySkyBright = Sky300
-val PrimarySkyContainer = SkyContainer
+val BrandLightSecondary = Color(0xFF196B64)              // Complementary Cool Jade
+val BrandLightOnSecondary = Color(0xFFFFFFFF)
+val BrandLightSecondaryContainer = Color(0xFFD6F0ED)
+val BrandLightOnSecondaryContainer = Color(0xFF073633)
 
-// Legacy compatibility aliases mapped to Sky Blue
-val Emerald50 = Sky200
-val Emerald100 = Sky300
-val Emerald400 = Sky400
-val Emerald500 = Sky400
-val Emerald600 = Sky500
-val Emerald700 = Sky600
-val MintBright = Sky400
-val MintPrimary = Sky400
-val MintContainer = SkyContainer
-val MintBgSubtle = SkyBgSubtle
+val BrandLightTertiary = Color(0xFF4C5D6B)               // Calm Cool Slate (Paused / Rest states)
+val BrandLightOnTertiary = Color(0xFFFFFFFF)
+val BrandLightTertiaryContainer = Color(0xFFE3E9EE)
+val BrandLightOnTertiaryContainer = Color(0xFF1E2B36)
 
-// ==========================================
-// Sparse Secondary Accent: Cyber Indigo
-// ==========================================
-val CyberIndigo = Color(0xFF6366F1)
-val CyberIndigoLight = Color(0xFF818CF8)
-val CyberIndigoContainer = Color(0xFF1E1B4B)
-val BlackoutIndigo = CyberIndigo
-val BlackoutIndigoBg = CyberIndigoContainer
+val BrandLightError = Color(0xFFBA1A1A)
+val BrandLightOnError = Color(0xFFFFFFFF)
+val BrandLightErrorContainer = Color(0xFFFFDAD6)
+val BrandLightOnErrorContainer = Color(0xFF410002)
 
-// ==========================================
-// Semantic Alert & Status Colors
-// ==========================================
-val ActiveSky = PrimarySky
-val ActiveSkyBg = PrimarySkyContainer
-val ActiveGreen = ActiveSky
-val ActiveGreenBg = ActiveSkyBg
-val AlertCrimson = Color(0xFFEF4444)
-val AlertCrimsonBg = Color(0xFF450A0A)
-val ErrorRose = AlertCrimson
-val WarningAmber = Color(0xFFF59E0B)
-val WarningAmberBg = Color(0xFF451A03)
+val BrandLightOnSurface = Color(0xFF151918)              // Crisp editorial charcoal ink
+val BrandLightOnSurfaceVariant = Color(0xFF5A6360)       // Balanced neutral slate ink
+val BrandLightOutline = Color(0xFF838C89)
+val BrandLightOutlineVariant = Color(0xFFD6DCDA)
 
-// ==========================================
-// Typography & Contrast Hierarchy
-// ==========================================
-val TextPrimaryDark = Color(0xFFFFFFFF)
-val TextSecondaryDark = Color(0xFFA1A1AA)
-val TextTertiaryDark = Color(0xFF71717A)
+// Hero Bento Duotone Backdrop Base
+val BrandLightHeroContainer = Color(0xFFCDEFE0)
+val BrandDarkHeroContainer = Color(0xFF133A2E)
 
+// Dark Theme — Deep Refined Obsidian-Graphite + Luminous Botanical Mint Focal Accents
+val BrandDarkBackground = Color(0xFF101213)              // Clean neutral obsidian-graphite
+val BrandDarkSurface = Color(0xFF101213)
+val BrandDarkSurfaceContainerLowest = Color(0xFF0B0D0E)
+val BrandDarkSurfaceContainerLow = Color(0xFF16191B)     // Modal sheets & dialogs
+val BrandDarkSurfaceContainer = Color(0xFF1B1F21)        // Velvet charcoal-graphite bento cards
+val BrandDarkSurfaceContainerHigh = Color(0xFF24292C)    // Neutral elevated dock, inputs & nested pills
+val BrandDarkSurfaceContainerHighest = Color(0xFF30363A)
+
+val BrandDarkPrimary = Color(0xFF7CE6C1)                 // Luminous soft botanical mint
+val BrandDarkOnPrimary = Color(0xFF042C1F)
+val BrandDarkPrimaryContainer = Color(0xFF164636)        // Rich emerald tonal pill container
+val BrandDarkOnPrimaryContainer = Color(0xFFCCF7E7)
+
+val BrandDarkSecondary = Color(0xFF84DBD4)               // Cool seafoam jade
+val BrandDarkOnSecondary = Color(0xFF05302D)
+val BrandDarkSecondaryContainer = Color(0xFF164341)
+val BrandDarkOnSecondaryContainer = Color(0xFFC9F5F2)
+
+val BrandDarkTertiary = Color(0xFFB3C3CF)                // Calm Cool Slate (Paused / Rest states)
+val BrandDarkOnTertiary = Color(0xFF1D2A33)
+val BrandDarkTertiaryContainer = Color(0xFF28333B)
+val BrandDarkOnTertiaryContainer = Color(0xFFDBE5EC)
+
+val BrandDarkError = Color(0xFFFFB4AB)
+val BrandDarkOnError = Color(0xFF690005)
+val BrandDarkErrorContainer = Color(0xFF5E1D21)
+val BrandDarkOnErrorContainer = Color(0xFFFFDAD6)
+
+val BrandDarkOnSurface = Color(0xFFECEFEE)               // Crisp warm-white neutral ink
+val BrandDarkOnSurfaceVariant = Color(0xFF9AA4A0)        // Calm muted neutral grey ink
+val BrandDarkOutline = Color(0xFF6B7572)
+val BrandDarkOutlineVariant = Color(0xFF2D3337)
