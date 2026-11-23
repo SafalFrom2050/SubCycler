@@ -1,14 +1,21 @@
 package com.subtrack.app.cancellation
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.test.platform.app.InstrumentationRegistry
 import com.subtrack.core.domain.model.CancellationLinks
+import com.subtrack.core.domain.model.PendingSubscriptionAction
+import com.subtrack.core.domain.model.SubscriptionActionProgressType
 import com.subtrack.core.ui.components.CancellationOptionsDialog
+import com.subtrack.core.ui.components.PendingSubscriptionActionDialog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -54,5 +61,41 @@ class CancellationOptionsDialogTest {
         compose.runOnIdle { canOpen = true }
         compose.onNodeWithText("Netflix membership").performScrollTo().performClick()
         compose.onNodeWithText("Couldn't open the link", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun pendingRecoveryPopupExposesCompletedAndCancelActions() {
+        var completed = false
+        var cancelled = false
+        compose.setContent {
+            PendingSubscriptionActionDialog(
+                pendingAction = PendingSubscriptionAction(
+                    subscriptionId = 1L,
+                    subscriptionName = "Netflix",
+                    actionType = SubscriptionActionProgressType.UNSUBSCRIBE
+                ),
+                onCompleted = { completed = true },
+                onCancel = { cancelled = true }
+            )
+        }
+        compose.onNodeWithText("Unsubscribing from Netflix").assertIsDisplayed()
+        compose.onNodeWithText("Completed").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.runOnIdle {
+            assertTrue(completed)
+            assertTrue(cancelled)
+        }
+    }
+
+    @Test
+    fun manifestRequestsNoInternetPermission() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val packageInfo = context.packageManager.getPackageInfo(
+            context.packageName,
+            PackageManager.GET_PERMISSIONS
+        )
+        val requested = packageInfo.requestedPermissions.orEmpty().toSet()
+        assertFalse(Manifest.permission.INTERNET in requested)
+        assertFalse("android.permission.USE_EXACT_ALARM" in requested)
     }
 }
