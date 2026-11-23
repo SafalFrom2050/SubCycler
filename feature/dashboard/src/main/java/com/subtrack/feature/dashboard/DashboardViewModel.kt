@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.subtrack.core.common.dispatcher.DefaultDispatcher
 import com.subtrack.core.common.time.TimeProvider
+import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.ActionUrgency
+import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.domain.model.CalendarAccessIssue
 import com.subtrack.core.domain.model.CalendarAccessState
 import com.subtrack.core.domain.model.CalendarAwareSuggestion
@@ -13,14 +15,18 @@ import com.subtrack.core.domain.model.CalendarSuggestionIdentity
 import com.subtrack.core.domain.model.CyclePhase
 import com.subtrack.core.domain.model.CycleStatus
 import com.subtrack.core.domain.model.DeviceCalendar
+import com.subtrack.core.domain.model.PendingSubscriptionAction
 import com.subtrack.core.domain.model.PortfolioSummary
 import com.subtrack.core.domain.model.Subscription
+import com.subtrack.core.domain.model.SubscriptionActionProgressType
+import com.subtrack.core.domain.repository.CalendarAwarenessRepository
+import com.subtrack.core.domain.repository.CalendarAwarenessScheduler
+import com.subtrack.core.domain.repository.NoOpSubscriptionActionNotifier
+import com.subtrack.core.domain.repository.SubscriptionActionNotifier
+import com.subtrack.core.domain.repository.UserPreferencesRepository
 import com.subtrack.core.domain.usecase.GetPortfolioSummaryUseCase
 import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
 import com.subtrack.core.domain.usecase.ManageSubscriptionUseCase
-import com.subtrack.core.domain.repository.UserPreferencesRepository
-import com.subtrack.core.domain.repository.CalendarAwarenessRepository
-import com.subtrack.core.domain.repository.CalendarAwarenessScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
@@ -29,6 +35,8 @@ import javax.inject.Inject
 
 data class DashboardUiState(
     val cycleStatuses: List<CycleStatus> = emptyList(),
+    val allCycleStatuses: List<CycleStatus> = emptyList(),
+    val totalSubscriptionCount: Int = 0,
     val urgentStatuses: List<CycleStatus> = emptyList(),
     val portfolioSummary: PortfolioSummary = PortfolioSummary(
         totalSubscriptions = 0,
@@ -45,8 +53,13 @@ data class DashboardUiState(
     ),
     val currencyCode: String = "USD",
     val preferredCurrencyCode: String = "USD",
+    val notificationLeadDays: Int = 3,
+    val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val excludedCurrencyCount: Int = 0,
+    val incompleteCount: Int = 0,
     val selectedFilter: SubscriptionFilter = SubscriptionFilter.ALL,
+    val selectedSort: SubscriptionSort = SubscriptionSort.SOONEST,
+    val pendingSubscriptionAction: PendingSubscriptionAction? = null,
     val calendarSettings: CalendarAwarenessSettings = CalendarAwarenessSettings(),
     val calendarAccessState: CalendarAccessState = CalendarAccessState.DISABLED,
     val calendarSetupStep: CalendarSetupStep = CalendarSetupStep.IDLE,
@@ -54,6 +67,7 @@ data class DashboardUiState(
     val calendarSelectionSeed: Set<Long> = emptySet(),
     val isCalendarPermissionGranted: Boolean = false,
     val calendarSuggestion: CalendarAwareSuggestion? = null,
+    val backupFeedback: String? = null,
     val isLoading: Boolean = true
 )
 
@@ -73,17 +87,38 @@ private data class CalendarConfigurationUiState(
 
 enum class SubscriptionFilter(val displayName: String) {
     ALL("All"),
-    ACTIVE("Active Now"),
-    BLACKOUT("In Blackout"),
-    ROTATING("45d Rotators")
+    ACTIVE("Active"),
+    BLACKOUT("Paused"),
+    ROTATING("Rotating")
+}
+
+enum class SubscriptionSort(val displayName: String) {
+    SOONEST("Soonest"),
+    COST("Price"),
+    NAME("A–Z")
 }
 
 sealed interface DashboardAction {
     data class SetFilter(val filter: SubscriptionFilter) : DashboardAction
+    data class SetSort(val sort: SubscriptionSort) : DashboardAction
     data class AddSubscription(val subscription: Subscription) : DashboardAction
     data class UpdateSubscription(val subscription: Subscription) : DashboardAction
     data class DeleteSubscription(val subscription: Subscription) : DashboardAction
     data class ToggleAutoRenew(val subscriptionId: Long) : DashboardAction
+    data class ExtendActiveCycle(val subscriptionId: Long) : DashboardAction
+    data class ResumeToday(val subscriptionId: Long) : DashboardAction
+    data class StartSubscriptionActionProgress(
+        val subscriptionId: Long,
+        val subscriptionName: String,
+        val actionType: SubscriptionActionProgressType
+    ) : DashboardAction
+    data class ResolvePendingSubscriptionAction(val completed: Boolean) : DashboardAction
+    data class SetDefaultCurrency(val currencyCode: String) : DashboardAction
+    data class SetNotificationLeadDays(val days: Int) : DashboardAction
+    data class SetThemeMode(val themeMode: AppThemeMode) : DashboardAction
+    data class ImportBackupJson(val rawJson: String) : DashboardAction
+    data class SetBackupFeedback(val message: String?) : DashboardAction
+    data object RefreshToday : DashboardAction
     data object BeginCalendarSetup : DashboardAction
     data object CancelCalendarSetup : DashboardAction
     data class CalendarPermissionResult(val granted: Boolean) : DashboardAction
@@ -102,18 +137,23 @@ class DashboardViewModel @Inject constructor(
     private val calendarAwarenessRepository: CalendarAwarenessRepository,
     private val calendarAwarenessScheduler: CalendarAwarenessScheduler,
     private val timeProvider: TimeProvider,
-    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
+    private val subscriptionActionNotifier: SubscriptionActionNotifier = NoOpSubscriptionActionNotifier
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(SubscriptionFilter.ALL)
     val selectedFilter: StateFlow<SubscriptionFilter> = _selectedFilter
+    private val _selectedSort = MutableStateFlow(SubscriptionSort.SOONEST)
+    private val _backupFeedback = MutableStateFlow<String?>(null)
     private val calendarConfiguration = MutableStateFlow(CalendarConfigurationUiState())
 
     private val dashboardContent = combine(
         getCycleStatusesUseCase(),
         _selectedFilter,
-        userPreferencesRepository.userPreferences
-    ) { statuses, filter, preferences ->
+        _selectedSort,
+        userPreferencesRepository.userPreferences,
+        _backupFeedback
+    ) { statuses, filter, sort, preferences, backupFeedback ->
         val currencies = statuses.map { it.subscription.currency }.distinct()
         val summaryCurrencyCode = when {
             currencies.isEmpty() -> preferences.currency
@@ -123,23 +163,50 @@ class DashboardViewModel @Inject constructor(
         }
         val summaryStatuses = statuses.filter { it.subscription.currency == summaryCurrencyCode }
         val portfolio = getPortfolioSummaryUseCase(summaryStatuses)
-        val urgent = statuses.filter { it.nextAction.urgency != ActionUrgency.INFO }
+        val incompleteCount = summaryStatuses.count { it.subscription.isIncomplete }
+        val urgent = statuses.filter { !it.subscription.isIncomplete && it.nextAction.urgency != ActionUrgency.INFO }
 
         val filteredStatuses = when (filter) {
             SubscriptionFilter.ALL -> statuses
             SubscriptionFilter.ACTIVE -> statuses.filter { it.phase == CyclePhase.ACTIVE }
             SubscriptionFilter.BLACKOUT -> statuses.filter { it.phase == CyclePhase.BLACKOUT }
-            SubscriptionFilter.ROTATING -> statuses.filter { it.subscription.blackoutDays > 0 }
+            SubscriptionFilter.ROTATING -> statuses.filter { it.subscription.isRotating }
+        }
+
+        val sortedStatuses = when (sort) {
+            SubscriptionSort.SOONEST -> filteredStatuses.sortedWith(
+                compareBy<CycleStatus> {
+                    when (it.nextAction.urgency) {
+                        ActionUrgency.ACTION_DUE -> 0
+                        ActionUrgency.WARNING -> 1
+                        ActionUrgency.INFO -> 2
+                    }
+                }.thenBy { it.daysRemainingInPhase }.thenBy { it.subscription.name.lowercase() }
+            )
+            SubscriptionSort.COST -> filteredStatuses.sortedByDescending { it.subscription.monthlyEquivalentCost }
+            SubscriptionSort.NAME -> filteredStatuses.sortedBy { it.subscription.name.lowercase() }
+        }
+
+        val validPendingAction = preferences.pendingSubscriptionAction?.takeIf { pending ->
+            statuses.any { it.subscription.id == pending.subscriptionId }
         }
 
         DashboardUiState(
-            cycleStatuses = filteredStatuses,
+            cycleStatuses = sortedStatuses,
+            allCycleStatuses = statuses,
+            totalSubscriptionCount = statuses.size,
             urgentStatuses = urgent,
             portfolioSummary = portfolio,
             currencyCode = summaryCurrencyCode,
             preferredCurrencyCode = preferences.currency,
+            notificationLeadDays = preferences.notificationLeadDays,
+            themeMode = preferences.themeMode,
             excludedCurrencyCount = statuses.size - summaryStatuses.size,
+            incompleteCount = incompleteCount,
             selectedFilter = filter,
+            selectedSort = sort,
+            pendingSubscriptionAction = validPendingAction,
+            backupFeedback = backupFeedback,
             isLoading = false
         )
     }
@@ -173,9 +240,34 @@ class DashboardViewModel @Inject constructor(
         initialValue = DashboardUiState()
     )
 
+    suspend fun buildJsonBackup(): String {
+        val subs = manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
+        return SubscriptionBackupCodec.toJson(subs)
+    }
+
+    suspend fun buildCsvExport(): String {
+        val subs = manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
+        return SubscriptionBackupCodec.toCsv(subs)
+    }
+
+    /**
+     * Inserts a new subscription (returning its generated ID) or updates an existing one in place.
+     * Used by the multi-step form's automatic background save so drafts never duplicate.
+     */
+    suspend fun saveSubscription(subscription: Subscription): Long {
+        return if (subscription.id > 0L) {
+            manageSubscriptionUseCase.updateSubscription(subscription)
+            subscription.id
+        } else {
+            manageSubscriptionUseCase.addSubscription(subscription)
+        }
+    }
+
     fun onAction(action: DashboardAction) {
         when (action) {
             is DashboardAction.SetFilter -> _selectedFilter.value = action.filter
+            is DashboardAction.SetSort -> _selectedSort.value = action.sort
+            DashboardAction.RefreshToday -> getCycleStatusesUseCase.refreshToday()
             is DashboardAction.AddSubscription -> {
                 viewModelScope.launch {
                     manageSubscriptionUseCase.addSubscription(action.subscription)
@@ -188,14 +280,96 @@ class DashboardViewModel @Inject constructor(
             }
             is DashboardAction.DeleteSubscription -> {
                 viewModelScope.launch {
+                    val currentPending = userPreferencesRepository.userPreferences.first().pendingSubscriptionAction
+                    if (currentPending?.subscriptionId == action.subscription.id) {
+                        userPreferencesRepository.setPendingSubscriptionAction(null)
+                        subscriptionActionNotifier.dismissProgressNotification(action.subscription.id)
+                    }
                     manageSubscriptionUseCase.deleteSubscription(action.subscription)
                 }
             }
             is DashboardAction.ToggleAutoRenew -> {
                 viewModelScope.launch {
-                    manageSubscriptionUseCase.toggleAutoRenew(action.subscriptionId)
+                    manageSubscriptionUseCase.toggleAutoRenew(action.subscriptionId, timeProvider.today())
                 }
             }
+            is DashboardAction.ExtendActiveCycle -> {
+                viewModelScope.launch {
+                    manageSubscriptionUseCase.extendActiveCycle(action.subscriptionId, timeProvider.today())
+                }
+            }
+            is DashboardAction.ResumeToday -> {
+                viewModelScope.launch {
+                    manageSubscriptionUseCase.completeSubscriptionAction(
+                        subscriptionId = action.subscriptionId,
+                        actionType = SubscriptionActionProgressType.SUBSCRIBE,
+                        today = timeProvider.today()
+                    )
+                }
+            }
+            is DashboardAction.StartSubscriptionActionProgress -> {
+                viewModelScope.launch {
+                    val pending = PendingSubscriptionAction(
+                        subscriptionId = action.subscriptionId,
+                        subscriptionName = action.subscriptionName,
+                        actionType = action.actionType,
+                        startedAtEpochMillis = System.currentTimeMillis()
+                    )
+                    userPreferencesRepository.setPendingSubscriptionAction(pending)
+                    subscriptionActionNotifier.showActiveProgressNotification(pending)
+                }
+            }
+            is DashboardAction.ResolvePendingSubscriptionAction -> {
+                viewModelScope.launch {
+                    val pending = userPreferencesRepository.userPreferences.first().pendingSubscriptionAction
+                    if (action.completed && pending != null) {
+                        manageSubscriptionUseCase.completeSubscriptionAction(
+                            subscriptionId = pending.subscriptionId,
+                            actionType = pending.actionType,
+                            today = timeProvider.today()
+                        )
+                    }
+                    userPreferencesRepository.setPendingSubscriptionAction(null)
+                    subscriptionActionNotifier.dismissProgressNotification(pending?.subscriptionId)
+                }
+            }
+            is DashboardAction.SetDefaultCurrency -> {
+                viewModelScope.launch {
+                    userPreferencesRepository.setCurrency(action.currencyCode)
+                    manageSubscriptionUseCase.updateAllSubscriptionsCurrency(action.currencyCode)
+                }
+            }
+            is DashboardAction.SetNotificationLeadDays -> {
+                viewModelScope.launch {
+                    val safeDays = action.days.coerceIn(1, 14)
+                    userPreferencesRepository.setNotificationLeadDays(safeDays)
+                    manageSubscriptionUseCase.rescheduleAllReminders(safeDays)
+                }
+            }
+            is DashboardAction.SetThemeMode -> {
+                viewModelScope.launch {
+                    userPreferencesRepository.setThemeMode(action.themeMode)
+                }
+            }
+            is DashboardAction.ImportBackupJson -> {
+                viewModelScope.launch {
+                    val parsed = SubscriptionBackupCodec.fromJson(action.rawJson)
+                    parsed.fold(
+                        onSuccess = { imported ->
+                            val added = manageSubscriptionUseCase.addSubscriptionsIfMissing(imported)
+                            _backupFeedback.value = if (added.isEmpty()) {
+                                "Backup read (${imported.size} found) — all already in your stack."
+                            } else {
+                                "Restored ${added.size} subscription${if (added.size == 1) "" else "s"}."
+                            }
+                        },
+                        onFailure = { err ->
+                            _backupFeedback.value = "Couldn't read backup: ${err.message ?: "invalid file"}"
+                        }
+                    )
+                }
+            }
+            is DashboardAction.SetBackupFeedback -> _backupFeedback.value = action.message
             DashboardAction.BeginCalendarSetup -> beginCalendarSetup()
             DashboardAction.CancelCalendarSetup -> cancelCalendarSetup()
             is DashboardAction.CalendarPermissionResult -> handleCalendarPermission(action.granted)
