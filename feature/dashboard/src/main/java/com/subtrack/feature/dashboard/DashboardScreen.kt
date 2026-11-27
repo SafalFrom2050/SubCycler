@@ -5,29 +5,81 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -42,9 +94,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.CalendarSuggestionType
+import com.subtrack.core.domain.model.CyclePhase
 import com.subtrack.core.domain.model.PendingSubscriptionAction
 import com.subtrack.core.domain.model.PresetLibrary
 import com.subtrack.core.domain.model.RegionalPriceCatalog
@@ -52,9 +106,42 @@ import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.model.SubscriptionActionProgressType
 import com.subtrack.core.domain.model.SubscriptionPreset
-import com.subtrack.core.ui.components.*
+import com.subtrack.core.ui.components.AddEditSubscriptionDialog
+import com.subtrack.core.ui.components.CalendarSelectionSheet
+import com.subtrack.core.ui.components.CalendarSettingsSheet
+import com.subtrack.core.ui.components.CalendarSuggestionCard
+import com.subtrack.core.ui.components.CancellationOptionsDialog
+import com.subtrack.core.ui.components.CheckInDeckItem
+import com.subtrack.core.ui.components.CompactEfficiencyCapsule
+import com.subtrack.core.ui.components.CurrencyScopeNotice
+import com.subtrack.core.ui.components.CycleCheckInDeck
+import com.subtrack.core.ui.components.ExpressiveCookie12Shape
+import com.subtrack.core.ui.components.ExpressiveCookie8Shape
+import com.subtrack.core.ui.components.ExpressiveKineticBrandHeader
+import com.subtrack.core.ui.components.ExpressivePalettes
+import com.subtrack.core.ui.components.ExpressiveReactiveIconButton
+import com.subtrack.core.ui.components.ExpressiveRemovalCollapse
+import com.subtrack.core.ui.components.ExpressiveSnackHost
+import com.subtrack.core.ui.components.FannedBadgeStack
+import com.subtrack.core.ui.components.FinancialEfficiencyHud
+import com.subtrack.core.ui.components.NextActionBanner
+import com.subtrack.core.ui.components.PendingSubscriptionActionDialog
+import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.components.ShapeBloomBackdrop
+import com.subtrack.core.ui.components.SubscriptionDetailBottomSheet
+import com.subtrack.core.ui.components.SubscriptionGridItem
+import com.subtrack.core.ui.components.buildCycleCheckInItems
+import com.subtrack.core.ui.components.expressiveCardBorder
+import com.subtrack.core.ui.components.openCancellationDestination
+import com.subtrack.core.ui.components.progressiveEdgeFade
+import com.subtrack.core.ui.components.rememberExpressiveSnackHostState
+import com.subtrack.core.ui.theme.DisplayFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.orSnapIfReduced
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -196,8 +283,11 @@ fun DashboardScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val isDark = LocalSubCyclerDarkTheme.current
-    val snackbarHostState = remember { SnackbarHostState() }
+    val reducedMotion = rememberReducedMotionEnabled()
+    val snackHostState = rememberExpressiveSnackHostState()
     val scope = rememberCoroutineScope()
+    val feedListState = rememberLazyListState()
+    val filterRowState = rememberLazyListState()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -209,8 +299,76 @@ fun DashboardScreen(
     var notificationsEnabled by remember {
         mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
+    var brandTickerText by remember { mutableStateOf<String?>(null) }
+    var brandTickerNonce by remember { mutableIntStateOf(0) }
+    var hideCheckInDeck by rememberSaveable { mutableStateOf(false) }
+    val pendingRemovalIds = remember { mutableStateListOf<Long>() }
+
+    fun pulseBrandTicker(message: String) {
+        brandTickerText = message
+        brandTickerNonce++
+    }
+
+    LaunchedEffect(brandTickerNonce) {
+        if (brandTickerText == null) return@LaunchedEffect
+        delay(1500L)
+        brandTickerText = null
+    }
+
+    // Surface offline backup feedback as a 3D stacked pill + brand ticker pulse
+    LaunchedEffect(uiState.backupFeedback) {
+        val msg = uiState.backupFeedback ?: return@LaunchedEffect
+        snackHostState.show(
+            message = msg,
+            icon = Icons.Default.DownloadDone,
+            dedupeKey = "backup_$msg"
+        )
+        pulseBrandTicker("Synced locally")
+    }
+
+    // Derive continuous scroll collapse progress (0f..1f) for Hero watermark parallax + pinned Mini-Ledger Capsule
+    val heroCollapseProgress by remember {
+        derivedStateOf {
+            when {
+                feedListState.firstVisibleItemIndex > 0 -> 1f
+                else -> (feedListState.firstVisibleItemScrollOffset / 340f).coerceIn(0f, 1f)
+            }
+        }
+    }
+    val showCollapsedCapsule by remember {
+        derivedStateOf {
+            feedListState.firstVisibleItemIndex > 0 && uiState.totalSubscriptionCount > 0
+        }
+    }
+
+    // Comfort-band 25%..75% horizontal auto-scroll whenever the selected filter chip changes
+    LaunchedEffect(uiState.selectedFilter) {
+        val targetIndex = SubscriptionFilter.entries.indexOf(uiState.selectedFilter)
+        val layoutInfo = filterRowState.layoutInfo
+        val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+        if (itemInfo != null) {
+            val delta = ExpressiveMotion.computeComfortBandScrollDelta(
+                itemStartPx = itemInfo.offset,
+                itemSizePx = itemInfo.size,
+                viewportStartPx = layoutInfo.viewportStartOffset,
+                viewportEndPx = layoutInfo.viewportEndOffset
+            )
+            if (delta != null) {
+                filterRowState.animateScrollBy(
+                    value = delta.toFloat(),
+                    animationSpec = ExpressiveMotion.standardSpatialFastFloat()
+                        .orSnapIfReduced(reducedMotion)
+                )
+            }
+        }
+    }
 
     val lookupStatuses = uiState.allCycleStatuses.ifEmpty { uiState.cycleStatuses }
+    val checkInItems = remember(lookupStatuses) { buildCycleCheckInItems(lookupStatuses) }
+    val showCheckInDeck = !hideCheckInDeck && (
+        checkInItems.size >= 2 ||
+            checkInItems.any { it is CheckInDeckItem.BankCompletedBreak }
+        )
 
     LaunchedEffect(pendingAddSubscription) {
         if (pendingAddSubscription) {
@@ -242,13 +400,11 @@ fun DashboardScreen(
                 selectedSubscriptionId = openSubscriptionId
                 onOpenSubscriptionConsumed()
             } else if (!uiState.isLoading) {
-                // Consume stale deep-links pointing to a deleted subscription
                 onOpenSubscriptionConsumed()
             }
         }
     }
 
-    // Only opens CancellationOptionsDialog; actual progress tracking starts ONLY when user taps a provider link!
     val openBillingLinksDialog: (Long, String, SubscriptionActionProgressType) -> Unit = { subId, subName, actionType ->
         selectedSubscriptionId = null
         activeBillingDialog = PendingSubscriptionAction(
@@ -273,14 +429,26 @@ fun DashboardScreen(
         }
     }
 
+    val filterCounts = remember(lookupStatuses) {
+        mapOf(
+            SubscriptionFilter.ALL to lookupStatuses.size,
+            SubscriptionFilter.ACTIVE to lookupStatuses.count { it.phase == CyclePhase.ACTIVE },
+            SubscriptionFilter.BLACKOUT to lookupStatuses.count { it.phase == CyclePhase.BLACKOUT },
+            SubscriptionFilter.ROTATING to lookupStatuses.count { it.subscription.isRotating }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    ExpressiveBrandWordmark(fontSize = 28.sp)
+                    ExpressiveKineticBrandHeader(
+                        statusTicker = brandTickerText,
+                        fontSize = 28.sp
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent
+                    containerColor = Color.Transparent
                 ),
                 actions = {
                     ExpressiveReactiveIconButton(
@@ -307,293 +475,486 @@ fun DashboardScreen(
                 }
             )
         },
-        snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(bottom = 86.dp)
-            )
-        },
-        containerColor = androidx.compose.ui.graphics.Color.Transparent
+        containerColor = Color.Transparent
     ) { innerPadding ->
         val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        LazyColumn(
+        Box(
             modifier = modifier
                 .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding()),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(top = 4.dp, bottom = 112.dp + navBarBottom)
+                .padding(top = innerPadding.calculateTopPadding())
         ) {
-            // Expressive Hero Bento Card
-            item(key = "financial_efficiency_hud", contentType = "hud") {
-                FinancialEfficiencyHud(
-                    summary = uiState.portfolioSummary,
-                    currencyCode = uiState.currencyCode,
-                    excludedCurrencyCount = uiState.excludedCurrencyCount,
-                    incompleteCount = uiState.incompleteCount,
-                    onSavingsClick = onNavigateToSavings,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+            // Subliminal ambient ShapeBloomBackdrop behind empty portfolio states
+            if (uiState.cycleStatuses.isEmpty()) {
+                ShapeBloomBackdrop()
             }
 
-            if (uiState.excludedCurrencyCount > 0) {
-                item(key = "currency_scope_notice", contentType = "notice") {
-                    CurrencyScopeNotice(
+            LazyColumn(
+                state = feedListState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .progressiveEdgeFade(
+                        topFadeHeight = if (showCollapsedCapsule) 28.dp else 0.dp,
+                        bottomFadeHeight = 28.dp
+                    ),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 112.dp + navBarBottom)
+            ) {
+                // 1. Expressive Hero Bento Card with scroll-parallax watermark
+                item(key = "financial_efficiency_hud", contentType = "hud") {
+                    FinancialEfficiencyHud(
+                        summary = uiState.portfolioSummary,
                         currencyCode = uiState.currencyCode,
                         excludedCurrencyCount = uiState.excludedCurrencyCount,
+                        incompleteCount = uiState.incompleteCount,
+                        scrollProgress = heroCollapseProgress,
+                        onSavingsClick = onNavigateToSavings,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
-            }
 
-            // Urgent / Due Next Action Banner
-            if (uiState.urgentStatuses.isNotEmpty()) {
-                item(key = "urgent_banner", contentType = "urgent") {
-                    val topUrgent = uiState.urgentStatuses.first()
-                    val mergedSuggestion = uiState.calendarSuggestion?.takeIf {
-                        it.identity.subscriptionId == topUrgent.subscription.id
-                    }
-                    NextActionBanner(
-                        urgentStatuses = uiState.urgentStatuses,
-                        calendarSuggestion = mergedSuggestion,
-                        onUrgentActionClick = { urgentStatus ->
-                            selectedSubscriptionId = urgentStatus.subscription.id
-                        },
-                        onCalendarPrimaryAction = { mergedSuggestion?.let(openSuggestion) },
-                        onCalendarDismiss = {
-                            mergedSuggestion?.let { onAction(DashboardAction.DismissCalendarSuggestion(it.identity)) }
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            } else if (uiState.calendarSuggestion != null) {
-                item(key = "calendar_suggestion", contentType = "urgent") {
-                    val suggestion = uiState.calendarSuggestion
-                    CalendarSuggestionCard(
-                        suggestion = suggestion,
-                        onPrimaryAction = { openSuggestion(suggestion) },
-                        onDismiss = { onAction(DashboardAction.DismissCalendarSuggestion(suggestion.identity)) },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
-
-            // Full-bleed Filter & Sort Pill Bar (zero edge clipping!)
-            if (uiState.totalSubscriptionCount >= 2 || uiState.selectedFilter != SubscriptionFilter.ALL) {
-                item(key = "filter_row", contentType = "filters") {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(SubscriptionFilter.entries, key = { it.name }) { filter ->
-                            val isSelected = filter == uiState.selectedFilter
-                            val chipInteraction = remember { MutableInteractionSource() }
-                            val chipPressed by chipInteraction.collectIsPressedAsState()
-                            val chipCorner by animateDpAsState(
-                                targetValue = if (chipPressed) 11.dp else 18.dp,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                ),
-                                label = "filterChipCorner"
-                            )
-                            Surface(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onAction(DashboardAction.SetFilter(filter))
-                                },
-                                interactionSource = chipInteraction,
-                                shape = RoundedCornerShape(chipCorner),
-                                color = if (isSelected) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceContainer
-                                },
-                                border = if (!isSelected) expressiveCardBorder() else null
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .height(36.dp)
-                                        .padding(horizontal = 14.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = if (filter == SubscriptionFilter.ALL) {
-                                            "All · ${uiState.totalSubscriptionCount}"
-                                        } else {
-                                            filter.displayName
-                                        },
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 12.sp,
-                                        color = if (isSelected) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        // Compact Sort Pill (matching exact 36dp height & corner-morph feel!)
-                        item(key = "sort_pill") {
-                            val nextSort = SubscriptionSort.entries[
-                                (uiState.selectedSort.ordinal + 1) % SubscriptionSort.entries.size
-                            ]
-                            val sortInteraction = remember { MutableInteractionSource() }
-                            val sortPressed by sortInteraction.collectIsPressedAsState()
-                            val sortCorner by animateDpAsState(
-                                targetValue = if (sortPressed) 11.dp else 18.dp,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                ),
-                                label = "sortChipCorner"
-                            )
-                            Surface(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onAction(DashboardAction.SetSort(nextSort))
-                                },
-                                interactionSource = sortInteraction,
-                                shape = RoundedCornerShape(sortCorner),
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                border = expressiveCardBorder(if (isDark) 0.34f else 0.45f)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .height(36.dp)
-                                        .padding(horizontal = 13.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.SwapVert,
-                                        contentDescription = "Change sort order",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = uiState.selectedSort.displayName,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
+                if (uiState.excludedCurrencyCount > 0) {
+                    item(key = "currency_scope_notice", contentType = "notice") {
+                        CurrencyScopeNotice(
+                            currencyCode = uiState.currencyCode,
+                            excludedCurrencyCount = uiState.excludedCurrencyCount,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
                 }
-            }
 
-            // Expressive 2-Column Bento Subscription Deck OR Rich Empty State
-            if (uiState.cycleStatuses.isEmpty()) {
-                item(key = "empty_state", contentType = "empty") {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        DashboardEmptyState(
-                            isFilteredEmpty = uiState.totalSubscriptionCount > 0,
-                            currencyCode = uiState.preferredCurrencyCode,
-                            onClearFilter = { onAction(DashboardAction.SetFilter(SubscriptionFilter.ALL)) },
-                            onQuickAddPreset = { presetName ->
-                                val preset = PresetLibrary.presets.firstOrNull { it.name == presetName }
-                                if (preset != null) {
-                                    val tier = RegionalPriceCatalog.defaultTierFor(preset.name, uiState.preferredCurrencyCode)
-                                    if (tier != null) {
-                                        val period = tier.billingPeriod
-                                        onAction(
-                                            DashboardAction.AddSubscription(
-                                                Subscription(
-                                                    name = preset.name,
-                                                    cost = tier.price,
-                                                    currency = uiState.preferredCurrencyCode,
-                                                    billingPeriod = period,
-                                                    category = preset.category,
-                                                    startDate = LocalDate.now(),
-                                                    strategy = if (period == BillingPeriod.YEARLY) RotationStrategy.CONTINUOUS else preset.suggestedStrategy,
-                                                    customActiveDays = preset.suggestedActiveDays,
-                                                    customBlackoutDays = preset.suggestedBlackoutDays,
-                                                    colorHex = preset.colorHex,
-                                                    iconName = preset.iconName,
-                                                    isBillingDateConfirmed = false
-                                                )
-                                            )
+                // 2. Inline Cycle Check-In Deck (when finished breaks or 2+ incomplete drafts await action)
+                if (showCheckInDeck) {
+                    item(key = "cycle_checkin_deck", contentType = "checkin") {
+                        CycleCheckInDeck(
+                            items = checkInItems,
+                            onPrimaryAction = { item ->
+                                when (item) {
+                                    is CheckInDeckItem.BankCompletedBreak -> {
+                                        onAction(DashboardAction.ResumeToday(item.cycleStatus.subscription.id))
+                                        pulseBrandTicker("Banked ${item.formattedSavings}")
+                                        snackHostState.show(
+                                            message = "Banked ${item.formattedSavings} from ${item.serviceName}",
+                                            serviceNameForBadge = item.serviceName
                                         )
-                                    } else {
-                                        // Never relabel USD preset prices into uncatalogued currencies: open sheet prefilled!
-                                        subscriptionToEdit = null
-                                        editInitialStep = 0
-                                        presetToAdd = preset
+                                    }
+                                    is CheckInDeckItem.FinishIncompleteSetup -> {
+                                        subscriptionToEdit = item.cycleStatus.subscription
+                                        editInitialStep = item.cycleStatus.subscription.firstMissingSetupStepIndex
                                         showAddDialog = true
                                     }
                                 }
                             },
-                            onAddCustom = {
-                                subscriptionToEdit = null
-                                editInitialStep = 0
-                                presetToAdd = null
-                                showAddDialog = true
-                            }
+                            onDismissDeck = { hideCheckInDeck = true },
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
                 }
-            } else {
-                val rows = uiState.cycleStatuses.chunked(2)
-                items(
-                    items = rows,
-                    key = { row -> row.joinToString("-") { it.subscription.id.toString() } },
-                    contentType = { "bento_row" }
-                ) { rowItems ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .height(IntrinsicSize.Min)
-                            .animateItem(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        for (cycleStatus in rowItems) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                            ) {
-                                SubscriptionGridItem(
-                                    cycleStatus = cycleStatus,
-                                    onClick = {
-                                        selectedSubscriptionId = cycleStatus.subscription.id
+
+                // 3. Urgent / Due Next Action Banner (Dual-Layer Curtain-Contrast Vessel)
+                if (uiState.urgentStatuses.isNotEmpty()) {
+                    item(key = "urgent_banner", contentType = "urgent") {
+                        val topUrgent = uiState.urgentStatuses.first()
+                        val mergedSuggestion = uiState.calendarSuggestion?.takeIf {
+                            it.identity.subscriptionId == topUrgent.subscription.id
+                        }
+                        NextActionBanner(
+                            urgentStatuses = uiState.urgentStatuses,
+                            calendarSuggestion = mergedSuggestion,
+                            onUrgentActionClick = { urgentStatus ->
+                                selectedSubscriptionId = urgentStatus.subscription.id
+                            },
+                            onCalendarPrimaryAction = { mergedSuggestion?.let(openSuggestion) },
+                            onCalendarDismiss = {
+                                mergedSuggestion?.let { onAction(DashboardAction.DismissCalendarSuggestion(it.identity)) }
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                } else if (uiState.calendarSuggestion != null) {
+                    item(key = "calendar_suggestion", contentType = "urgent") {
+                        val suggestion = uiState.calendarSuggestion
+                        CalendarSuggestionCard(
+                            suggestion = suggestion,
+                            onPrimaryAction = { openSuggestion(suggestion) },
+                            onDismiss = { onAction(DashboardAction.DismissCalendarSuggestion(suggestion.identity)) },
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                }
+
+                // 4. Comfort-Band Morphing Filter Strip (12dp idle squircle → 22dp selected stadium pill!)
+                if (uiState.totalSubscriptionCount >= 2 || uiState.selectedFilter != SubscriptionFilter.ALL) {
+                    item(key = "filter_row", contentType = "filters") {
+                        LazyRow(
+                            state = filterRowState,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(SubscriptionFilter.entries, key = { it.name }) { filter ->
+                                val isSelected = filter == uiState.selectedFilter
+                                val count = filterCounts[filter] ?: 0
+                                val chipInteraction = remember { MutableInteractionSource() }
+                                val chipPressed by chipInteraction.collectIsPressedAsState()
+                                val chipCorner by animateDpAsState(
+                                    targetValue = when {
+                                        chipPressed -> 10.dp
+                                        isSelected -> 22.dp
+                                        else -> 12.dp
                                     },
-                                    modifier = Modifier.fillMaxHeight()
+                                    animationSpec = ExpressiveMotion.standardSpatialFastDp()
+                                        .orSnapIfReduced(reducedMotion),
+                                    label = "filterChipCorner"
+                                )
+                                val chipBg by animateColorAsState(
+                                    targetValue = if (isSelected) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainer
+                                    },
+                                    animationSpec = ExpressiveMotion.effectsFastColor()
+                                        .orSnapIfReduced(reducedMotion),
+                                    label = "filterChipBg"
+                                )
+                                val chipFg by animateColorAsState(
+                                    targetValue = if (isSelected) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    animationSpec = ExpressiveMotion.effectsFastColor()
+                                        .orSnapIfReduced(reducedMotion),
+                                    label = "filterChipFg"
+                                )
+
+                                Surface(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onAction(DashboardAction.SetFilter(filter))
+                                    },
+                                    interactionSource = chipInteraction,
+                                    shape = RoundedCornerShape(chipCorner),
+                                    color = chipBg,
+                                    border = if (!isSelected) expressiveCardBorder() else null
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .height(38.dp)
+                                            .padding(start = 10.dp, end = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        if (count > 0 || filter == SubscriptionFilter.ALL) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .height(22.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(
+                                                        if (isSelected) {
+                                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                                        } else {
+                                                            MaterialTheme.colorScheme.surfaceContainerHigh
+                                                        }
+                                                    )
+                                                    .padding(horizontal = 6.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "$count",
+                                                    fontFamily = DisplayFontFamily,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    fontSize = 11.sp,
+                                                    color = chipFg
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = filter.displayName,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 12.5.sp,
+                                            color = chipFg
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Compact Sort Pill (matching 38dp height & corner compression)
+                            item(key = "sort_pill") {
+                                val nextSort = SubscriptionSort.entries[
+                                    (uiState.selectedSort.ordinal + 1) % SubscriptionSort.entries.size
+                                ]
+                                val sortInteraction = remember { MutableInteractionSource() }
+                                val sortPressed by sortInteraction.collectIsPressedAsState()
+                                val sortCorner by animateDpAsState(
+                                    targetValue = if (sortPressed) 10.dp else 18.dp,
+                                    animationSpec = ExpressiveMotion.standardSpatialFastDp()
+                                        .orSnapIfReduced(reducedMotion),
+                                    label = "sortChipCorner"
+                                )
+                                Surface(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onAction(DashboardAction.SetSort(nextSort))
+                                    },
+                                    interactionSource = sortInteraction,
+                                    shape = RoundedCornerShape(sortCorner),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    border = expressiveCardBorder(if (isDark) 0.34f else 0.45f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .height(38.dp)
+                                            .padding(horizontal = 13.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.SwapVert,
+                                            contentDescription = "Change sort order",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            text = uiState.selectedSort.displayName,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Fanned miniature badge preview when filtering Paused or Rotating views
+                    if ((uiState.selectedFilter == SubscriptionFilter.BLACKOUT ||
+                            uiState.selectedFilter == SubscriptionFilter.ROTATING) &&
+                        uiState.cycleStatuses.size >= 2
+                    ) {
+                        item(key = "filter_fanned_summary", contentType = "filter_summary") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                FannedBadgeStack(
+                                    serviceNames = uiState.cycleStatuses.map { it.subscription.name },
+                                    maxVisible = 4,
+                                    badgeSize = 28.dp,
+                                    step = 18.dp,
+                                    ringWidth = 2.dp
+                                )
+                                Text(
+                                    text = "${uiState.cycleStatuses.size} ${uiState.selectedFilter.displayName.lowercase()} services",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                        if (rowItems.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+
+                // 5. Expressive 2-Column Bento Subscription Deck OR Rich Empty State
+                if (uiState.cycleStatuses.isEmpty()) {
+                    item(key = "empty_state", contentType = "empty") {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            DashboardEmptyState(
+                                isFilteredEmpty = uiState.totalSubscriptionCount > 0,
+                                currencyCode = uiState.preferredCurrencyCode,
+                                onClearFilter = { onAction(DashboardAction.SetFilter(SubscriptionFilter.ALL)) },
+                                onQuickAddPreset = { presetName ->
+                                    val preset = PresetLibrary.presets.firstOrNull { it.name == presetName }
+                                    if (preset != null) {
+                                        val tier = RegionalPriceCatalog.defaultTierFor(preset.name, uiState.preferredCurrencyCode)
+                                        if (tier != null) {
+                                            val period = tier.billingPeriod
+                                            onAction(
+                                                DashboardAction.AddSubscription(
+                                                    Subscription(
+                                                        name = preset.name,
+                                                        cost = tier.price,
+                                                        currency = uiState.preferredCurrencyCode,
+                                                        billingPeriod = period,
+                                                        category = preset.category,
+                                                        startDate = LocalDate.now(),
+                                                        strategy = if (period == BillingPeriod.YEARLY) RotationStrategy.CONTINUOUS else preset.suggestedStrategy,
+                                                        customActiveDays = preset.suggestedActiveDays,
+                                                        customBlackoutDays = preset.suggestedBlackoutDays,
+                                                        colorHex = preset.colorHex,
+                                                        iconName = preset.iconName,
+                                                        isBillingDateConfirmed = false
+                                                    )
+                                                )
+                                            )
+                                            snackHostState.show(
+                                                message = "Added ${preset.name}",
+                                                serviceNameForBadge = preset.name
+                                            )
+                                            pulseBrandTicker("Added ${preset.name}")
+                                        } else {
+                                            subscriptionToEdit = null
+                                            editInitialStep = 0
+                                            presetToAdd = preset
+                                            showAddDialog = true
+                                        }
+                                    }
+                                },
+                                onAddCustom = {
+                                    subscriptionToEdit = null
+                                    editInitialStep = 0
+                                    presetToAdd = null
+                                    showAddDialog = true
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    val rows = uiState.cycleStatuses.chunked(2)
+                    itemsIndexed(
+                        items = rows,
+                        key = { _, row -> row.joinToString("-") { it.subscription.id.toString() } },
+                        contentType = { _, _ -> "bento_row" }
+                    ) { _, rowItems ->
+                        val rowIsFullyRemoving = rowItems.all { it.subscription.id in pendingRemovalIds }
+                        ExpressiveRemovalCollapse(
+                            removing = rowIsFullyRemoving,
+                            onRemoved = {
+                                rowItems.forEach { status ->
+                                    if (status.subscription.id in pendingRemovalIds) {
+                                        pendingRemovalIds.remove(status.subscription.id)
+                                        onAction(DashboardAction.DeleteSubscription(status.subscription))
+                                    }
+                                }
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .height(IntrinsicSize.Min)
+                                    .animateItem(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                for (cycleStatus in rowItems) {
+                                    val isCardRemoving = !rowIsFullyRemoving && cycleStatus.subscription.id in pendingRemovalIds
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                    ) {
+                                        ExpressiveRemovalCollapse(
+                                            removing = isCardRemoving,
+                                            onRemoved = {
+                                                if (cycleStatus.subscription.id in pendingRemovalIds) {
+                                                    pendingRemovalIds.remove(cycleStatus.subscription.id)
+                                                    onAction(DashboardAction.DeleteSubscription(cycleStatus.subscription))
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxHeight()
+                                        ) {
+                                            SubscriptionGridItem(
+                                                cycleStatus = cycleStatus,
+                                                onClick = {
+                                                    selectedSubscriptionId = cycleStatus.subscription.id
+                                                },
+                                                onBankBreakClick = {
+                                                    val saved = MoneyFormatter.format(
+                                                        cycleStatus.perBreakSavings,
+                                                        cycleStatus.subscription.currency,
+                                                        maximumFractionDigits = 0
+                                                    )
+                                                    onAction(DashboardAction.ResumeToday(cycleStatus.subscription.id))
+                                                    pulseBrandTicker("Banked $saved")
+                                                    snackHostState.show(
+                                                        message = "Banked $saved from ${cycleStatus.subscription.name}",
+                                                        serviceNameForBadge = cycleStatus.subscription.name
+                                                    )
+                                                },
+                                                modifier = Modifier.fillMaxHeight()
+                                            )
+                                        }
+                                    }
+                                }
+                                if (rowItems.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
                         }
                     }
                 }
             }
+
+            // Pinned Scroll-Collapsed Mini-Ledger Capsule (springs in once Hero scrolls off-screen!)
+            AnimatedVisibility(
+                visible = showCollapsedCapsule,
+                enter = slideInVertically(
+                    animationSpec = ExpressiveMotion.expressiveSpatialDefaultIntOffset()
+                        .orSnapIfReduced(reducedMotion)
+                ) { -it } + fadeIn(),
+                exit = slideOutVertically(
+                    animationSpec = ExpressiveMotion.standardSpatialFast()
+                ) { -it } + fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                CompactEfficiencyCapsule(
+                    summary = uiState.portfolioSummary,
+                    currencyCode = uiState.currencyCode,
+                    onSavingsClick = onNavigateToSavings
+                )
+            }
+
+            // 3D Stacked Floating Stadium Snack Host hovering above the Split Floating Toolbar
+            ExpressiveSnackHost(
+                hostState = snackHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 86.dp)
+            )
         }
     }
 
-    // Detail Bottom Sheet when an item is tapped (uses full unfiltered list so deep-links & banners always resolve)
+    // Detail Bottom Sheet (Cycle Time-Machine Wave Scrubber + Asymmetric 1+(2x2) Command Deck)
     lookupStatuses.find { it.subscription.id == selectedSubscriptionId }?.let { status ->
         SubscriptionDetailBottomSheet(
             cycleStatus = status,
             onDismiss = { selectedSubscriptionId = null },
             onToggleAutoRenew = {
                 onAction(DashboardAction.ToggleAutoRenew(status.subscription.id))
+                val nextMsg = if (status.isAutoRenewCancelledForCurrentCycle) {
+                    "Cancel reminders re-enabled"
+                } else {
+                    "Auto-renew marked cancelled"
+                }
+                snackHostState.show(
+                    message = nextMsg,
+                    serviceNameForBadge = status.subscription.name,
+                    dedupeKey = "autorenew_${status.subscription.id}"
+                )
             },
             onStartSubscriptionAction = { actionType ->
                 openBillingLinksDialog(status.subscription.id, status.subscription.name, actionType)
             },
             onExtendCycle = {
                 onAction(DashboardAction.ExtendActiveCycle(status.subscription.id))
+                snackHostState.show(
+                    message = "Skipped break (+${status.subscription.activeDays}d)",
+                    serviceNameForBadge = status.subscription.name
+                )
             },
             onResumeToday = {
                 onAction(DashboardAction.ResumeToday(status.subscription.id))
+                pulseBrandTicker("Cycle restarted")
+                snackHostState.show(
+                    message = "${status.subscription.name} resumed today",
+                    serviceNameForBadge = status.subscription.name
+                )
             },
             onEdit = {
                 subscriptionToEdit = status.subscription
@@ -607,22 +968,30 @@ fun DashboardScreen(
             },
             onDelete = {
                 val deleted = status.subscription
-                onAction(DashboardAction.DeleteSubscription(deleted))
-                scope.launch {
-                    val result = snackbarHostState.showSnackbar(
-                        message = "Deleted ${deleted.name}",
-                        actionLabel = "Undo",
-                        duration = SnackbarDuration.Short
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        onAction(DashboardAction.AddSubscription(deleted.copy(id = 0L)))
-                    }
+                if (deleted.id !in pendingRemovalIds) {
+                    pendingRemovalIds.add(deleted.id)
                 }
+                snackHostState.show(
+                    message = "Deleted ${deleted.name}",
+                    actionLabel = "Undo",
+                    serviceNameForBadge = deleted.name,
+                    icon = Icons.Default.DeleteOutline,
+                    durationMillis = 4500L,
+                    dedupeKey = "delete_${deleted.id}",
+                    onAction = {
+                        if (deleted.id in pendingRemovalIds) {
+                            pendingRemovalIds.remove(deleted.id)
+                        } else {
+                            onAction(DashboardAction.AddSubscription(deleted.copy(id = 0L)))
+                        }
+                        pulseBrandTicker("Restored ${deleted.name}")
+                    }
+                )
             }
         )
     }
 
-    // Provider Billing Links Dialog — persists pending progress ONLY when user opens a real link!
+    // Provider Billing Links Dialog
     activeBillingDialog?.let { billingAction ->
         CancellationOptionsDialog(
             subscriptionName = billingAction.subscriptionName,
@@ -651,6 +1020,7 @@ fun DashboardScreen(
             pendingAction = pendingToRecover,
             onCompleted = {
                 onAction(DashboardAction.ResolvePendingSubscriptionAction(completed = true))
+                pulseBrandTicker("Updated cycle")
             },
             onCancel = {
                 onAction(DashboardAction.ResolvePendingSubscriptionAction(completed = false))
@@ -670,7 +1040,11 @@ fun DashboardScreen(
                 editInitialStep = 0
                 presetToAdd = null
             },
-            onAutoSave = onAutoSaveSubscription
+            onAutoSave = { sub ->
+                val savedId = onAutoSaveSubscription(sub)
+                pulseBrandTicker("Saved locally")
+                savedId
+            }
         )
     }
 
@@ -696,7 +1070,14 @@ fun DashboardScreen(
             hasExistingSubscriptions = uiState.totalSubscriptionCount > 0,
             notificationLeadDays = uiState.notificationLeadDays,
             themeMode = uiState.themeMode,
-            onCurrencySelected = { onAction(DashboardAction.SetDefaultCurrency(it)) },
+            onCurrencySelected = {
+                onAction(DashboardAction.SetDefaultCurrency(it))
+                snackHostState.show(
+                    message = "Switched app currency to $it",
+                    icon = Icons.Default.Check,
+                    dedupeKey = "currency_$it"
+                )
+            },
             onNotificationLeadDaysSelected = { onAction(DashboardAction.SetNotificationLeadDays(it)) },
             onThemeModeSelected = { onAction(DashboardAction.SetThemeMode(it)) },
             onOpenNotificationSettings = {

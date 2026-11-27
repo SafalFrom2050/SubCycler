@@ -1,10 +1,32 @@
 package com.subtrack.core.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -14,10 +36,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.subtrack.core.ui.theme.BodyFontFamily
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 
 internal data class ParsedMoneyParts(
     val prefix: String,
@@ -223,6 +248,100 @@ fun ExpressiveBrandWordmark(
         textAlign = textAlign,
         style = TextStyle(lineHeight = (sizeValue * 1.08f).sp)
     )
+}
+
+/**
+ * Kinetic Top-Bar Brand Header (inspired by BunPod's `FeedSyncLogo`):
+ * Pairs a morphing Botanical Emerald emblem (`Bun → Clover4 → Cookie9 → Sunny`) that
+ * executes `180°` half-turn spring hops beside a vertical slot-ticker whenever
+ * [statusTicker] reports a local confirmation (e.g. `"Saved locally"`, `"Banked savings"`).
+ */
+@Composable
+fun ExpressiveKineticBrandHeader(
+    modifier: Modifier = Modifier,
+    statusTicker: String? = null,
+    fontSize: TextUnit = 28.sp
+) {
+    val reducedMotion = rememberReducedMotionEnabled()
+    val hopShapes = remember {
+        listOf(
+            ExpressiveMaterialPolygons.Bun,
+            ExpressiveMaterialPolygons.Clover4,
+            ExpressiveMaterialPolygons.Cookie9,
+            ExpressiveMaterialPolygons.Sunny
+        )
+    }
+    var hopIndex by remember { mutableIntStateOf(0) }
+    val spinAngle = remember { Animatable(0f) }
+
+    LaunchedEffect(statusTicker, reducedMotion) {
+        if (statusTicker == null) {
+            hopIndex = 0
+            return@LaunchedEffect
+        }
+        hopIndex = (hopIndex + 1) % hopShapes.size
+        if (!reducedMotion) {
+            spinAngle.animateTo(
+                targetValue = spinAngle.value + 180f,
+                animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
+            )
+        }
+    }
+
+    val emblemPolygon = if (statusTicker != null) hopShapes[hopIndex] else ExpressiveMaterialPolygons.Bun
+    val emblemShape = rememberMorphingPolygonShape(targetPolygon = emblemPolygon)
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(ExpressiveSquircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .graphicsLayer { rotationZ = spinAngle.value }
+                    .clip(emblemShape)
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        AnimatedContent(
+            targetState = statusTicker,
+            transitionSpec = {
+                if (reducedMotion) {
+                    fadeIn(tween(0)).togetherWith(fadeOut(tween(0)))
+                } else {
+                    val enteringStatus = targetState != null
+                    (slideInVertically(tween(210)) { h -> if (enteringStatus) h else -h } + fadeIn(tween(180)))
+                        .togetherWith(
+                            slideOutVertically(tween(180)) { h -> if (enteringStatus) -h else h } + fadeOut(tween(140))
+                        )
+                }
+            },
+            label = "kineticBrandTicker"
+        ) { ticker ->
+            if (ticker == null) {
+                ExpressiveBrandWordmark(fontSize = fontSize)
+            } else {
+                Text(
+                    text = ticker,
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 21.sp,
+                    letterSpacing = (-0.4).sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
 }
 
 /**

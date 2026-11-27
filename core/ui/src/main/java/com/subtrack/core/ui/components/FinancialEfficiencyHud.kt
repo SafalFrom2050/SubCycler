@@ -1,15 +1,23 @@
 package com.subtrack.core.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -27,6 +35,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -44,13 +53,16 @@ import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.model.PortfolioSummary
 import com.subtrack.core.ui.theme.BodyFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.orSnapIfReduced
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import kotlin.math.roundToInt
 
 /**
- * Material 3 Expressive Hero Bento Card with masked silk-waves backdrop,
- * crystal-clear "Effective Monthly" vs full-price reconciliation, active/paused pill,
- * and an interactive 12-petal scalloped savings badge that opens the Savings tab.
+ * Material 3 Expressive v4.0 Hero Bento Card with masked silk-waves backdrop,
+ * scroll-parallax off-corner `Clover8` polygon watermark, crystal-clear "Effective Monthly"
+ * reconciliation, active/paused pill, and interactive topological morphing savings seal.
  */
 @Composable
 fun FinancialEfficiencyHud(
@@ -58,27 +70,23 @@ fun FinancialEfficiencyHud(
     currencyCode: String = "USD",
     excludedCurrencyCount: Int = 0,
     incompleteCount: Int = 0,
+    scrollProgress: Float = 0f,
     onSavingsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val reducedMotion = rememberReducedMotionEnabled()
     val hasSavings = summary.totalAnnualSavings > 0.0
     val stickerInteraction = remember { MutableInteractionSource() }
     val stickerPressed by stickerInteraction.collectIsPressedAsState()
     var stickerWiggleCount by remember { mutableIntStateOf(0) }
     val wiggleRotation = remember { Animatable(-6f) }
 
-    LaunchedEffect(stickerWiggleCount) {
-        if (stickerWiggleCount == 0) return@LaunchedEffect
-        wiggleRotation.animateTo(10f, spring(stiffness = Spring.StiffnessHigh))
-        wiggleRotation.animateTo(-14f, spring(stiffness = Spring.StiffnessMedium))
-        wiggleRotation.animateTo(
-            -6f,
-            spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMediumLow
-            )
-        )
+    LaunchedEffect(stickerWiggleCount, reducedMotion) {
+        if (stickerWiggleCount == 0 || reducedMotion) return@LaunchedEffect
+        wiggleRotation.animateTo(10f, ExpressiveMotion.expressiveSpatialFastFloat())
+        wiggleRotation.animateTo(-14f, ExpressiveMotion.expressiveSpatialFastFloat())
+        wiggleRotation.animateTo(-6f, ExpressiveMotion.expressiveSpatialDefaultFloat())
     }
 
     val badgeScale by animateFloatAsState(
@@ -87,13 +95,11 @@ fun FinancialEfficiencyHud(
             stickerPressed -> 0.89f
             else -> 1f
         },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
+        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat().orSnapIfReduced(reducedMotion),
         label = "savingsBadgeScale"
     )
 
+    val clampedScroll = ExpressiveMotion.clampEffectProgress(scrollProgress)
     val boldBadgePalette = ExpressivePalettes.boldPrimary()
     val heroPillColor = if (LocalSubCyclerDarkTheme.current) {
         MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.72f)
@@ -104,13 +110,16 @@ fun FinancialEfficiencyHud(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
-        color = androidx.compose.ui.graphics.Color.Transparent,
+        color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
         ExpressiveHeroCardBackdrop(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(28.dp)),
+            watermarkPolygon = ExpressiveMaterialPolygons.Clover8,
+            watermarkRotationDegrees = if (reducedMotion) 0f else clampedScroll * 20f,
+            watermarkAlpha = 0.09f * (1f - clampedScroll * 0.6f)
         ) {
             Row(
                 modifier = Modifier
@@ -143,7 +152,6 @@ fun FinancialEfficiencyHud(
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(7.dp))
-                        // Duotone Spend-vs-Saved Micro Proportion Bar
                         val spendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost)
                             .toFloat()
                             .coerceIn(0.18f, 0.92f)
@@ -226,17 +234,13 @@ fun FinancialEfficiencyHud(
                         currencyCode,
                         maximumFractionDigits = 0
                     )
-                    val stampGroove by animateFloatAsState(
-                        targetValue = if (stickerPressed) 0.11f else 0.075f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        ),
-                        label = "savingsStampGroove"
+                    val stampShape = rememberMorphingPolygonShape(
+                        targetPolygon = if (stickerPressed) {
+                            ExpressiveMaterialPolygons.Sunny
+                        } else {
+                            ExpressiveMaterialPolygons.Cookie12
+                        }
                     )
-                    val stampShape = remember(stampGroove) {
-                        ScallopedCookieShape(lobes = 12, grooveDepthFraction = stampGroove)
-                    }
                     val amountFontSize = when {
                         formattedAmountOnly.length >= 9 -> 13.5.sp
                         formattedAmountOnly.length >= 7 -> 15.5.sp
@@ -317,6 +321,110 @@ fun FinancialEfficiencyHud(
                                 letterSpacing = 0.1.sp
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Scroll-Collapsed Pinned Mini-Ledger Capsule (inspired by BunPod's `FeedNowPlayingCard` collapse):
+ * Springs cleanly beneath the Dashboard top bar when the user scrolls past [FinancialEfficiencyHud]
+ * so monthly spend and annual savings stay glanceable across large portfolios.
+ */
+@Composable
+fun CompactEfficiencyCapsule(
+    summary: PortfolioSummary,
+    currencyCode: String,
+    onSavingsClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    val isDark = LocalSubCyclerDarkTheme.current
+    val hasSavings = summary.totalAnnualSavings > 0.0
+    val pctOff = summary.overallSavingsPercentage.roundToInt()
+
+    Surface(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onSavingsClick?.invoke()
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.55f else 0.75f)
+        ),
+        shadowElevation = if (isDark) 4.dp else 8.dp,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                ExpressiveMoneyText(
+                    formattedAmount = MoneyFormatter.format(summary.totalMonthlyOptimizedCost, currencyCode),
+                    heroFontSize = 20.sp,
+                    cadenceSuffix = "/mo",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    elevateCurrencySymbol = false
+                )
+                if (hasSavings && pctOff > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "-$pctOff%",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+
+            if (hasSavings) {
+                val formattedSave = MoneyFormatter.format(
+                    summary.totalAnnualSavings,
+                    currencyCode,
+                    maximumFractionDigits = 0
+                )
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(ExpressiveCookie12Shape)
+                                .background(MaterialTheme.colorScheme.onPrimary)
+                        )
+                        Text(
+                            text = "Save $formattedSave/yr",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            maxLines = 1
+                        )
                     }
                 }
             }
