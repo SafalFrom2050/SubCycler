@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtrack.app.notification.NotificationHelper
@@ -57,15 +58,34 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(useDarkTheme) {
-                val barStyle = if (useDarkTheme) {
+                // On Android 8.0-9 (API 26-28, notably Huawei EMUI 8.0), a pure 0x00000000
+                // status bar color can prevent OEM dark-icon luminance detection in Light mode.
+                // Using a whisper-subtle ~5% alabaster scrim below API 29 plus explicitly syncing
+                // WindowInsetsControllerCompat guarantees readable status & nav bar glyphs.
+                val lightStatusScrim = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    Color.argb(0x0D, 0xF5, 0xF6, 0xF5)
+                } else {
+                    Color.TRANSPARENT
+                }
+                val darkFallbackScrim = Color.argb(0x66, 0x10, 0x12, 0x13)
+                val statusStyle = if (useDarkTheme) {
                     SystemBarStyle.dark(Color.TRANSPARENT)
                 } else {
-                    SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                    SystemBarStyle.light(lightStatusScrim, darkFallbackScrim)
+                }
+                val navStyle = if (useDarkTheme) {
+                    SystemBarStyle.dark(Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(Color.TRANSPARENT, darkFallbackScrim)
                 }
                 enableEdgeToEdge(
-                    statusBarStyle = barStyle,
-                    navigationBarStyle = barStyle
+                    statusBarStyle = statusStyle,
+                    navigationBarStyle = navStyle
                 )
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !useDarkTheme
+                    isAppearanceLightNavigationBars = !useDarkTheme
+                }
             }
 
             SubTrackTheme(darkTheme = useDarkTheme) {

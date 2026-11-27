@@ -219,55 +219,59 @@ fun AnalyticsScreen(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(28.dp))
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 22.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .padding(horizontal = 20.dp, vertical = 20.dp)
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    ExpressiveEyebrow(
-                                        text = "PROJECTED 5-YEAR SAVINGS",
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f)
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    ExpressiveMoneyText(
-                                        formattedAmount = MoneyFormatter.format(
-                                            uiState.fiveYearSavings,
-                                            uiState.currencyCode,
-                                            maximumFractionDigits = 0
-                                        ),
-                                        heroFontSize = 46.sp,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    if (hasSavings) {
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(999.dp),
-                                            color = heroPillBg
-                                        ) {
-                                            Text(
-                                                text = "$savingsPct% cut · $rotatingCount rotating",
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontSize = 11.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-                                            )
+                                ExpressiveEyebrow(
+                                    text = "PROJECTED 5-YEAR SAVINGS",
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        ExpressiveMoneyText(
+                                            formattedAmount = MoneyFormatter.format(
+                                                uiState.fiveYearSavings,
+                                                uiState.currencyCode,
+                                                maximumFractionDigits = 0
+                                            ),
+                                            heroFontSize = 46.sp,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        if (hasSavings) {
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(999.dp),
+                                                color = heroPillBg
+                                            ) {
+                                                Text(
+                                                    text = "$savingsPct% cut · $rotatingCount rotating",
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                                                )
+                                            }
                                         }
                                     }
-                                }
 
-                                if (hasSavings) {
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    CompoundingGrowthArc(
-                                        strokeColor = MaterialTheme.colorScheme.primary,
-                                        nodeColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier
-                                            .width(96.dp)
-                                            .height(78.dp)
-                                    )
+                                    if (hasSavings) {
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        CompoundingGrowthArc(
+                                            strokeColor = MaterialTheme.colorScheme.primary,
+                                            nodeColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier
+                                                .width(96.dp)
+                                                .height(74.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

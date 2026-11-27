@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -227,15 +228,15 @@ private fun SubTrackMainNavigation(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
                     modifier = Modifier
-                        .widthIn(max = 360.dp)
+                        .widthIn(max = 368.dp)
                         .fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     val dockContainerColor = MaterialTheme.colorScheme.surfaceContainer
                     val dockBorder = BorderStroke(
@@ -254,8 +255,8 @@ private fun SubTrackMainNavigation(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                .padding(horizontal = 5.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             NavigationItems.items.forEach { item ->
@@ -299,7 +300,7 @@ private fun SubTrackMainNavigation(
 
                                 Box(
                                     modifier = Modifier
-                                        .then(if (isSelected) Modifier.weight(1f) else Modifier.width(52.dp))
+                                        .then(if (isSelected) Modifier.weight(1f) else Modifier.width(44.dp))
                                         .height(48.dp)
                                         .graphicsLayer {
                                             scaleX = pillScale
@@ -321,7 +322,7 @@ private fun SubTrackMainNavigation(
                                                 navigateToTab(item.destination)
                                             }
                                         }
-                                        .padding(horizontal = if (isSelected) 14.dp else 0.dp),
+                                        .padding(horizontal = if (isSelected) 10.dp else 0.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -329,7 +330,7 @@ private fun SubTrackMainNavigation(
                                             imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
                                             contentDescription = item.title,
                                             tint = contentColor,
-                                            size = 20.dp,
+                                            size = 19.dp,
                                             motion = iconMotion,
                                             isPressed = isPressed,
                                             triggerKey = Pair(isSelected, tapTrigger)
@@ -347,15 +348,17 @@ private fun SubTrackMainNavigation(
                                             ) + fadeOut(animationSpec = tween(110))
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Spacer(modifier = Modifier.width(7.dp))
+                                                Spacer(modifier = Modifier.width(5.dp))
                                                 Text(
                                                     text = item.title,
                                                     style = MaterialTheme.typography.labelLarge,
                                                     color = contentColor,
-                                                    fontSize = 13.sp,
+                                                    fontSize = 12.5.sp,
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    letterSpacing = (-0.15).sp,
-                                                    maxLines = 1
+                                                    letterSpacing = (-0.2).sp,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
@@ -414,7 +417,7 @@ private fun SubTrackMainNavigation(
                     val fabRimColor = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.38f else 0.28f)
                     Box(
                         modifier = Modifier
-                            .size(60.dp)
+                            .size(56.dp)
                             .drawBehind {
                                 // Custom soft radial shadow for Outline.Generic scalloped cookie on all Android APIs
                                 val shadowRadius = size.minDimension * 0.64f
