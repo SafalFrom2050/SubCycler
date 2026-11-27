@@ -374,7 +374,7 @@ private fun WelcomeStep(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = 12.dp),
+                .padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -385,14 +385,14 @@ private fun WelcomeStep(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             ExpressiveBrandWordmark(
-                fontSize = 42.sp,
+                fontSize = 38.sp,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = buildAnnotatedString {
@@ -431,7 +431,7 @@ private fun WelcomeStep(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             ExpressiveSectionStack {
                 WelcomeFeatureRow(
@@ -460,6 +460,8 @@ private fun WelcomeStep(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // First-launch single app-wide currency selector
         Surface(
@@ -579,11 +581,11 @@ private fun BotanicalVaultMosaic(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         tiles.chunked(4).forEachIndexed { rowIdx, row ->
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 row.forEachIndexed { colIdx, (monogram, seedIdx) ->
@@ -598,7 +600,7 @@ private fun BotanicalVaultMosaic(
 
                     Box(
                         modifier = Modifier
-                            .size(66.dp)
+                            .size(58.dp)
                             .expressivePolygonSurface(
                                 shape = shape,
                                 color = palette.container
@@ -616,7 +618,7 @@ private fun BotanicalVaultMosaic(
                             text = monogram,
                             fontFamily = DisplayHeroFontFamily,
                             fontWeight = FontWeight.Black,
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             letterSpacing = (-0.5).sp,
                             color = palette.content
                         )
@@ -645,7 +647,7 @@ private fun WelcomeFeatureRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 11.dp),
+                .padding(horizontal = 14.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
