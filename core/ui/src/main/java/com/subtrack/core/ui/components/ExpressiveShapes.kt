@@ -969,16 +969,31 @@ object ExpressivePalettes {
     )
 
     @Composable
-    fun softSky(): ExpressiveTonalPalette =
-        if (LocalSubCyclerDarkTheme.current) DarkFreshMint else LightFreshMint
+    fun softSky(): ExpressiveTonalPalette {
+        val scheme = MaterialTheme.colorScheme
+        return ExpressiveTonalPalette(
+            container = scheme.primaryContainer,
+            selectedContainer = scheme.primaryContainer,
+            border = scheme.primary.copy(alpha = 0.33f),
+            content = scheme.onPrimaryContainer,
+            accent = scheme.primary
+        )
+    }
 
     @Composable
-    fun softOcean(): ExpressiveTonalPalette =
-        if (LocalSubCyclerDarkTheme.current) DarkCoolJade else LightCoolJade
+    fun softOcean(): ExpressiveTonalPalette {
+        val scheme = MaterialTheme.colorScheme
+        return ExpressiveTonalPalette(
+            container = scheme.secondaryContainer,
+            selectedContainer = scheme.secondaryContainer,
+            border = scheme.secondary.copy(alpha = 0.33f),
+            content = scheme.onSecondaryContainer,
+            accent = scheme.secondary
+        )
+    }
 
     @Composable
-    fun softSage(): ExpressiveTonalPalette =
-        if (LocalSubCyclerDarkTheme.current) DarkFreshMint else LightFreshMint
+    fun softSage(): ExpressiveTonalPalette = softSky()
 
     @Composable
     fun softLavender(): ExpressiveTonalPalette =
@@ -989,8 +1004,16 @@ object ExpressivePalettes {
         if (LocalSubCyclerDarkTheme.current) DarkWarmSand else LightWarmSand
 
     @Composable
-    fun boldPrimary(): ExpressiveTonalPalette =
-        if (LocalSubCyclerDarkTheme.current) DarkLuminousMint else LightDeepEmerald
+    fun boldPrimary(): ExpressiveTonalPalette {
+        val scheme = MaterialTheme.colorScheme
+        return ExpressiveTonalPalette(
+            container = scheme.primary,
+            selectedContainer = scheme.primary,
+            border = scheme.primary.copy(alpha = 0.40f),
+            content = scheme.onPrimary,
+            accent = scheme.primary
+        )
+    }
 
     @Composable
     fun softRose(): ExpressiveTonalPalette =

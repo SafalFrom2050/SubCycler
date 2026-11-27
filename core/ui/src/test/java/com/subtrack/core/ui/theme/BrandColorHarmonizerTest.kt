@@ -93,4 +93,39 @@ class BrandColorHarmonizerTest {
             assertTrue("Hero mood contrast too low (dark=$isDark): $ratio", ratio >= 7.0)
         }
     }
+
+    @Test
+    fun allLauncherIconsProvideDistinctHighContrastAccentTokens() {
+        val lightPrimaries = AppLauncherIcon.entries.map { icon ->
+            launcherAccentTokensFor(icon, isDark = false).primary
+        }.toSet()
+        val darkPrimaries = AppLauncherIcon.entries.map { icon ->
+            launcherAccentTokensFor(icon, isDark = true).primary
+        }.toSet()
+
+        assertEquals(AppLauncherIcon.entries.size, lightPrimaries.size)
+        assertEquals(AppLauncherIcon.entries.size, darkPrimaries.size)
+
+        AppLauncherIcon.entries.forEach { icon ->
+            listOf(false, true).forEach { isDark ->
+                val tokens = launcherAccentTokensFor(icon, isDark)
+                val primaryContrast = BrandColorHarmonizer.contrastRatio(
+                    BrandColorHarmonizer.composeColorToRgb(tokens.primary),
+                    BrandColorHarmonizer.composeColorToRgb(tokens.onPrimary)
+                )
+                val containerContrast = BrandColorHarmonizer.contrastRatio(
+                    BrandColorHarmonizer.composeColorToRgb(tokens.primaryContainer),
+                    BrandColorHarmonizer.composeColorToRgb(tokens.onPrimaryContainer)
+                )
+                assertTrue(
+                    "Low primary contrast for ${icon.name} (dark=$isDark): $primaryContrast",
+                    primaryContrast >= 4.5
+                )
+                assertTrue(
+                    "Low container contrast for ${icon.name} (dark=$isDark): $containerContrast",
+                    containerContrast >= 7.0
+                )
+            }
+        }
+    }
 }

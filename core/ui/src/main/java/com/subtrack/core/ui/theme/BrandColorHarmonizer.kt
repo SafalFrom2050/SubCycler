@@ -201,17 +201,36 @@ object BrandColorHarmonizer {
     }
 
     /**
+     * Converts any curated [AppLauncherIcon] colorway directly into its matching [SwirlLogoColors].
+     */
+    fun swirlColorsForLauncherIcon(icon: AppLauncherIcon): SwirlLogoColors =
+        if (icon == AppLauncherIcon.BOTANICAL) {
+            DefaultBotanicalSwirl
+        } else {
+            SwirlLogoColors(
+                lightPetal = colorFromHex(icon.lightPetalHex),
+                midPetal = colorFromHex(icon.midPetalHex),
+                deepPetal = colorFromHex(icon.deepPetalHex),
+                backdrop = colorFromHex(icon.backdropHex),
+                centerGlyph = colorFromHex(icon.lightPetalHex)
+            )
+        }
+
+    /**
      * Resolves the 3 petal colors of SubCycler's dynamic swirl logo from the user's currently active
      * subscriptions (ordered by monthly spend, deduplicated by distinct hue so petals stay vivid).
+     * Falls back to [fallbackIcon]'s curated swirl colorway when [useStackMood] is off or empty.
      */
     fun resolveSwirlPetalColors(
         activeSubscriptions: List<Subscription>,
-        useStackMood: Boolean = true
+        useStackMood: Boolean = true,
+        fallbackIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL
     ): SwirlLogoColors {
-        if (!useStackMood || activeSubscriptions.isEmpty()) return DefaultBotanicalSwirl
+        val fallbackSwirl = swirlColorsForLauncherIcon(fallbackIcon)
+        if (!useStackMood || activeSubscriptions.isEmpty()) return fallbackSwirl
 
         val distinctHues = selectDistinctActiveBrandRgb(activeSubscriptions, maxCount = 3)
-        if (distinctHues.isEmpty()) return DefaultBotanicalSwirl
+        if (distinctHues.isEmpty()) return fallbackSwirl
 
         return when (distinctHues.size) {
             1 -> {
@@ -220,6 +239,7 @@ object BrandColorHarmonizer {
                     lightPetal = petalColor(h, s, isNeutral, targetLightness = 0.84f, satScale = 0.76f),
                     midPetal = petalColor(h, s, isNeutral, targetLightness = 0.62f, satScale = 0.72f),
                     deepPetal = petalColor(h, s, isNeutral, targetLightness = 0.39f, satScale = 0.70f),
+                    backdrop = fallbackSwirl.backdrop,
                     centerGlyph = petalColor(h, s, isNeutral, targetLightness = 0.88f, satScale = 0.62f)
                 )
             }
@@ -229,8 +249,9 @@ object BrandColorHarmonizer {
                 SwirlLogoColors(
                     lightPetal = petalColor(h1, s1, n1, targetLightness = 0.84f, satScale = 0.76f),
                     midPetal = petalColor(h2, s2, n2, targetLightness = 0.62f, satScale = 0.74f),
-                    deepPetal = DefaultBotanicalSwirl.deepPetal,
-                    centerGlyph = Color(0xFFD5F9EA)
+                    deepPetal = fallbackSwirl.deepPetal,
+                    backdrop = fallbackSwirl.backdrop,
+                    centerGlyph = fallbackSwirl.centerGlyph
                 )
             }
             else -> {
@@ -241,6 +262,7 @@ object BrandColorHarmonizer {
                     lightPetal = petalColor(h1, s1, n1, targetLightness = 0.84f, satScale = 0.76f),
                     midPetal = petalColor(h2, s2, n2, targetLightness = 0.62f, satScale = 0.74f),
                     deepPetal = petalColor(h3, s3, n3, targetLightness = 0.41f, satScale = 0.72f),
+                    backdrop = fallbackSwirl.backdrop,
                     centerGlyph = Color(0xFFE6F9F1)
                 )
             }
@@ -249,39 +271,29 @@ object BrandColorHarmonizer {
 
     /**
      * Builds the soft Living Hero Mood backdrop palette from the user's active subscriptions.
-     * Reverts cleanly to classic Botanical Emerald when [useStackMood] is `false` or no services
+     * Reverts cleanly to [fallbackIcon]'s accent palette when [useStackMood] is `false` or no services
      * are currently active.
      */
     fun resolveHeroMoodPalette(
         activeSubscriptions: List<Subscription>,
         useStackMood: Boolean,
-        isDark: Boolean
+        isDark: Boolean,
+        fallbackIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL
     ): HeroMoodPalette {
-        val defaultBotanical = if (isDark) {
-            HeroMoodPalette(
-                baseColor = BrandDarkHeroContainer,
-                gradientStart = Color(0xFF154536),
-                gradientMid = Color(0xFF12392D),
-                gradientEnd = Color(0xFF102E25),
-                watermarkTint = BrandDarkOnPrimaryContainer,
-                contentColor = BrandDarkOnPrimaryContainer,
-                accentColor = BrandDarkPrimary
-            )
-        } else {
-            HeroMoodPalette(
-                baseColor = BrandLightHeroContainer,
-                gradientStart = Color(0xFFC8F1DF),
-                gradientMid = Color(0xFFD7F5E8),
-                gradientEnd = Color(0xFFE2F7EE),
-                watermarkTint = BrandLightOnPrimaryContainer,
-                contentColor = BrandLightOnPrimaryContainer,
-                accentColor = BrandLightPrimary
-            )
-        }
-        if (!useStackMood || activeSubscriptions.isEmpty()) return defaultBotanical
+        val accent = launcherAccentTokensFor(fallbackIcon, isDark)
+        val defaultPalette = HeroMoodPalette(
+            baseColor = accent.heroBase,
+            gradientStart = accent.heroGradientStart,
+            gradientMid = accent.heroGradientMid,
+            gradientEnd = accent.heroGradientEnd,
+            watermarkTint = accent.onPrimaryContainer,
+            contentColor = accent.onPrimaryContainer,
+            accentColor = accent.primary
+        )
+        if (!useStackMood || activeSubscriptions.isEmpty()) return defaultPalette
 
         val activeRgbs = selectDistinctActiveBrandRgb(activeSubscriptions, maxCount = 3)
-        if (activeRgbs.isEmpty()) return defaultBotanical
+        if (activeRgbs.isEmpty()) return defaultPalette
 
         val (h1, s1, n1) = harmonizedHueAndSat(activeRgbs[0])
         val (h2, s2, n2) = if (activeRgbs.size >= 2) {
@@ -314,7 +326,7 @@ object BrandColorHarmonizer {
                 gradientEnd = end,
                 watermarkTint = rgbToComposeColor(inkRgb),
                 contentColor = rgbToComposeColor(inkRgb),
-                accentColor = BrandLightPrimary
+                accentColor = accent.primary
             )
         } else {
             val start = softHeroStop(h1, s1, n1, lightness = 0.215f, maxSat = 0.38f)
@@ -335,7 +347,7 @@ object BrandColorHarmonizer {
                 gradientEnd = end,
                 watermarkTint = rgbToComposeColor(inkRgb),
                 contentColor = rgbToComposeColor(inkRgb),
-                accentColor = BrandDarkPrimary
+                accentColor = accent.primary
             )
         }
     }

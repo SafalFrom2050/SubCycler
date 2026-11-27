@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
 
     private var openSubscriptionId by mutableStateOf<Long?>(null)
     private var pendingTransferPayload by mutableStateOf<String?>(null)
+    private var pendingLauncherIcon: com.subtrack.core.domain.model.AppLauncherIcon? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -61,6 +62,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val appViewModel: AppViewModel = hiltViewModel()
             val themeMode by appViewModel.themeMode.collectAsStateWithLifecycle()
+            val launcherIcon by appViewModel.launcherIcon.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
             val useDarkTheme = when (themeMode) {
                 AppThemeMode.SYSTEM -> systemDark
@@ -99,7 +101,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            SubTrackTheme(darkTheme = useDarkTheme) {
+            SubTrackTheme(
+                darkTheme = useDarkTheme,
+                accentIcon = launcherIcon
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -111,12 +116,23 @@ class MainActivity : ComponentActivity() {
                         pendingTransferPayload = pendingTransferPayload,
                         onTransferPayloadConsumed = { pendingTransferPayload = null },
                         onApplyLauncherIcon = { icon ->
-                            LauncherIconController.applyLauncherIcon(this@MainActivity, icon)
+                            // Defer PackageManager alias toggle to onStop() so switching icons
+                            // in Settings previews the new accent palette live without Android
+                            // tearing down the foreground activity mid-session.
+                            pendingLauncherIcon = icon
                         },
                         appViewModel = appViewModel
                     )
                 }
             }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        pendingLauncherIcon?.let { icon ->
+            pendingLauncherIcon = null
+            LauncherIconController.applyLauncherIcon(this, icon)
         }
     }
 

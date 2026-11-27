@@ -143,13 +143,17 @@ fun ExpressiveHeroCardBackdrop(
     content: @Composable BoxScope.() -> Unit
 ) {
     val isDark = LocalSubCyclerDarkTheme.current
+    val accentIcon = com.subtrack.core.ui.theme.LocalSubCyclerAccentIcon.current
+    val accentDefaults = remember(accentIcon, isDark) {
+        com.subtrack.core.ui.theme.launcherAccentTokensFor(accentIcon, isDark)
+    }
     val reducedMotion = rememberReducedMotionEnabled()
     val colorSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion)
 
-    val targetBase = heroMood?.baseColor ?: if (isDark) BrandDarkHeroContainer else BrandLightHeroContainer
-    val targetStart = heroMood?.gradientStart ?: if (isDark) Color(0xFF154536) else Color(0xFFC8F1DF)
-    val targetMid = heroMood?.gradientMid ?: if (isDark) Color(0xFF12392D) else Color(0xFFD7F5E8)
-    val targetEnd = heroMood?.gradientEnd ?: if (isDark) Color(0xFF102E25) else Color(0xFFE2F7EE)
+    val targetBase = heroMood?.baseColor ?: accentDefaults.heroBase
+    val targetStart = heroMood?.gradientStart ?: accentDefaults.heroGradientStart
+    val targetMid = heroMood?.gradientMid ?: accentDefaults.heroGradientMid
+    val targetEnd = heroMood?.gradientEnd ?: accentDefaults.heroGradientEnd
     val targetWatermark = heroMood?.watermarkTint ?: MaterialTheme.colorScheme.onPrimaryContainer
 
     val baseColor by animateColorAsState(targetBase, colorSpec, label = "heroMoodBase")
