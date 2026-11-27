@@ -8,25 +8,27 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -38,6 +40,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.subtrack.core.ui.R
 import com.subtrack.core.ui.theme.BodyFontFamily
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
@@ -251,10 +254,9 @@ fun ExpressiveBrandWordmark(
 }
 
 /**
- * Kinetic Top-Bar Brand Header (inspired by BunPod's `FeedSyncLogo`):
- * Pairs a morphing Botanical Emerald emblem (`Bun → Clover4 → Cookie9 → Sunny`) that
- * executes `180°` half-turn spring hops beside a vertical slot-ticker whenever
- * [statusTicker] reports a local confirmation (e.g. `"Saved locally"`, `"Banked savings"`).
+ * Kinetic Top-Bar Brand Header:
+ * Pairs SubCycler's botanical swirl brand emblem (which performs a smooth spring rotation
+ * whenever [statusTicker] reports a local confirmation) beside a vertical slot-ticker.
  */
 @Composable
 fun ExpressiveKineticBrandHeader(
@@ -263,33 +265,17 @@ fun ExpressiveKineticBrandHeader(
     fontSize: TextUnit = 28.sp
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
-    val hopShapes = remember {
-        listOf(
-            ExpressiveMaterialPolygons.Bun,
-            ExpressiveMaterialPolygons.Clover4,
-            ExpressiveMaterialPolygons.Cookie9,
-            ExpressiveMaterialPolygons.Sunny
-        )
-    }
-    var hopIndex by remember { mutableIntStateOf(0) }
     val spinAngle = remember { Animatable(0f) }
 
     LaunchedEffect(statusTicker, reducedMotion) {
-        if (statusTicker == null) {
-            hopIndex = 0
-            return@LaunchedEffect
-        }
-        hopIndex = (hopIndex + 1) % hopShapes.size
+        if (statusTicker == null) return@LaunchedEffect
         if (!reducedMotion) {
             spinAngle.animateTo(
-                targetValue = spinAngle.value + 180f,
+                targetValue = spinAngle.value + 360f,
                 animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
             )
         }
     }
-
-    val emblemPolygon = if (statusTicker != null) hopShapes[hopIndex] else ExpressiveMaterialPolygons.Bun
-    val emblemShape = rememberMorphingPolygonShape(targetPolygon = emblemPolygon)
 
     Row(
         modifier = modifier,
@@ -297,21 +283,18 @@ fun ExpressiveKineticBrandHeader(
     ) {
         Box(
             modifier = Modifier
-                .size(30.dp)
-                .expressivePolygonSurface(
-                    shape = ExpressiveSquircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ),
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF02151B)),
             contentAlignment = Alignment.Center
         ) {
-            Box(
+            Image(
+                painter = painterResource(id = R.drawable.ic_subcycler_brand_mark),
+                contentDescription = "SubCycler logo",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(18.dp)
+                    .fillMaxSize()
                     .graphicsLayer { rotationZ = spinAngle.value }
-                    .expressivePolygonSurface(
-                        shape = emblemShape,
-                        color = MaterialTheme.colorScheme.primary
-                    )
             )
         }
         Spacer(modifier = Modifier.width(10.dp))
