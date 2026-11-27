@@ -1,8 +1,8 @@
 # Proposal: Material 3 Expressive Upgrades (v4.0 — "Botanical Kinetic Architecture II")
 
-> **Status**: Design & Engineering Proposal  
+> **Status**: Implemented & Device-Verified (v4.0.0)  
 > **Inspired By**: [BunPod (`kamranbekirovyz/bunpod`)](BUNPOD_DESIGN_INSPIRATION.md) + Android 16 Material 3 Expressive (`androidx.graphics:graphics-shapes`)  
-> **Baseline**: [`DESIGN.md` v3.5.0](../DESIGN.md)  
+> **Baseline**: [`DESIGN.md` v4.0.0](../DESIGN.md) (upgraded from v3.5.0)  
 > **Non-Negotiable Constraints**: 100% Offline (`zero INTERNET`, `zero USE_EXACT_ALARM`) · 70% Architectural Neutral / 30% Botanical Emerald Adaptive Light & Dark · Zero Third-Party Logos · Full Reduced-Motion (`ANIMATOR_DURATION_SCALE`) Compliance
 
 ---
@@ -238,16 +238,17 @@ Inspired by BunPod's `OpmlSuggestionDeck`:
 
 All upgrades preserve Clean Architecture boundaries (95% confined to `:core:ui`, `:feature:dashboard`, `:feature:planner`, `:feature:analytics`, `:feature:onboarding`, and `:app` navigation/widget—**zero Room schema breaking changes required**):
 
-| Phase | Scope | Key Modules / New Primitives | Effort |
+| Phase | Scope | Key Modules / New Primitives | Status |
 | :--- | :--- | :--- | :---: |
-| **Phase 1: Core Geometry & Physics Engine** | Add `androidx.graphics:graphics-shapes` to `libs.versions.toml`; build `MorphingPolygonShape`, anticipatory press-preview modifiers, `ExpressiveMotion.kt` token system, and `ExpressiveSectionStack`. | `:core:ui` (`Motion.kt`, `ExpressiveShapes.kt`) | Small–Medium |
-| **Phase 2: Signature Surfaces & Command Deck** | Build `CollapsibleEfficiencyHud`, 70/30 Vessel Bento cards + Dual-Clip `NextActionBanner`, and redesign `SubscriptionDetailBottomSheet` with the **Cycle Time-Machine Wavy Scrubber** + **50/50 Asymmetric Command Deck**. | `:core:ui`, `:feature:dashboard` | Medium–Large |
-| **Phase 3: Spatial Choreography & Delight** | Ship 3D stacked `ExpressiveSnackHost` (with concentric `Arch` chip & impulse wobble), `RemovalCollapse` two-beat delete/undo, `CycleCheckInDeck`, Welcome `VaultMosaicWall`, Kinetic Baton-Pass, and Widget polish. | `:core:ui`, `:feature:onboarding`, `:feature:planner`, `:feature:analytics`, `:app` | Medium |
+| **Phase 1: Core Geometry & Physics Engine** | Add `androidx.graphics:graphics-shapes` to `libs.versions.toml`; build `MorphPolygonShape`, anticipatory press-preview modifiers, `ExpressiveMotion` token system, and `ExpressiveSectionStack`. | `:core:ui` (`Motion.kt`, `ExpressiveShapes.kt`, `ExpressiveBackdrop.kt`) | `Implemented & Verified` |
+| **Phase 2: Signature Surfaces & Command Deck** | Build scroll-collapsible `CompactEfficiencyCapsule`, 70/30 Vessel Bento cards + Dual-Clip `NextActionBanner`, and redesign `SubscriptionDetailBottomSheet` with the **Cycle Time-Machine Wavy Scrubber** + **50/50 Asymmetric Command Deck**. | `:core:ui`, `:feature:dashboard` | `Implemented & Verified` |
+| **Phase 3: Spatial Choreography & Delight** | Ship 3D stacked `ExpressiveSnackHost` (with concentric `Arch` chip & impulse wobble), `ExpressiveRemovalCollapse` two-beat delete/undo, `CycleCheckInDeck`, Welcome `BotanicalVaultMosaic`, Kinetic Baton-Pass, and scalloped Widget refresh. | `:core:ui`, `:feature:onboarding`, `:feature:planner`, `:feature:analytics`, `:app` | `Implemented & Verified` |
 
 ---
 
 ## 7. Verification & Accessibility Checklist for v4.0
 
-- **Zero-Permission Guarantee**: Confirm merged `AndroidManifest.xml` retains zero `android.permission.INTERNET` and zero `USE_EXACT_ALARM` (`androidx.graphics:graphics-shapes` is pure offline math).
-- **Reduced Motion (`ANIMATOR_DURATION_SCALE == 0f`)**: Every spring morph, `ShapeBloomBackdrop`, wave animation, and stagger snaps cleanly to its settled target state when animations are disabled.
-- **Touch Target & Contrast**: All asymmetric `2×2` Bento sub-tiles maintain `>= 48dp × 48dp` hit targets; dual-layer vessel clipping guarantees WCAG AA contrast on both sides of the progress seam in Light and Dark modes.
+- [x] **Zero-Permission Guarantee**: Merged manifest verified via `:app:connectedDebugAndroidTest` (`CancellationOptionsDialogTest.manifestRequestsNoInternetPermission`) — zero `android.permission.INTERNET` and zero `USE_EXACT_ALARM` (`androidx.graphics:graphics-shapes` is pure offline math).
+- [x] **Reduced Motion (`ANIMATOR_DURATION_SCALE == 0f`)**: Every spring morph, `ShapeBloomBackdrop`, wave animation, and stagger checks `rememberReducedMotionEnabled()` / `orSnapIfReduced()` and snaps cleanly when system animations are disabled.
+- [x] **Automated Verification**: Full `testDebugUnitTest` (including 8 dedicated v4.0 JVM unit tests in `ExpressiveV4PrimitivesTest`), full `lintDebug` (0 errors across all 9 Gradle modules), and 13/13 on-device `:app:connectedDebugAndroidTest` checks passed on `WAS-LX2J (Android 8.0.0)`.
+- [x] **Touch Target & Contrast**: All asymmetric `2×2` Bento sub-tiles maintain `>= 48dp` hit targets; dual-layer `NextActionBanner` clipping and 70/30 vessel tints preserve high legibility in Light and Dark modes.

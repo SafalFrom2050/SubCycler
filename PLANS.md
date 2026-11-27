@@ -14,6 +14,7 @@
 | **Optional Calendar Awareness** | Reminders & Recommendations | v1.1.0 | `Implemented; device QA ongoing` | [OPTIONAL_CALENDAR_AWARENESS_FEATURE.md](plans/features/OPTIONAL_CALENDAR_AWARENESS_FEATURE.md) |
 | **Minimal Home UX & Subscribe/Unsubscribe Progress Notification** | Core UX & Notifications | v1.2.0 | `Implemented` | [MINIMAL_UX_AND_ACTION_NOTIFICATION_FEATURE.md](plans/features/MINIMAL_UX_AND_ACTION_NOTIFICATION_FEATURE.md) |
 | **Material 3 Expressive Redesign, Auto-Saving Multi-Step UX & Offline Resilience** | Design System, Core UX & Backup | v1.3.0 | `Implemented & Device-Verified` | [MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md](plans/features/MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md) |
+| **Material 3 Expressive v4.0 ("Botanical Kinetic Architecture II")** | Design System, Motion & Craft | v1.4.0 | `Implemented & Device-Verified` | [MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md) |
 
 ---
 
@@ -54,6 +55,14 @@
   * **Offline Backup, Deduplicated Reminders & Widget**: Local JSON/CSV export & import (`SubscriptionBackupCodec`), Room v1→v5 migrations, inexact `AlarmManager` + `WorkManager` + `ReminderDeduplicator` (zero `USE_EXACT_ALARM`), and `SubCyclerWidgetProvider`.
 * **Full Specification**: [Read the complete implementation plan & decision log](plans/features/MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md).
 
+### 5. [Material 3 Expressive v4.0 — "Botanical Kinetic Architecture II"](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md)
+* **Goal**: Push SubCycler from expressively styled cards to tactile, physically alive financial instruments inspired by [`kamranbekirovyz/bunpod`](https://github.com/kamranbekirovyz/bunpod) and Android 16 Material 3 Expressive, with zero network permissions and full reduced-motion compliance.
+* **Key Components**:
+  * **Topological Polygon Morphing & Role-Split Springs (`ExpressiveShapes.kt`, `Motion.kt`)**: Jetpack `androidx.graphics:graphics-shapes` cubic-Bézier morphing across 6 subscription lifecycle phases, anticipatory press-preview geometry, and `ExpressiveMotion` spring tokens with `ANIMATOR_DURATION_SCALE` compliance.
+  * **Cycle Vessel Cards, Collapsible HUD & Time-Machine Scrubbing (`DashboardScreen.kt`, `FinancialEfficiencyHud.kt`, `SubscriptionDetailBottomSheet.kt`)**: Pinned `CompactEfficiencyCapsule` over 6-stop `progressiveEdgeFade`, 70/30 horizontal Cycle Vessel cards + dual-clip `NextActionBanner`, interactive drag-to-scrub `WavyProgressIndicator`, and a 50/50 asymmetric `1+(2×2)` Command Deck.
+  * **Choreographed Feedback, Connected Stacks & Kinetic Surfaces (`ExpressiveSnackHost.kt`, `ExpressiveListPhysics.kt`, `CycleCheckInDeck.kt`, `PlannerScreen.kt`, `AnalyticsScreen.kt`, `OnboardingScreen.kt`, `SubCyclerWidgetProvider.kt`)**: 3D stacked stadium snacks, two-beat `ExpressiveRemovalCollapse`, positional `ExpressiveSectionStack` slabs, inline `CycleCheckInDeck`, kinetic Baton-Pass swap tracks, interactive `BotanicalVaultMosaic`, and a scalloped `Cookie12` home-screen widget.
+* **Design Study & Blueprint**: [BunPod Design Study](docs/BUNPOD_DESIGN_INSPIRATION.md) · [v4.0 Specification](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md).
+
 ---
 
 ## Assisted Cancellation Links
@@ -70,7 +79,6 @@ Disabled by default. After opt-in, selected device calendars inform subscription
 
 ## 🔮 Future Roadmap Items (Under Consideration)
 
-- **Material 3 Expressive v4.0 ("Botanical Kinetic Architecture II")**: Next-generation expressive upgrades inspired by [`kamranbekirovyz/bunpod`](https://github.com/kamranbekirovyz/bunpod)—including `androidx.graphics:graphics-shapes` lifecycle polygon morphing, anticipatory press-preview geometry, scroll-collapsible Efficiency HUD, a scrubbable "Cycle Time-Machine" wave + 50/50 asymmetric Bento Command Deck in the Detail sheet, 3D stacked floating snack pills, and two-beat collision list choreography. See [BunPod Design Study](docs/BUNPOD_DESIGN_INSPIRATION.md) and [Material Expressive Upgrades Proposal](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md).
 - **Passphrase-Encrypted Offline Backups**: Optional AES-GCM encryption layer on top of SubCycler's existing local JSON/CSV export and import.
 - **Expanded Accessibility & Large-Screen Layouts**: Adaptive two-pane tablet/foldable layouts and formal TalkBack / font-scale audits across all expressive components.
 
