@@ -359,7 +359,7 @@ fun AddEditSubscriptionDialog(
                 .imePadding()
                 .navigationBarsPadding()
         ) {
-            // Clean Header Row: Organic Badge + Title & Subtle Auto-Save Status + Close Button
+            // Clean Header Row: Organic Badge + Title + Close Button (auto-save status shows cleanly in the home app bar)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -375,48 +375,17 @@ fun AddEditSubscriptionDialog(
                     isSelected = name.isNotBlank()
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isEditing) "Edit subscription" else "New subscription",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp,
-                        letterSpacing = (-0.5).sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        val isSavedComplete = hasAutoSaved && canSave && previewMissingItems.isEmpty()
-                        if (isSavedComplete) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
-                        Text(
-                            text = when {
-                                !canSave && name.isBlank() -> "Saves automatically"
-                                hasInvalidCostFormat -> "Check price format"
-                                previewMissingItems.isNotEmpty() && hasAutoSaved -> "Saved · Incomplete"
-                                isSavedComplete -> "Saved automatically"
-                                else -> "Saving…"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 11.5.sp,
-                            color = if (hasInvalidCostFormat) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                    }
-                }
+                Text(
+                    text = if (isEditing) "Edit subscription" else "New subscription",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 20.sp,
+                    letterSpacing = (-0.5).sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
 
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(
@@ -687,7 +656,14 @@ fun AddEditSubscriptionDialog(
                                     )
                                 }
 
-                                if (hasLegacyCurrencyMismatch) {
+                                if (hasInvalidCostFormat) {
+                                    Text(
+                                        text = "Check price format — enter a positive number.",
+                                        fontSize = 11.5.sp,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(start = 2.dp)
+                                    )
+                                } else if (hasLegacyCurrencyMismatch) {
                                     Text(
                                         text = "App currency is $currencyCode — confirm the price in $currencyCode.",
                                         fontSize = 11.5.sp,
