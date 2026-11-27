@@ -51,4 +51,20 @@ class RegionalPriceCatalogTest {
         assertEquals(5900.0 / 12.0, yearlyPrime.monthlyEquivalentCost, 0.001)
         assertNotNull(RegionalPriceCatalog.defaultTierFor("Spotify", "EUR"))
     }
+
+    @Test
+    fun topTwentyPresetsAllHaveDistinctBrandColorsAndUsdTiers() {
+        assertEquals(20, PresetLibrary.presets.size)
+        val hexes = PresetLibrary.presets.map { it.colorHex.uppercase() }.toSet()
+        assertEquals(20, hexes.size)
+        PresetLibrary.presets.forEach { preset ->
+            assertTrue("Invalid hex for ${preset.name}: ${preset.colorHex}", preset.colorHex.matches(Regex("#[0-9A-Fa-f]{6}")))
+            assertNotNull("Missing USD default tier for ${preset.name}", RegionalPriceCatalog.defaultTierFor(preset.name, "USD"))
+        }
+        assertEquals("#E50914", PresetLibrary.brandColorHexForName("Netflix"))
+        assertEquals("#F47521", PresetLibrary.brandColorHexForName("Crunchyroll Mega Fan"))
+        assertEquals("#6366F1", PresetLibrary.brandColorHexForName("Google AI Pro"))
+        assertEquals("#5865F2", PresetLibrary.brandColorHexForName("Discord Nitro"))
+        assertNull(PresetLibrary.brandColorHexForName("Neighborhood Gym"))
+    }
 }

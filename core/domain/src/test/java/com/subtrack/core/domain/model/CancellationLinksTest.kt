@@ -47,7 +47,8 @@ class CancellationLinksTest {
             "www.netflix.com", "www.disneyplus.com", "www.hbomax.com", "www.youtube.com",
             "www.spotify.com", "www.primevideo.com", "help.openai.com", "support.claude.com",
             "one.google.com", "www.notion.com", "account.microsoft.com", "www.playstation.com",
-            "support.apple.com", "play.google.com"
+            "support.apple.com", "play.google.com",
+            "secure.hulu.com", "www.crunchyroll.com", "ec.nintendo.com"
         )
         PresetLibrary.presets.flatMap { CancellationLinks.destinationsFor(it.name) }.forEach {
             val uri = URI(it.url)
