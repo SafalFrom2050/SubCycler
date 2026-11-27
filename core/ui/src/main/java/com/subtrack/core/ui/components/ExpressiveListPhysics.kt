@@ -226,20 +226,30 @@ fun FannedBadgeStack(
                     .offset(x = xOffset)
                     .size(outerSize)
                     .graphicsLayer { rotationZ = tilt }
-                    .clip(ExpressiveCookie7Shape)
-                    .background(ringColor)
-                    .padding(ringWidth)
-                    .clip(ExpressiveCookie7Shape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .expressivePolygonSurface(
+                        shape = ExpressiveCookie7Shape,
+                        color = ringColor
+                    )
+                    .padding(ringWidth),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "+$overflow",
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                Box(
+                    modifier = Modifier
+                        .size(badgeSize)
+                        .expressivePolygonSurface(
+                            shape = ExpressiveCookie7Shape,
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+$overflow",
+                        fontFamily = DisplayFontFamily,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
 
@@ -255,8 +265,10 @@ fun FannedBadgeStack(
                     .offset(x = xOffset)
                     .size(outerSize)
                     .graphicsLayer { rotationZ = tilt }
-                    .clip(ringShape)
-                    .background(ringColor)
+                    .expressivePolygonSurface(
+                        shape = ringShape,
+                        color = ringColor
+                    )
                     .padding(ringWidth),
                 contentAlignment = Alignment.Center
             ) {

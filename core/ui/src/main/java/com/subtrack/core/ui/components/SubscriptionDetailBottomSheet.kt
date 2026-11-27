@@ -1046,8 +1046,10 @@ private fun HeroCommandTile(
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(iconShape)
-                    .background(fgColor.copy(alpha = if (boldPrimary) 0.16f else 0.14f)),
+                    .expressivePolygonSurface(
+                        shape = iconShape,
+                        color = fgColor.copy(alpha = if (boldPrimary) 0.16f else 0.14f)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 ReactiveIcon(
@@ -1150,9 +1152,9 @@ private fun AnticipatoryToggleTile(
             Box(
                 modifier = Modifier
                     .size(28.dp)
-                    .clip(sealShape)
-                    .background(
-                        if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
+                    .expressivePolygonSurface(
+                        shape = sealShape,
+                        color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
                     ),
                 contentAlignment = Alignment.Center
             ) {

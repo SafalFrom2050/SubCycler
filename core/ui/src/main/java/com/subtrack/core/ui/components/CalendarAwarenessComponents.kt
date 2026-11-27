@@ -138,8 +138,10 @@ fun CalendarSettingsSheet(
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
-                                .clip(ExpressiveCookie8Shape)
-                                .background(skyPalette.container, ExpressiveCookie8Shape),
+                                .expressivePolygonSurface(
+                                    shape = ExpressiveCookie8Shape,
+                                    color = skyPalette.container
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -253,8 +255,10 @@ fun CalendarSettingsSheet(
                                         Box(
                                             modifier = Modifier
                                                 .size(38.dp)
-                                                .clip(ExpressiveClover4Shape)
-                                                .background(oceanPalette.container),
+                                                .expressivePolygonSurface(
+                                                    shape = ExpressiveClover4Shape,
+                                                    color = oceanPalette.container
+                                                ),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
@@ -524,8 +528,10 @@ private fun SettingsVaultActionRow(
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .clip(badgeShape)
-                    .background(palette.container, badgeShape),
+                    .expressivePolygonSurface(
+                        shape = badgeShape,
+                        color = palette.container
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -713,8 +719,10 @@ fun CalendarSuggestionCard(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(ExpressiveClover4Shape)
-                        .background(lavenderPalette.selectedContainer, ExpressiveClover4Shape),
+                        .expressivePolygonSurface(
+                            shape = ExpressiveClover4Shape,
+                            color = lavenderPalette.selectedContainer
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     ReactiveIcon(

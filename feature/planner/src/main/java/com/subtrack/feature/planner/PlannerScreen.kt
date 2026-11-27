@@ -16,6 +16,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,7 +55,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.ui.components.CycleTimelineView
-import com.subtrack.core.ui.components.ExpressiveCookie8Shape
 import com.subtrack.core.ui.components.ExpressiveEyebrow
 import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressivePalettes
@@ -67,6 +68,7 @@ import com.subtrack.core.ui.components.ReactiveMotionType
 import com.subtrack.core.ui.components.ShapeBloomBackdrop
 import com.subtrack.core.ui.components.diagonalHatchPattern
 import com.subtrack.core.ui.components.expressiveCardBorder
+import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.progressiveEdgeFade
 import com.subtrack.core.ui.components.rememberMorphingPolygonShape
 import com.subtrack.core.ui.theme.DisplayFontFamily
@@ -479,29 +481,35 @@ fun PlannerScreen(
                                                 thickness = 1.dp,
                                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                                             )
-                                            Surface(
-                                                onClick = {
-                                                    swapFlipTrigger++
-                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    onAction(PlannerAction.SwapServiceOrder)
-                                                },
-                                                interactionSource = swapMedallionInteraction,
-                                                modifier = Modifier.size(40.dp),
-                                                shape = batonShape,
-                                                color = MaterialTheme.colorScheme.primaryContainer,
-                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    ReactiveIcon(
-                                                        imageVector = Icons.Default.SwapVert,
-                                                        contentDescription = "Swap service order",
-                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                        size = 19.dp,
-                                                        motion = ReactiveMotionType.SWAP_FLIP,
-                                                        isPressed = swapMedallionPressed,
-                                                        triggerKey = swapFlipTrigger
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .expressivePolygonSurface(
+                                                        shape = batonShape,
+                                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                                        borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
+                                                        borderWidth = 1.dp
                                                     )
-                                                }
+                                                    .clickable(
+                                                        interactionSource = swapMedallionInteraction,
+                                                        indication = null,
+                                                        role = Role.Button
+                                                    ) {
+                                                        swapFlipTrigger++
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        onAction(PlannerAction.SwapServiceOrder)
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                ReactiveIcon(
+                                                    imageVector = Icons.Default.SwapVert,
+                                                    contentDescription = "Swap service order",
+                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    size = 19.dp,
+                                                    motion = ReactiveMotionType.SWAP_FLIP,
+                                                    isPressed = swapMedallionPressed,
+                                                    triggerKey = swapFlipTrigger
+                                                )
                                             }
                                         }
 

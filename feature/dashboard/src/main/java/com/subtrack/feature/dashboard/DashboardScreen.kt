@@ -132,6 +132,7 @@ import com.subtrack.core.ui.components.SubscriptionDetailBottomSheet
 import com.subtrack.core.ui.components.SubscriptionGridItem
 import com.subtrack.core.ui.components.buildCycleCheckInItems
 import com.subtrack.core.ui.components.expressiveCardBorder
+import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.openCancellationDestination
 import com.subtrack.core.ui.components.progressiveEdgeFade
 import com.subtrack.core.ui.components.rememberExpressiveSnackHostState
@@ -1189,8 +1190,10 @@ private fun DashboardEmptyState(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(ExpressiveCookie8Shape)
-                    .background(boldPalette.container, ExpressiveCookie8Shape),
+                    .expressivePolygonSurface(
+                        shape = ExpressiveCookie8Shape,
+                        color = boldPalette.container
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

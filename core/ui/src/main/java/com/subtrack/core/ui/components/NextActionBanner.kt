@@ -190,8 +190,10 @@ private fun UrgentBannerHeaderContent(
         Box(
             modifier = Modifier
                 .size(38.dp)
-                .clip(ExpressiveCookie8Shape)
-                .background(badgeBg, ExpressiveCookie8Shape),
+                .expressivePolygonSurface(
+                    shape = ExpressiveCookie8Shape,
+                    color = badgeBg
+                ),
             contentAlignment = Alignment.Center
         ) {
             ReactiveIcon(

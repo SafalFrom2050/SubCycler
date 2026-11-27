@@ -298,16 +298,20 @@ fun ExpressiveKineticBrandHeader(
         Box(
             modifier = Modifier
                 .size(30.dp)
-                .clip(ExpressiveSquircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .expressivePolygonSurface(
+                    shape = ExpressiveSquircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .size(18.dp)
                     .graphicsLayer { rotationZ = spinAngle.value }
-                    .clip(emblemShape)
-                    .background(MaterialTheme.colorScheme.primary)
+                    .expressivePolygonSurface(
+                        shape = emblemShape,
+                        color = MaterialTheme.colorScheme.primary
+                    )
             )
         }
         Spacer(modifier = Modifier.width(10.dp))

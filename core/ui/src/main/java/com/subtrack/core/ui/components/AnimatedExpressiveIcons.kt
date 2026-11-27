@@ -296,14 +296,11 @@ fun ExpressiveReactiveIconButton(
                 scaleY = containerScale
                 rotationZ = containerRotation
             }
-            .clip(shape)
-            .background(containerColor, shape)
-            .then(
-                if (borderColor != null) {
-                    Modifier.border(1.dp, borderColor, shape)
-                } else {
-                    Modifier
-                }
+            .expressivePolygonSurface(
+                shape = shape,
+                color = containerColor,
+                borderColor = borderColor,
+                borderWidth = 1.dp
             )
             .clickable(
                 interactionSource = interactionSource,

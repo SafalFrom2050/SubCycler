@@ -375,8 +375,10 @@ private fun ExpressiveSnackPillView(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .clip(archShape)
-                                    .background(MaterialTheme.colorScheme.inversePrimary),
+                                    .expressivePolygonSurface(
+                                        shape = archShape,
+                                        color = MaterialTheme.colorScheme.inversePrimary
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(

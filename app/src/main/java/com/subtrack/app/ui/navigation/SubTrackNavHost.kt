@@ -55,6 +55,7 @@ import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.rememberMorphingPolygonShape
 import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
@@ -437,14 +438,11 @@ private fun SubTrackMainNavigation(
                                 scaleY = fabScale
                                 rotationZ = fabCookieRotation
                             }
-                            .clip(fabShape)
-                            .background(fabBgColor, fabShape)
-                            .then(
-                                if (!isOnDashboard) {
-                                    Modifier.border(1.dp, fabRimColor, fabShape)
-                                } else {
-                                    Modifier
-                                }
+                            .expressivePolygonSurface(
+                                shape = fabShape,
+                                color = fabBgColor,
+                                borderColor = if (!isOnDashboard) fabRimColor else null,
+                                borderWidth = 1.dp
                             )
                             .clickable(
                                 interactionSource = fabInteraction,

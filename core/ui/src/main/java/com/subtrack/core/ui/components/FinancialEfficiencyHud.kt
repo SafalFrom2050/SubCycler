@@ -257,8 +257,10 @@ fun FinancialEfficiencyHud(
                                 scaleY = badgeScale
                                 rotationZ = wiggleRotation.value
                             }
-                            .clip(stampShape)
-                            .background(boldBadgePalette.container, stampShape)
+                            .expressivePolygonSurface(
+                                shape = stampShape,
+                                color = boldBadgePalette.container
+                            )
                             .drawBehind {
                                 val inset = 9.dp.toPx()
                                 drawCircle(
@@ -415,8 +417,10 @@ fun CompactEfficiencyCapsule(
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
-                                .clip(ExpressiveCookie12Shape)
-                                .background(MaterialTheme.colorScheme.onPrimary)
+                                .expressivePolygonSurface(
+                                    shape = ExpressiveCookie12Shape,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
                         )
                         Text(
                             text = "Save $formattedSave/yr",

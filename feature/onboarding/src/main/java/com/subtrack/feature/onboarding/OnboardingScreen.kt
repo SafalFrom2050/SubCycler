@@ -134,6 +134,7 @@ import com.subtrack.core.ui.components.FannedBadgeStack
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
 import com.subtrack.core.ui.components.ShapeBloomBackdrop
+import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.rememberMorphingPolygonShape
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
@@ -598,8 +599,10 @@ private fun BotanicalVaultMosaic(
                     Box(
                         modifier = Modifier
                             .size(66.dp)
-                            .clip(shape)
-                            .background(palette.container, shape)
+                            .expressivePolygonSurface(
+                                shape = shape,
+                                color = palette.container
+                            )
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -648,8 +651,10 @@ private fun WelcomeFeatureRow(
             Box(
                 modifier = Modifier
                     .size(34.dp)
-                    .clip(shape)
-                    .background(palette.container, shape),
+                    .expressivePolygonSurface(
+                        shape = shape,
+                        color = palette.container
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -1663,8 +1668,10 @@ private fun StarterPlanStep(
             Box(
                 modifier = Modifier
                     .size(76.dp)
-                    .clip(ExpressiveCookie12Shape)
-                    .background(boldPalette.container, ExpressiveCookie12Shape),
+                    .expressivePolygonSurface(
+                        shape = ExpressiveCookie12Shape,
+                        color = boldPalette.container
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 ReactiveIcon(
@@ -1754,8 +1761,10 @@ private fun StarterPlanStep(
                     Box(
                         modifier = Modifier
                             .size(38.dp)
-                            .clip(ExpressiveClover4Shape)
-                            .background(MaterialTheme.colorScheme.primaryContainer, ExpressiveClover4Shape),
+                            .expressivePolygonSurface(
+                                shape = ExpressiveClover4Shape,
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

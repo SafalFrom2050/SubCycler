@@ -55,6 +55,7 @@ import com.subtrack.core.ui.components.ExpressiveServiceBadge
 import com.subtrack.core.ui.components.ExpressiveTonalPalette
 import com.subtrack.core.ui.components.ShapeBloomBackdrop
 import com.subtrack.core.ui.components.expressiveCardBorder
+import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.progressiveEdgeFade
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.ExpressiveMotion
@@ -171,8 +172,10 @@ fun AnalyticsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(56.dp)
-                                    .clip(ExpressiveCookie8Shape)
-                                    .background(boldPalette.container, ExpressiveCookie8Shape),
+                                    .expressivePolygonSurface(
+                                        shape = ExpressiveCookie8Shape,
+                                        color = boldPalette.container
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -448,8 +451,10 @@ fun AnalyticsScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(42.dp)
-                                            .clip(ExpressiveClover4Shape)
-                                            .background(sagePalette.container, ExpressiveClover4Shape),
+                                            .expressivePolygonSurface(
+                                                shape = ExpressiveClover4Shape,
+                                                color = sagePalette.container
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(

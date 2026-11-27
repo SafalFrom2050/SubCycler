@@ -220,8 +220,10 @@ fun CycleCheckInDeck(
                         Box(
                             modifier = Modifier
                                 .size(46.dp)
-                                .clip(ExpressiveCookie9Shape)
-                                .background(MaterialTheme.colorScheme.primary),
+                                .expressivePolygonSurface(
+                                    shape = ExpressiveCookie9Shape,
+                                    color = MaterialTheme.colorScheme.primary
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
