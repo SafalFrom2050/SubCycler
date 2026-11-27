@@ -5,4 +5,7 @@
     <color name="widget_text_primary">#FF053324</color>
     <color name="widget_text_secondary">#FF2F5B4B</color>
     <color name="widget_accent">#FF0C6B4E</color>
+    <color name="widget_accent_on">#FFF0FBF6</color>
+    <color name="widget_track">#260C6B4E</color>
+    <color name="widget_stroke">#330C6B4E</color>
 </resources>

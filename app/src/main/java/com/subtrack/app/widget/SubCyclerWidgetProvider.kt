@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import com.subtrack.app.MainActivity
 import com.subtrack.app.R
@@ -24,10 +25,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlin.math.roundToInt
 
 /**
- * 100% offline Home-Screen Widget showing Effective Monthly spend, Active/Paused status,
- * and the soonest upcoming rotation action.
+ * 100% offline Material 3 Expressive v4.0 Home-Screen Widget showing Effective Monthly spend,
+ * Active/Paused status, a vector 12-petal scalloped annual savings seal, and a cycle rhythm
+ * progress bar for the soonest upcoming rotation action.
  */
 class SubCyclerWidgetProvider : AppWidgetProvider() {
 
@@ -60,6 +63,7 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                 val summary = RotationEngine.calculatePortfolioSavings(summaryStatuses)
 
                 val soonest = statuses
+                    .filterNot { it.subscription.isIncomplete }
                     .sortedWith(
                         compareBy<com.subtrack.core.domain.model.CycleStatus> {
                             when (it.nextAction.urgency) {
@@ -86,12 +90,24 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                 val nextLine = when {
                     soonest == null -> "Tap to track subscriptions offline"
                     soonest.phase == CyclePhase.ACTIVE && soonest.subscription.isRotating && !soonest.isAutoRenewCancelledForCurrentCycle ->
-                        "Next: Cancel ${soonest.subscription.name} in ${soonest.daysRemainingInPhase}d"
+                        "Cancel ${soonest.subscription.name} in ${soonest.daysRemainingInPhase}d"
                     soonest.phase == CyclePhase.BLACKOUT ->
-                        "Next: Resume ${soonest.subscription.name} in ${soonest.daysRemainingInPhase}d"
+                        "Resume ${soonest.subscription.name} in ${soonest.daysRemainingInPhase}d"
                     else ->
                         "${soonest.subscription.name} · ${soonest.daysRemainingInPhase}d left"
                 }
+
+                val hasAnnualSavings = summary.totalAnnualSavings > 0.5
+                val savingsAmount = MoneyFormatter.format(
+                    summary.totalAnnualSavings,
+                    primaryCurrency,
+                    maximumFractionDigits = 0
+                )
+                val progressPercent = soonest?.progressFraction
+                    ?.coerceIn(0.08f, 1f)
+                    ?.times(100f)
+                    ?.roundToInt()
+                    ?: 0
 
                 val tapIntent = Intent(context, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -111,6 +127,18 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                         setTextViewText(R.id.widget_status_pill, statusPill)
                         setTextViewText(R.id.widget_headline, headline)
                         setTextViewText(R.id.widget_next_action, nextLine)
+                        setViewVisibility(
+                            R.id.widget_savings_seal,
+                            if (hasAnnualSavings) View.VISIBLE else View.GONE
+                        )
+                        if (hasAnnualSavings) {
+                            setTextViewText(R.id.widget_savings_amount, savingsAmount)
+                        }
+                        setViewVisibility(
+                            R.id.widget_cycle_progress,
+                            if (soonest != null) View.VISIBLE else View.GONE
+                        )
+                        setProgressBar(R.id.widget_cycle_progress, 100, progressPercent, false)
                         setOnClickPendingIntent(R.id.widget_root, tapPendingIntent)
                     }
                     appWidgetManager.updateAppWidget(widgetId, views)
