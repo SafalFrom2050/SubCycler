@@ -100,21 +100,24 @@ import kotlin.math.sin
 /**
  * Pure-math polygon rotation helper (works identically on Android and JVM unit tests).
  */
-fun RoundedPolygon.rotated(degrees: Float): RoundedPolygon {
-    if (degrees == 0f) return this
-    val rad = Math.toRadians(degrees.toDouble())
-    val cosA = cos(rad).toFloat()
-    val sinA = sin(rad).toFloat()
-    return transformed { x, y ->
-        TransformResult(x * cosA - y * sinA, x * sinA + y * cosA)
-    }
-}
+fun RoundedPolygon.rotated(degrees: Float): RoundedPolygon =
+    ExpressiveMaterialPolygons.rotate(this, degrees)
 
 /**
  * Material 3 Expressive v4.0 Normalized Cubic-Bézier Polygon Library backed by
  * Jetpack `androidx.graphics:graphics-shapes` (100% offline, ~35 KB math library).
  */
 object ExpressiveMaterialPolygons {
+    internal fun rotate(polygon: RoundedPolygon, degrees: Float): RoundedPolygon {
+        if (degrees == 0f) return polygon
+        val rad = Math.toRadians(degrees.toDouble())
+        val cosA = cos(rad).toFloat()
+        val sinA = sin(rad).toFloat()
+        return polygon.transformed { x, y ->
+            TransformResult(x * cosA - y * sinA, x * sinA + y * cosA)
+        }
+    }
+
     val Circle: RoundedPolygon = RoundedPolygon.circle(numVertices = 10).normalized()
 
     val Square: RoundedPolygon = RoundedPolygon.rectangle(
@@ -161,13 +164,16 @@ object ExpressiveMaterialPolygons {
         innerRounding = CornerRounding(0.16f)
     ).normalized()
 
-    val Clover4: RoundedPolygon = RoundedPolygon.star(
-        numVerticesPerRadius = 4,
-        radius = 1f,
-        innerRadius = 0.56f,
-        rounding = CornerRounding(0.34f),
-        innerRounding = CornerRounding(0.22f)
-    ).rotated(45f).normalized()
+    val Clover4: RoundedPolygon = rotate(
+        RoundedPolygon.star(
+            numVerticesPerRadius = 4,
+            radius = 1f,
+            innerRadius = 0.56f,
+            rounding = CornerRounding(0.34f),
+            innerRounding = CornerRounding(0.22f)
+        ),
+        45f
+    ).normalized()
 
     val Clover8: RoundedPolygon = RoundedPolygon.star(
         numVerticesPerRadius = 8,
@@ -177,13 +183,16 @@ object ExpressiveMaterialPolygons {
         innerRounding = CornerRounding(0.18f)
     ).normalized()
 
-    val Sunny: RoundedPolygon = RoundedPolygon.star(
-        numVerticesPerRadius = 8,
-        radius = 1f,
-        innerRadius = 0.78f,
-        rounding = CornerRounding(0.16f),
-        innerRounding = CornerRounding(0.16f)
-    ).rotated(22.5f).normalized()
+    val Sunny: RoundedPolygon = rotate(
+        RoundedPolygon.star(
+            numVerticesPerRadius = 8,
+            radius = 1f,
+            innerRadius = 0.78f,
+            rounding = CornerRounding(0.16f),
+            innerRounding = CornerRounding(0.16f)
+        ),
+        22.5f
+    ).normalized()
 
     val SoftBurst: RoundedPolygon = RoundedPolygon.star(
         numVerticesPerRadius = 10,
@@ -206,10 +215,10 @@ object ExpressiveMaterialPolygons {
     ).normalized()
 
     /** Dome facing Left (for LTR leading stadium snack icon chips). */
-    val ArchLeft: RoundedPolygon = Arch.rotated(-90f).normalized()
+    val ArchLeft: RoundedPolygon = rotate(Arch, -90f).normalized()
 
     /** Dome facing Right (for RTL leading stadium snack icon chips). */
-    val ArchRight: RoundedPolygon = Arch.rotated(90f).normalized()
+    val ArchRight: RoundedPolygon = rotate(Arch, 90f).normalized()
 
     val Pebble: RoundedPolygon = RoundedPolygon.rectangle(
         width = 1f,
@@ -222,17 +231,23 @@ object ExpressiveMaterialPolygons {
         )
     ).normalized()
 
-    val Gem: RoundedPolygon = RoundedPolygon(
-        numVertices = 6,
-        radius = 1f,
-        rounding = CornerRounding(0.26f, 0.35f)
-    ).rotated(-90f).normalized()
+    val Gem: RoundedPolygon = rotate(
+        RoundedPolygon(
+            numVertices = 6,
+            radius = 1f,
+            rounding = CornerRounding(0.26f, 0.35f)
+        ),
+        -90f
+    ).normalized()
 
-    val Pentagon: RoundedPolygon = RoundedPolygon(
-        numVertices = 5,
-        radius = 1f,
-        rounding = CornerRounding(0.24f, 0.30f)
-    ).rotated(-90f).normalized()
+    val Pentagon: RoundedPolygon = rotate(
+        RoundedPolygon(
+            numVertices = 5,
+            radius = 1f,
+            rounding = CornerRounding(0.24f, 0.30f)
+        ),
+        -90f
+    ).normalized()
 
     val Flower: RoundedPolygon = RoundedPolygon.star(
         numVerticesPerRadius = 6,
@@ -251,13 +266,16 @@ object ExpressiveMaterialPolygons {
         innerRounding = CornerRounding(0.22f)
     ).normalized()
 
-    val Puffy: RoundedPolygon = RoundedPolygon.star(
-        numVerticesPerRadius = 5,
-        radius = 1f,
-        innerRadius = 0.76f,
-        rounding = CornerRounding(0.32f),
-        innerRounding = CornerRounding(0.24f)
-    ).rotated(-90f).normalized()
+    val Puffy: RoundedPolygon = rotate(
+        RoundedPolygon.star(
+            numVerticesPerRadius = 5,
+            radius = 1f,
+            innerRadius = 0.76f,
+            rounding = CornerRounding(0.32f),
+            innerRounding = CornerRounding(0.24f)
+        ),
+        -90f
+    ).normalized()
 
     /** 10 distinct silhouettes used by the Onboarding Vault Mosaic Wall. */
     val mosaicPalette: List<RoundedPolygon> = listOf(
@@ -281,15 +299,13 @@ class RoundedPolygonShape(
     private val polygon: RoundedPolygon,
     private val rotationDegrees: Float = 0f
 ) : Shape {
-    private val matrix = Matrix()
-
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
         val androidPath = polygon.toPath()
-        matrix.reset()
+        val matrix = Matrix()
         if (rotationDegrees != 0f) {
             matrix.postRotate(rotationDegrees, 0.5f, 0.5f)
         }
@@ -308,15 +324,13 @@ class MorphPolygonShape(
     private val percentage: Float,
     private val rotationDegrees: Float = 0f
 ) : Shape {
-    private val matrix = Matrix()
-
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
         val androidPath = morph.toPath(progress = percentage.coerceIn(0f, 1f))
-        matrix.reset()
+        val matrix = Matrix()
         if (rotationDegrees != 0f) {
             matrix.postRotate(rotationDegrees, 0.5f, 0.5f)
         }
