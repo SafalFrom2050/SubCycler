@@ -70,6 +70,7 @@ Disabled by default. After opt-in, selected device calendars inform subscription
 
 ## 🔮 Future Roadmap Items (Under Consideration)
 
+- **Material 3 Expressive v4.0 ("Botanical Kinetic Architecture II")**: Next-generation expressive upgrades inspired by [`kamranbekirovyz/bunpod`](https://github.com/kamranbekirovyz/bunpod)—including `androidx.graphics:graphics-shapes` lifecycle polygon morphing, anticipatory press-preview geometry, scroll-collapsible Efficiency HUD, a scrubbable "Cycle Time-Machine" wave + 50/50 asymmetric Bento Command Deck in the Detail sheet, 3D stacked floating snack pills, and two-beat collision list choreography. See [BunPod Design Study](docs/BUNPOD_DESIGN_INSPIRATION.md) and [Material Expressive Upgrades Proposal](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md).
 - **Passphrase-Encrypted Offline Backups**: Optional AES-GCM encryption layer on top of SubCycler's existing local JSON/CSV export and import.
 - **Expanded Accessibility & Large-Screen Layouts**: Adaptive two-pane tablet/foldable layouts and formal TalkBack / font-scale audits across all expressive components.
 

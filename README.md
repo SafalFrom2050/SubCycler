@@ -59,6 +59,8 @@ This repository maintains structured architectural blueprints and feature record
 - **[`plans/features/`](plans/features)**: Detailed specifications for implemented, postponed, and cancelled features.
 - **[`ARCHITECTURE.md`](ARCHITECTURE.md)**: Clean Architecture boundaries, SOLID guidelines, and multi-module dependency graphs.
 - **[`DESIGN.md`](DESIGN.md)**: Botanical Emerald Material 3 Expressive design system, bundled variable typography, and component tokens.
+- **[`docs/BUNPOD_DESIGN_INSPIRATION.md`](docs/BUNPOD_DESIGN_INSPIRATION.md)**: Material 3 Expressive design study of open-source [`bunpod`](https://github.com/kamranbekirovyz/bunpod) and adaptation guardrails for SubCycler.
+- **[`docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md`](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md)**: Proposed v4.0 ("Botanical Kinetic Architecture II") Material 3 Expressive upgrades, polygon morphing, time-machine wave scrubbing, and asymmetric command decks.
 
 ---
 

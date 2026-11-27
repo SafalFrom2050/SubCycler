@@ -101,3 +101,12 @@ SubCycler bundles two 100% offline **SIL Open Font License (OFL)** variable font
 3. ❌ **NEVER bundle third-party trademarked brand logos**. Use trademark-safe organic `ExpressiveServiceBadge` shapes and shared `ExpressivePalettes.initialsForService()` monograms.
 4. ❌ **NEVER add emojis to status badges or headers** (e.g. no `🟢`, `⏸️`, `⚡`, `🔔`). Use reactive vector icons and typography.
 5. ✅ **ALWAYS preserve zero `INTERNET` and zero `USE_EXACT_ALARM` permissions**, offline-only regional price estimation without fabricated currency conversion, and Room migration safety.
+
+---
+
+## 6. Design Inspiration & Next-Generation Expressive Roadmap
+
+SubCycler tracks open-source Material 3 Expressive craft and maintains forward-looking visual specifications inside [`docs/`](docs):
+
+- **[`docs/BUNPOD_DESIGN_INSPIRATION.md`](docs/BUNPOD_DESIGN_INSPIRATION.md)**: Architectural and visual analysis of [`kamranbekirovyz/bunpod`](https://github.com/kamranbekirovyz/bunpod)—covering 35-shape `RoundedPolygon` morphing, anticipatory press-preview geometry, dual-layer vessel cards, role-split spring tokens, stacked 3D stadium snacks, and how each pattern adapts to SubCycler's 70/30 Botanical Emerald & 100% offline constraints.
+- **[`docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md`](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md)**: Proposed **v4.0 ("Botanical Kinetic Architecture II")** upgrades—introducing `androidx.graphics:graphics-shapes` lifecycle morphing, scroll-collapsible Efficiency HUD, interactive "Cycle Time-Machine" wavy scrubbing, a 50/50 asymmetric Detail Command Deck, positional connected card stacks, and two-beat spring list choreography.
