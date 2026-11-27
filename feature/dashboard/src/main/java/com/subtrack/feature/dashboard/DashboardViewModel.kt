@@ -102,6 +102,32 @@ enum class SubscriptionSort(val displayName: String) {
     NAME("A–Z")
 }
 
+internal fun filterAndSortCycleStatuses(
+    statuses: List<CycleStatus>,
+    filter: SubscriptionFilter,
+    sort: SubscriptionSort
+): List<CycleStatus> {
+    val filtered = when (filter) {
+        SubscriptionFilter.ALL -> statuses
+        SubscriptionFilter.ACTIVE -> statuses.filter { it.phase == CyclePhase.ACTIVE }
+        SubscriptionFilter.BLACKOUT -> statuses.filter { it.phase == CyclePhase.BLACKOUT }
+        SubscriptionFilter.ROTATING -> statuses.filter { it.subscription.isRotating }
+    }
+    return when (sort) {
+        SubscriptionSort.SOONEST -> filtered.sortedWith(
+            compareBy<CycleStatus> {
+                when (it.nextAction.urgency) {
+                    ActionUrgency.ACTION_DUE -> 0
+                    ActionUrgency.WARNING -> 1
+                    ActionUrgency.INFO -> 2
+                }
+            }.thenBy { it.daysRemainingInPhase }.thenBy { it.subscription.name.lowercase() }
+        )
+        SubscriptionSort.COST -> filtered.sortedByDescending { it.subscription.monthlyEquivalentCost }
+        SubscriptionSort.NAME -> filtered.sortedBy { it.subscription.name.lowercase() }
+    }
+}
+
 sealed interface DashboardAction {
     data class SetFilter(val filter: SubscriptionFilter) : DashboardAction
     data class SetSort(val sort: SubscriptionSort) : DashboardAction
@@ -175,26 +201,7 @@ class DashboardViewModel @Inject constructor(
         val incompleteCount = summaryStatuses.count { it.subscription.isIncomplete }
         val urgent = statuses.filter { !it.subscription.isIncomplete && it.nextAction.urgency != ActionUrgency.INFO }
 
-        val filteredStatuses = when (filter) {
-            SubscriptionFilter.ALL -> statuses
-            SubscriptionFilter.ACTIVE -> statuses.filter { it.phase == CyclePhase.ACTIVE }
-            SubscriptionFilter.BLACKOUT -> statuses.filter { it.phase == CyclePhase.BLACKOUT }
-            SubscriptionFilter.ROTATING -> statuses.filter { it.subscription.isRotating }
-        }
-
-        val sortedStatuses = when (sort) {
-            SubscriptionSort.SOONEST -> filteredStatuses.sortedWith(
-                compareBy<CycleStatus> {
-                    when (it.nextAction.urgency) {
-                        ActionUrgency.ACTION_DUE -> 0
-                        ActionUrgency.WARNING -> 1
-                        ActionUrgency.INFO -> 2
-                    }
-                }.thenBy { it.daysRemainingInPhase }.thenBy { it.subscription.name.lowercase() }
-            )
-            SubscriptionSort.COST -> filteredStatuses.sortedByDescending { it.subscription.monthlyEquivalentCost }
-            SubscriptionSort.NAME -> filteredStatuses.sortedBy { it.subscription.name.lowercase() }
-        }
+        val sortedStatuses = filterAndSortCycleStatuses(statuses, filter, sort)
 
         val validPendingAction = preferences.pendingSubscriptionAction?.takeIf { pending ->
             statuses.any { it.subscription.id == pending.subscriptionId }

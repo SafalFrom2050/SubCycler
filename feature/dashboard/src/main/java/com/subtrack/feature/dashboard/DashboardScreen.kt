@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,8 +46,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -75,13 +77,16 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -156,6 +161,7 @@ import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -507,9 +513,45 @@ fun DashboardScreen(
         }
     }
 
-    // Comfort-band 25%..75% horizontal auto-scroll whenever the selected filter chip changes
+    val filters = SubscriptionFilter.entries
+    val showFilterBar = uiState.totalSubscriptionCount >= 2 || uiState.selectedFilter != SubscriptionFilter.ALL
+    val filterPagerState = rememberPagerState(
+        initialPage = uiState.selectedFilter.ordinal,
+        pageCount = { filters.size }
+    )
+    val latestSelectedFilter by rememberUpdatedState(uiState.selectedFilter)
+
+    // Sync horizontal swipe page settlement -> ViewModel filter + subtle haptic tick
+    LaunchedEffect(filterPagerState) {
+        snapshotFlow { filterPagerState.settledPage }
+            .distinctUntilChanged()
+            .collect { page ->
+                val swipedFilter = filters[page]
+                if (swipedFilter != latestSelectedFilter) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onAction(DashboardAction.SetFilter(swipedFilter))
+                }
+            }
+    }
+
+    // Sync external filter resets (e.g., "Show all subscriptions") -> HorizontalPager smoothly
     LaunchedEffect(uiState.selectedFilter) {
-        val targetIndex = SubscriptionFilter.entries.indexOf(uiState.selectedFilter)
+        val targetPage = uiState.selectedFilter.ordinal
+        if (filterPagerState.currentPage != targetPage && !filterPagerState.isScrollInProgress) {
+            if (reducedMotion) {
+                filterPagerState.scrollToPage(targetPage)
+            } else {
+                filterPagerState.animateScrollToPage(
+                    page = targetPage,
+                    animationSpec = ExpressiveMotion.standardSpatialDefaultFloat()
+                )
+            }
+        }
+    }
+
+    // Comfort-band 25%..75% horizontal auto-scroll whenever the active filter chip changes (tap or swipe)
+    LaunchedEffect(filterPagerState.currentPage) {
+        val targetIndex = filterPagerState.currentPage
         val layoutInfo = filterRowState.layoutInfo
         val itemInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
         if (itemInfo != null) {
@@ -769,9 +811,10 @@ fun DashboardScreen(
                     }
                 }
 
-                // 4. Comfort-Band Morphing Filter Strip (12dp idle squircle → 22dp selected stadium pill!)
-                if (uiState.totalSubscriptionCount >= 2 || uiState.selectedFilter != SubscriptionFilter.ALL) {
+                // 4. Comfort-Band Morphing Filter Strip (synchronized live with HorizontalPager swipes!)
+                if (showFilterBar) {
                     item(key = "filter_row", contentType = "filters") {
+                        val visualSelectedFilter = filters[filterPagerState.currentPage]
                         LazyRow(
                             state = filterRowState,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -779,8 +822,8 @@ fun DashboardScreen(
                             contentPadding = PaddingValues(horizontal = 16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(SubscriptionFilter.entries, key = { it.name }) { filter ->
-                                val isSelected = filter == uiState.selectedFilter
+                            items(filters, key = { it.name }) { filter ->
+                                val isSelected = filter == visualSelectedFilter
                                 val count = filterCounts[filter] ?: 0
                                 val chipInteraction = remember { MutableInteractionSource() }
                                 val chipPressed by chipInteraction.collectIsPressedAsState()
@@ -819,6 +862,16 @@ fun DashboardScreen(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         onAction(DashboardAction.SetFilter(filter))
+                                        scope.launch {
+                                            if (reducedMotion) {
+                                                filterPagerState.scrollToPage(filter.ordinal)
+                                            } else {
+                                                filterPagerState.animateScrollToPage(
+                                                    page = filter.ordinal,
+                                                    animationSpec = ExpressiveMotion.standardSpatialDefaultFloat()
+                                                )
+                                            }
+                                        }
                                     },
                                     interactionSource = chipInteraction,
                                     shape = RoundedCornerShape(chipCorner),
@@ -913,161 +966,189 @@ fun DashboardScreen(
                             }
                         }
                     }
-
-                    // Fanned miniature badge preview when filtering Paused or Rotating views
-                    if ((uiState.selectedFilter == SubscriptionFilter.BLACKOUT ||
-                            uiState.selectedFilter == SubscriptionFilter.ROTATING) &&
-                        uiState.cycleStatuses.size >= 2
-                    ) {
-                        item(key = "filter_fanned_summary", contentType = "filter_summary") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                FannedBadgeStack(
-                                    serviceNames = uiState.cycleStatuses.map { it.subscription.name },
-                                    maxVisible = 4,
-                                    badgeSize = 28.dp,
-                                    step = 18.dp,
-                                    ringWidth = 2.dp
-                                )
-                                Text(
-                                    text = "${uiState.cycleStatuses.size} ${uiState.selectedFilter.displayName.lowercase()} services",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
                 }
 
-                // 5. Expressive 2-Column Bento Subscription Deck OR Rich Empty State
-                if (uiState.cycleStatuses.isEmpty()) {
-                    item(key = "empty_state", contentType = "empty") {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            DashboardEmptyState(
-                                isFilteredEmpty = uiState.totalSubscriptionCount > 0,
-                                currencyCode = uiState.preferredCurrencyCode,
-                                onClearFilter = { onAction(DashboardAction.SetFilter(SubscriptionFilter.ALL)) },
-                                onQuickAddPreset = { presetName ->
-                                    val preset = PresetLibrary.presets.firstOrNull { it.name == presetName }
-                                    if (preset != null) {
-                                        val tier = RegionalPriceCatalog.defaultTierFor(preset.name, uiState.preferredCurrencyCode)
-                                        if (tier != null) {
-                                            val period = tier.billingPeriod
-                                            onAction(
-                                                DashboardAction.AddSubscription(
-                                                    Subscription(
-                                                        name = preset.name,
-                                                        cost = tier.price,
-                                                        currency = uiState.preferredCurrencyCode,
-                                                        billingPeriod = period,
-                                                        category = preset.category,
-                                                        startDate = LocalDate.now(),
-                                                        strategy = if (period == BillingPeriod.YEARLY) RotationStrategy.CONTINUOUS else preset.suggestedStrategy,
-                                                        customActiveDays = preset.suggestedActiveDays,
-                                                        customBlackoutDays = preset.suggestedBlackoutDays,
-                                                        colorHex = preset.colorHex,
-                                                        iconName = preset.iconName,
-                                                        isBillingDateConfirmed = false
-                                                    )
-                                                )
-                                            )
-                                            snackHostState.show(
-                                                message = "Added ${preset.name}",
-                                                serviceNameForBadge = preset.name
-                                            )
-                                            pulseBrandTicker("Added ${preset.name}")
-                                        } else {
-                                            subscriptionToEdit = null
-                                            editInitialStep = 0
-                                            presetToAdd = preset
-                                            showAddDialog = true
-                                        }
-                                    }
-                                },
-                                onAddCustom = {
-                                    subscriptionToEdit = null
-                                    editInitialStep = 0
-                                    presetToAdd = null
-                                    showAddDialog = true
-                                }
-                            )
+                // 5. Slide-to-Switch HorizontalPager across All · Active · Paused · Rotating
+                item(key = "subscription_filter_pager", contentType = "filter_pager") {
+                    HorizontalPager(
+                        state = filterPagerState,
+                        userScrollEnabled = showFilterBar,
+                        pageSpacing = 12.dp,
+                        verticalAlignment = Alignment.Top,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 280.dp)
+                    ) { pageIndex ->
+                        val pageFilter = filters[pageIndex]
+                        val pageStatuses = remember(lookupStatuses, pageFilter, uiState.selectedSort) {
+                            filterAndSortCycleStatuses(lookupStatuses, pageFilter, uiState.selectedSort)
                         }
-                    }
-                } else {
-                    val rows = uiState.cycleStatuses.chunked(2)
-                    itemsIndexed(
-                        items = rows,
-                        key = { _, row -> row.joinToString("-") { it.subscription.id.toString() } },
-                        contentType = { _, _ -> "bento_row" }
-                    ) { _, rowItems ->
-                        val rowIsFullyRemoving = rowItems.all { it.subscription.id in pendingRemovalIds }
-                        ExpressiveRemovalCollapse(
-                            removing = rowIsFullyRemoving,
-                            onRemoved = {
-                                rowItems.forEach { status ->
-                                    if (status.subscription.id in pendingRemovalIds) {
-                                        pendingRemovalIds.remove(status.subscription.id)
-                                        onAction(DashboardAction.DeleteSubscription(status.subscription))
-                                    }
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if ((pageFilter == SubscriptionFilter.BLACKOUT ||
+                                    pageFilter == SubscriptionFilter.ROTATING) &&
+                                pageStatuses.size >= 2
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    FannedBadgeStack(
+                                        serviceNames = pageStatuses.map { it.subscription.name },
+                                        serviceColors = pageStatuses.map { it.subscription.colorHex },
+                                        maxVisible = 4,
+                                        badgeSize = 28.dp,
+                                        step = 18.dp,
+                                        ringWidth = 2.dp
+                                    )
+                                    Text(
+                                        text = "${pageStatuses.size} ${pageFilter.displayName.lowercase()} services",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                                    .height(IntrinsicSize.Min)
-                                    .animateItem(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                for (cycleStatus in rowItems) {
-                                    val isCardRemoving = !rowIsFullyRemoving && cycleStatus.subscription.id in pendingRemovalIds
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                    ) {
-                                        ExpressiveRemovalCollapse(
-                                            removing = isCardRemoving,
-                                            onRemoved = {
-                                                if (cycleStatus.subscription.id in pendingRemovalIds) {
-                                                    pendingRemovalIds.remove(cycleStatus.subscription.id)
-                                                    onAction(DashboardAction.DeleteSubscription(cycleStatus.subscription))
+
+                            if (pageStatuses.isEmpty()) {
+                                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                    DashboardEmptyState(
+                                        isFilteredEmpty = uiState.totalSubscriptionCount > 0,
+                                        activeFilter = pageFilter,
+                                        currencyCode = uiState.preferredCurrencyCode,
+                                        onClearFilter = {
+                                            onAction(DashboardAction.SetFilter(SubscriptionFilter.ALL))
+                                            scope.launch {
+                                                if (reducedMotion) {
+                                                    filterPagerState.scrollToPage(0)
+                                                } else {
+                                                    filterPagerState.animateScrollToPage(
+                                                        page = 0,
+                                                        animationSpec = ExpressiveMotion.standardSpatialDefaultFloat()
+                                                    )
                                                 }
-                                            },
-                                            modifier = Modifier.fillMaxHeight()
-                                        ) {
-                                            SubscriptionGridItem(
-                                                cycleStatus = cycleStatus,
-                                                onClick = {
-                                                    selectedSubscriptionId = cycleStatus.subscription.id
-                                                },
-                                                onBankBreakClick = {
-                                                    val saved = MoneyFormatter.format(
-                                                        cycleStatus.perBreakSavings,
-                                                        cycleStatus.subscription.currency,
-                                                        maximumFractionDigits = 0
+                                            }
+                                        },
+                                        onQuickAddPreset = { presetName ->
+                                            val preset = PresetLibrary.presets.firstOrNull { it.name == presetName }
+                                            if (preset != null) {
+                                                val tier = RegionalPriceCatalog.defaultTierFor(preset.name, uiState.preferredCurrencyCode)
+                                                if (tier != null) {
+                                                    val period = tier.billingPeriod
+                                                    onAction(
+                                                        DashboardAction.AddSubscription(
+                                                            Subscription(
+                                                                name = preset.name,
+                                                                cost = tier.price,
+                                                                currency = uiState.preferredCurrencyCode,
+                                                                billingPeriod = period,
+                                                                category = preset.category,
+                                                                startDate = LocalDate.now(),
+                                                                strategy = if (period == BillingPeriod.YEARLY) RotationStrategy.CONTINUOUS else preset.suggestedStrategy,
+                                                                customActiveDays = preset.suggestedActiveDays,
+                                                                customBlackoutDays = preset.suggestedBlackoutDays,
+                                                                colorHex = preset.colorHex,
+                                                                iconName = preset.iconName,
+                                                                isBillingDateConfirmed = false
+                                                            )
+                                                        )
                                                     )
-                                                    onAction(DashboardAction.ResumeToday(cycleStatus.subscription.id))
-                                                    pulseBrandTicker("Banked $saved")
                                                     snackHostState.show(
-                                                        message = "Banked $saved from ${cycleStatus.subscription.name}",
-                                                        serviceNameForBadge = cycleStatus.subscription.name
+                                                        message = "Added ${preset.name}",
+                                                        serviceNameForBadge = preset.name
                                                     )
-                                                },
-                                                modifier = Modifier.fillMaxHeight()
-                                            )
+                                                    pulseBrandTicker("Added ${preset.name}")
+                                                } else {
+                                                    subscriptionToEdit = null
+                                                    editInitialStep = 0
+                                                    presetToAdd = preset
+                                                    showAddDialog = true
+                                                }
+                                            }
+                                        },
+                                        onAddCustom = {
+                                            subscriptionToEdit = null
+                                            editInitialStep = 0
+                                            presetToAdd = null
+                                            showAddDialog = true
+                                        }
+                                    )
+                                }
+                            } else {
+                                val rows = pageStatuses.chunked(2)
+                                rows.forEach { rowItems ->
+                                    key(rowItems.joinToString("-") { it.subscription.id.toString() }) {
+                                        val rowIsFullyRemoving = rowItems.all { it.subscription.id in pendingRemovalIds }
+                                        ExpressiveRemovalCollapse(
+                                            removing = rowIsFullyRemoving,
+                                            onRemoved = {
+                                                rowItems.forEach { status ->
+                                                    if (status.subscription.id in pendingRemovalIds) {
+                                                        pendingRemovalIds.remove(status.subscription.id)
+                                                        onAction(DashboardAction.DeleteSubscription(status.subscription))
+                                                    }
+                                                }
+                                            }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp)
+                                                    .height(IntrinsicSize.Min),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                for (cycleStatus in rowItems) {
+                                                    val isCardRemoving = !rowIsFullyRemoving && cycleStatus.subscription.id in pendingRemovalIds
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .fillMaxHeight()
+                                                    ) {
+                                                        ExpressiveRemovalCollapse(
+                                                            removing = isCardRemoving,
+                                                            onRemoved = {
+                                                                if (cycleStatus.subscription.id in pendingRemovalIds) {
+                                                                    pendingRemovalIds.remove(cycleStatus.subscription.id)
+                                                                    onAction(DashboardAction.DeleteSubscription(cycleStatus.subscription))
+                                                                }
+                                                            },
+                                                            modifier = Modifier.fillMaxHeight()
+                                                        ) {
+                                                            SubscriptionGridItem(
+                                                                cycleStatus = cycleStatus,
+                                                                onClick = {
+                                                                    selectedSubscriptionId = cycleStatus.subscription.id
+                                                                },
+                                                                onBankBreakClick = {
+                                                                    val saved = MoneyFormatter.format(
+                                                                        cycleStatus.perBreakSavings,
+                                                                        cycleStatus.subscription.currency,
+                                                                        maximumFractionDigits = 0
+                                                                    )
+                                                                    onAction(DashboardAction.ResumeToday(cycleStatus.subscription.id))
+                                                                    pulseBrandTicker("Banked $saved")
+                                                                    snackHostState.show(
+                                                                        message = "Banked $saved from ${cycleStatus.subscription.name}",
+                                                                        serviceNameForBadge = cycleStatus.subscription.name
+                                                                    )
+                                                                },
+                                                                modifier = Modifier.fillMaxHeight()
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                if (rowItems.size == 1) {
+                                                    Spacer(modifier = Modifier.weight(1f))
+                                                }
+                                            }
                                         }
                                     }
-                                }
-                                if (rowItems.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
                         }
@@ -1444,6 +1525,7 @@ fun DashboardScreen(
 @Composable
 private fun DashboardEmptyState(
     isFilteredEmpty: Boolean,
+    activeFilter: SubscriptionFilter = SubscriptionFilter.ALL,
     currencyCode: String,
     onClearFilter: () -> Unit,
     onQuickAddPreset: (String) -> Unit,
@@ -1482,7 +1564,16 @@ private fun DashboardEmptyState(
             }
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = if (isFilteredEmpty) "No services match this filter" else "Your stack is empty",
+                text = if (isFilteredEmpty) {
+                    when (activeFilter) {
+                        SubscriptionFilter.ACTIVE -> "No active subscriptions"
+                        SubscriptionFilter.BLACKOUT -> "No paused subscriptions"
+                        SubscriptionFilter.ROTATING -> "No rotating subscriptions"
+                        SubscriptionFilter.ALL -> "No services match this filter"
+                    }
+                } else {
+                    "Your stack is empty"
+                },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -1491,7 +1582,7 @@ private fun DashboardEmptyState(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = if (isFilteredEmpty) {
-                    "Switch back to All to see your subscriptions."
+                    "Swipe to another tab or jump back to All."
                 } else {
                     "Tap a popular service to start tracking in $currencyCode, or add your own."
                 },
