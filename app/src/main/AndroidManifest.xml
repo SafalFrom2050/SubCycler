@@ -32,17 +32,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Offline custom deep link: subcycler://import?d=<compact-token> (zero internet permission) -->
+            <!-- Offline custom deep links: subcycler://s/<short-token> & legacy subcycler://import (zero internet permission) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
+                    android:host="s"
+                    android:scheme="subcycler" />
+                <data
                     android:host="import"
                     android:scheme="subcycler" />
             </intent-filter>
 
-            <!-- Receive shared transfer messages or .subcycler backup files from messaging/social apps -->
+            <!-- Receive shared Stack Card images (offline QR decode), transfer messages, or .subcycler files -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />

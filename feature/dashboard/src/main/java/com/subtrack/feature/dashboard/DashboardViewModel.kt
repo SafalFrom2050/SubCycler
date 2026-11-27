@@ -246,6 +246,9 @@ class DashboardViewModel @Inject constructor(
         initialValue = DashboardUiState()
     )
 
+    suspend fun getSubscriptionsSnapshot(): List<Subscription> =
+        manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
+
     suspend fun buildTransferLink(includePersonalHistory: Boolean = true): String {
         val subs = manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
         return SubscriptionBackupCodec.toTransferLink(subs, includePersonalHistory)
@@ -254,6 +257,14 @@ class DashboardViewModel @Inject constructor(
     suspend fun buildShareMessage(includePersonalHistory: Boolean = true): String {
         val subs = manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
         return SubscriptionBackupCodec.toShareMessage(subs, includePersonalHistory)
+    }
+
+    suspend fun buildHumanShareCaption(
+        includePersonalHistory: Boolean = true,
+        footerHint: String = "Open the attached file or card in SubCycler to import."
+    ): String {
+        val subs = manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
+        return SubscriptionBackupCodec.toHumanShareCaption(subs, includePersonalHistory, footerHint)
     }
 
     suspend fun buildBackupFilePayload(includePersonalHistory: Boolean = true): String {

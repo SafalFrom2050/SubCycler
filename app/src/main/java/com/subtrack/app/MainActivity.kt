@@ -3,6 +3,7 @@ package com.subtrack.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -32,6 +33,7 @@ import com.subtrack.app.ui.navigation.AppViewModel
 import com.subtrack.app.ui.navigation.SubTrackApp
 import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.AppThemeMode
+import com.subtrack.core.ui.components.decodeQrFromBitmap
 import com.subtrack.core.ui.theme.SubTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -134,16 +136,48 @@ class MainActivity : ComponentActivity() {
                 }
             }
             Intent.ACTION_SEND -> {
+                val streamUri = IntentCompat.getParcelableExtra(incoming, Intent.EXTRA_STREAM, Uri::class.java)
+                val mimeType = incoming.type.orEmpty()
+                if (streamUri != null && mimeType.startsWith("image/", ignoreCase = true)) {
+                    readIncomingQrImageUri(streamUri)
+                    return
+                }
                 val sharedText = incoming.getStringExtra(Intent.EXTRA_TEXT)
-                if (!sharedText.isNullOrBlank()) {
+                if (!sharedText.isNullOrBlank() && SubscriptionBackupCodec.containsTransferLink(sharedText)) {
                     pendingTransferPayload = sharedText
                     return
                 }
-                val streamUri = IntentCompat.getParcelableExtra(incoming, Intent.EXTRA_STREAM, Uri::class.java)
                 if (streamUri != null) {
                     readIncomingTransferUri(streamUri)
+                    return
+                }
+                if (!sharedText.isNullOrBlank()) {
+                    pendingTransferPayload = sharedText
                 }
             }
+        }
+    }
+
+    private fun readIncomingQrImageUri(uri: Uri) {
+        lifecycleScope.launch {
+            val decoded = withContext(Dispatchers.Default) {
+                runCatching {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                    val maxDim = maxOf(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
+                    var sample = 1
+                    while (maxDim / sample > 1600) sample *= 2
+                    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+                    val bmp = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+                        ?: return@runCatching null
+                    try {
+                        decodeQrFromBitmap(bmp)
+                    } finally {
+                        bmp.recycle()
+                    }
+                }.getOrNull()
+            }
+            pendingTransferPayload = decoded ?: "invalid-card-image"
         }
     }
 

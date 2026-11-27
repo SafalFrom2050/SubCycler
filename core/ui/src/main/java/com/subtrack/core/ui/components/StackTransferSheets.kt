@@ -1,6 +1,8 @@
 package com.subtrack.core.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,12 +22,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.SaveAlt
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,11 +50,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,6 +69,7 @@ import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.Subscription
+import com.subtrack.core.ui.R
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import java.util.Locale
 
@@ -93,15 +101,18 @@ fun buildImportPreviewItems(
 }
 
 /**
- * Material 3 Expressive v4.0 App-to-App Share Sheet:
- * Lets users share their stack via messaging & social apps (offline `subcycler://import?d=...`
- * transfer link), clipboard copy, `.subcycler` file share, or local device save — with a 1-tap
- * privacy toggle for personal notes & earned savings history and zero technical jargon.
+ * Simplified Material 3 Expressive Share Sheet:
+ * - **Main Mode (Option 2)**: Live scannable QR Stack Card right on screen (for instant
+ *   phone-to-phone camera transfer) + 1 focal **Share Stack Card** button (branded PNG with
+ *   embedded QR for WhatsApp, Instagram, Telegram, LINE, Discord, X).
+ * - **Secondary Options (Option 1 & 3)**: Compact **Short transfer link** (`subcycler://s/...`
+ *   with inline Copy) and **Backup file (`.subcycler`)** paired with a clean human caption + Save.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShareStackSheet(
     subscriptions: List<Subscription>,
+    onShareStackCard: (includePersonalHistory: Boolean) -> Unit,
     onShareTransferLink: (includePersonalHistory: Boolean) -> Unit,
     onCopyTransferLink: (includePersonalHistory: Boolean) -> Unit,
     onShareBackupFile: (includePersonalHistory: Boolean) -> Unit,
@@ -111,12 +122,18 @@ fun ShareStackSheet(
     val haptic = LocalHapticFeedback.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var includePersonalHistory by rememberSaveable { mutableStateOf(true) }
-    val boldPalette = ExpressivePalettes.boldPrimary()
     val skyPalette = ExpressivePalettes.softSky()
     val oceanPalette = ExpressivePalettes.softOcean()
-    val slatePalette = ExpressivePalettes.softLavender()
     val count = subscriptions.size
     val hasSubscriptions = count > 0
+
+    val liveShortLink = remember(subscriptions, includePersonalHistory) {
+        if (hasSubscriptions) {
+            SubscriptionBackupCodec.toTransferLink(subscriptions, includePersonalHistory)
+        } else {
+            ""
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -134,26 +151,20 @@ fun ShareStackSheet(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Column(modifier = Modifier.padding(horizontal = 2.dp)) {
                 ExpressiveEyebrow(
-                    text = "APP-TO-APP TRANSFER",
+                    text = "SHARE & TRANSFER",
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = "Share your stack",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
                     letterSpacing = (-0.5).sp,
                     color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Move your subscriptions to another device or share your rotation setup through messaging and social apps — 100% offline.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -165,135 +176,201 @@ fun ShareStackSheet(
                     border = expressiveCardBorder()
                 ) {
                     Text(
-                        text = "Add at least one subscription first to create a transfer link or backup file.",
+                        text = "Add at least one subscription first to generate a Stack Card or backup.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(18.dp)
                     )
                 }
             } else {
-                // Fanned portfolio summary + Personal history privacy toggle
-                ExpressiveSectionStack {
-                    ExpressiveSectionRow(index = 0, count = 2) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            FannedBadgeStack(
-                                serviceNames = subscriptions.map { it.name },
-                                badgeSize = 36.dp,
-                                maxVisible = 4,
-                                ringColor = MaterialTheme.colorScheme.surfaceContainer
+                // Hero Interactive Stack Card with live scannable QR code (Option 2 Main Mode)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    color = Color.Transparent,
+                    border = BorderStroke(1.dp, Color(0xFF1F5243))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFF02151B),
+                                        Color(0xFF0A2B22),
+                                        Color(0xFF0F3D30)
+                                    )
+                                )
                             )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "$count subscription${if (count == 1) "" else "s"} ready",
-                                    fontFamily = DisplayFontFamily,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = subscriptions.take(3).joinToString(" · ") { it.name },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-
-                    ExpressiveSectionRow(index = 1, count = 2) {
+                            .padding(18.dp)
+                    ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Include notes & savings history",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = if (includePersonalHistory) {
-                                        "Full backup for moving to your own device."
-                                    } else {
-                                        "Clean template for friends — personal notes & earned savings are omitted."
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Switch(
-                                checked = includePersonalHistory,
-                                onCheckedChange = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    includePersonalHistory = it
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ic_subcycler_brand_mark),
+                                        contentDescription = "SubCycler logo",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                    )
+                                    Text(
+                                        text = "SubCycler",
+                                        fontFamily = DisplayFontFamily,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 15.sp,
+                                        color = Color(0xFFBAFCE0)
+                                    )
                                 }
+
+                                FannedBadgeStack(
+                                    serviceNames = subscriptions.map { it.name },
+                                    badgeSize = 32.dp,
+                                    maxVisible = 4,
+                                    ringColor = Color(0xFF0A2B22)
+                                )
+
+                                Column {
+                                    Text(
+                                        text = "$count subscription${if (count == 1) "" else "s"}",
+                                        fontFamily = DisplayFontFamily,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 18.sp,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "Scan with any phone camera, or share as a card.",
+                                        fontSize = 11.5.sp,
+                                        lineHeight = 15.sp,
+                                        color = Color(0xFFA7D3C5)
+                                    )
+                                }
+                            }
+
+                            ExpressiveQrCodeImage(
+                                content = liveShortLink,
+                                size = 126.dp,
+                                containerCorner = 18.dp
                             )
                         }
                     }
                 }
 
-                // Connected transfer options (zero JSON / CSV jargon)
-                ExpressiveSectionStack(eyebrow = "CHOOSE HOW TO SEND") {
-                    TransferActionRow(
-                        index = 0,
-                        count = 4,
-                        title = "Share via messaging & social",
-                        subtitle = "Send a SubCycler link in WhatsApp, Telegram, Messages, or social apps",
-                        icon = Icons.Default.Share,
-                        badgeShape = ExpressiveCookie8Shape,
-                        palette = boldPalette,
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onShareTransferLink(includePersonalHistory)
+                // Compact Privacy Toggle
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    border = expressiveCardBorder()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Include notes & savings history",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (includePersonalHistory) {
+                                    "Full backup for moving to your own device"
+                                } else {
+                                    "Clean template for friends (notes & savings omitted)"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Switch(
+                            checked = includePersonalHistory,
+                            onCheckedChange = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                includePersonalHistory = it
+                            }
+                        )
+                    }
+                }
+
+                // Focal Main CTA: Share Visual Stack Card PNG (Option 2)
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onShareStackCard(includePersonalHistory)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
-                    TransferActionRow(
-                        index = 1,
-                        count = 4,
-                        title = "Copy transfer link",
-                        subtitle = "Copy to clipboard to paste in any chat or on another device",
-                        icon = Icons.Default.ContentCopy,
-                        badgeShape = ExpressiveArchShape,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCode2,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Share Stack Card",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp
+                    )
+                }
+
+                // Quiet Secondary Options (Option 1 Short Link + Option 3 Clean Backup File)
+                ExpressiveSectionStack(eyebrow = "OR SEND ANOTHER WAY") {
+                    TransferActionRowWithPill(
+                        index = 0,
+                        count = 2,
+                        title = "Short transfer link",
+                        subtitle = "Compact link for chats & messages (${liveShortLink.length} chars)",
+                        icon = Icons.Default.Link,
+                        badgeShape = ExpressiveCookie8Shape,
                         palette = skyPalette,
-                        onClick = {
+                        trailingPillLabel = "Copy",
+                        onRowClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onShareTransferLink(includePersonalHistory)
+                        },
+                        onTrailingPillClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onCopyTransferLink(includePersonalHistory)
                         }
                     )
-                    TransferActionRow(
-                        index = 2,
-                        count = 4,
-                        title = "Share backup file",
-                        subtitle = "Send a .subcycler file via Quick Share, Bluetooth, or chat",
+                    TransferActionRowWithPill(
+                        index = 1,
+                        count = 2,
+                        title = "Backup file (.subcycler)",
+                        subtitle = "Clean chat summary with attached file",
                         icon = Icons.Default.Description,
-                        badgeShape = ExpressiveClover4Shape,
+                        badgeShape = ExpressiveArchShape,
                         palette = oceanPalette,
-                        onClick = {
+                        trailingPillLabel = "Save",
+                        onRowClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onShareBackupFile(includePersonalHistory)
-                        }
-                    )
-                    TransferActionRow(
-                        index = 3,
-                        count = 4,
-                        title = "Save to device",
-                        subtitle = "Store a .subcycler backup file in your device folders",
-                        icon = Icons.Default.SaveAlt,
-                        badgeShape = ExpressivePebbleShape,
-                        palette = slatePalette,
-                        onClick = {
+                        },
+                        onTrailingPillClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onSaveBackupFile(includePersonalHistory)
                         }
@@ -305,13 +382,14 @@ fun ShareStackSheet(
 }
 
 /**
- * Material 3 Expressive v4.0 Import Sheet:
- * Accepts a pasted `subcycler://import?d=...` link / shared chat message (1-tap Paste)
- * or opens a `.subcycler` backup file from device storage.
+ * Simplified Material 3 Expressive Import Sheet:
+ * - **Main Mode (Option 2)**: Pick a saved Stack Card image/screenshot to decode its QR offline.
+ * - **Secondary Options (Option 1 & 3)**: 1-tap Paste short link or open a `.subcycler` file.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportStackSheet(
+    onPickCardImage: () -> Unit,
     onInspectTransferText: (String) -> Unit,
     onPickBackupFile: () -> Unit,
     onDismiss: () -> Unit
@@ -339,14 +417,14 @@ fun ImportStackSheet(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Column(modifier = Modifier.padding(horizontal = 2.dp)) {
                 ExpressiveEyebrow(
                     text = "RECEIVE STACK",
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = "Import into SubCycler",
                     style = MaterialTheme.typography.headlineSmall,
@@ -354,23 +432,52 @@ fun ImportStackSheet(
                     letterSpacing = (-0.5).sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = "Paste a SubCycler link or shared message, or open a .subcycler file. You'll review every item before anything is added.",
+                    text = "Pick a Stack Card image, paste a short link, or open a .subcycler file. You'll preview everything before adding.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
+            // Focal Main CTA: Import from Stack Card Image (Option 2)
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onPickCardImage()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PhotoLibrary,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Import from Stack Card image",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.5.sp
+                )
+            }
+
+            // Option 1: Paste Short Link
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(26.dp),
+                shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceContainer,
                 border = expressiveCardBorder()
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -378,9 +485,9 @@ fun ImportStackSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Transfer link or message",
+                            text = "Paste a short link",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
+                            fontSize = 13.5.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Surface(
@@ -401,7 +508,7 @@ fun ImportStackSheet(
                             color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
@@ -430,13 +537,12 @@ fun ImportStackSheet(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = {
                             Text(
-                                text = "Paste a subcycler:// link or chat message…",
+                                text = "subcycler://s/…",
                                 fontSize = 13.sp
                             )
                         },
-                        minLines = 2,
-                        maxLines = 4,
-                        shape = RoundedCornerShape(16.dp),
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
@@ -452,27 +558,29 @@ fun ImportStackSheet(
                         )
                     }
 
-                    Button(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onInspectTransferText(pastedText)
-                        },
-                        enabled = pastedText.isNotBlank(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(999.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text("Preview import", fontWeight = FontWeight.ExtraBold)
+                    if (pastedText.isNotBlank()) {
+                        FilledTonalButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onInspectTransferText(pastedText)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(999.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) {
+                            Text("Preview import", fontWeight = FontWeight.ExtraBold)
+                        }
                     }
                 }
             }
 
-            ExpressiveSectionStack(eyebrow = "OR FROM DEVICE STORAGE") {
+            // Option 3: Open .subcycler file
+            ExpressiveSectionStack {
                 TransferActionRow(
                     index = 0,
                     count = 1,
@@ -492,8 +600,8 @@ fun ImportStackSheet(
 }
 
 /**
- * Safe confirmation preview sheet shown whenever a `subcycler://import?d=...` deep link,
- * shared chat message, pasted link, or `.subcycler` file is received.
+ * Safe confirmation preview sheet shown whenever a `subcycler://s/...` deep link,
+ * shared Stack Card image, shared chat message, pasted link, or `.subcycler` file is received.
  * Displays fanned badges, every incoming service, and duplicate status before adding.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -699,6 +807,82 @@ fun ImportPreviewSheet(
 }
 
 @Composable
+private fun TransferActionRowWithPill(
+    index: Int,
+    count: Int,
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    badgeShape: Shape,
+    palette: ExpressiveTonalPalette,
+    trailingPillLabel: String,
+    onRowClick: () -> Unit,
+    onTrailingPillClick: () -> Unit
+) {
+    ExpressiveSectionRow(
+        index = index,
+        count = count,
+        onClick = onRowClick,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.32f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .expressivePolygonSurface(
+                        shape = badgeShape,
+                        color = palette.container
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = palette.content,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Surface(
+                onClick = onTrailingPillClick,
+                shape = RoundedCornerShape(999.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Text(
+                    text = trailingPillLabel,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun TransferActionRow(
     index: Int,
     count: Int,
@@ -723,7 +907,7 @@ private fun TransferActionRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(38.dp)
                     .expressivePolygonSurface(
                         shape = badgeShape,
                         color = palette.container
@@ -734,7 +918,7 @@ private fun TransferActionRow(
                     imageVector = icon,
                     contentDescription = null,
                     tint = palette.content,
-                    modifier = Modifier.size(19.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -742,7 +926,7 @@ private fun TransferActionRow(
                 Text(
                     text = title,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 13.5.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(

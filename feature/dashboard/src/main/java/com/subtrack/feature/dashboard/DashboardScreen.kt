@@ -5,6 +5,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -139,11 +141,13 @@ import com.subtrack.core.ui.components.SubscriptionDetailBottomSheet
 import com.subtrack.core.ui.components.SubscriptionGridItem
 import com.subtrack.core.ui.components.buildCycleCheckInItems
 import com.subtrack.core.ui.components.buildImportPreviewItems
+import com.subtrack.core.ui.components.decodeQrFromBitmap
 import com.subtrack.core.ui.components.expressiveCardBorder
 import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.openCancellationDestination
 import com.subtrack.core.ui.components.progressiveEdgeFade
 import com.subtrack.core.ui.components.rememberExpressiveSnackHostState
+import com.subtrack.core.ui.components.renderStackShareCardBitmap
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
@@ -235,6 +239,38 @@ fun DashboardRoute(
         }
     }
 
+    val pickCardImageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val decoded = withContext(Dispatchers.Default) {
+                runCatching {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                    val maxDim = maxOf(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
+                    var sample = 1
+                    while (maxDim / sample > 1600) sample *= 2
+                    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+                    val bmp = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+                        ?: return@runCatching null
+                    try {
+                        decodeQrFromBitmap(bmp)
+                    } finally {
+                        bmp.recycle()
+                    }
+                }.getOrNull()
+            }
+            if (!decoded.isNullOrBlank()) {
+                viewModel.onAction(DashboardAction.InspectIncomingTransfer(decoded))
+            } else {
+                viewModel.onAction(
+                    DashboardAction.SetBackupFeedback("Couldn't find a SubCycler QR code in that image.")
+                )
+            }
+        }
+    }
+
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viewModel.monitorCalendarWhileForeground()
@@ -256,6 +292,49 @@ fun DashboardRoute(
         onAction = viewModel::onAction,
         onAutoSaveSubscription = viewModel::saveSubscription,
         onRequestCalendarPermission = { calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR) },
+        onShareStackCard = { includeHistory ->
+            scope.launch {
+                runCatching {
+                    val subs = viewModel.getSubscriptionsSnapshot()
+                    val link = viewModel.buildTransferLink(includeHistory)
+                    val caption = viewModel.buildHumanShareCaption(
+                        includePersonalHistory = includeHistory,
+                        footerHint = "Scan the QR or share this card into SubCycler to import."
+                    )
+                    val uri = withContext(Dispatchers.Default) {
+                        val cardBitmap = renderStackShareCardBitmap(
+                            context = context,
+                            subscriptions = subs,
+                            transferLink = link,
+                            includePersonalHistory = includeHistory
+                        )
+                        try {
+                            val cacheDir = File(context.cacheDir, "shared_backups").apply {
+                                mkdirs()
+                                listFiles()?.forEach { it.delete() }
+                            }
+                            val file = File(cacheDir, "subcycler-stack-card-${LocalDate.now()}.png")
+                            file.outputStream().use { out ->
+                                cardBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                        } finally {
+                            cardBitmap.recycle()
+                        }
+                    }
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "image/png"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, "My SubCycler Stack")
+                        putExtra(Intent.EXTRA_TEXT, caption)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, "Share SubCycler Stack Card"))
+                }.onFailure {
+                    viewModel.onAction(DashboardAction.SetBackupFeedback("Couldn't create Stack Card image."))
+                }
+            }
+        },
         onShareTransferLink = { includeHistory ->
             scope.launch {
                 runCatching {
@@ -265,7 +344,7 @@ fun DashboardRoute(
                         putExtra(Intent.EXTRA_SUBJECT, "SubCycler stack")
                         putExtra(Intent.EXTRA_TEXT, shareMessage)
                     }
-                    context.startActivity(Intent.createChooser(sendIntent, "Share SubCycler stack"))
+                    context.startActivity(Intent.createChooser(sendIntent, "Share SubCycler link"))
                 }.onFailure {
                     viewModel.onAction(DashboardAction.SetBackupFeedback("No app available to share."))
                 }
@@ -278,7 +357,7 @@ fun DashboardRoute(
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                     clipboard?.setPrimaryClip(ClipData.newPlainText("SubCycler transfer link", link))
                 }.fold(
-                    onSuccess = { viewModel.onAction(DashboardAction.SetBackupFeedback("Transfer link copied.")) },
+                    onSuccess = { viewModel.onAction(DashboardAction.SetBackupFeedback("Short transfer link copied.")) },
                     onFailure = { viewModel.onAction(DashboardAction.SetBackupFeedback("Couldn't copy transfer link.")) }
                 )
             }
@@ -287,6 +366,10 @@ fun DashboardRoute(
             scope.launch {
                 runCatching {
                     val payload = viewModel.buildBackupFilePayload(includeHistory)
+                    val cleanCaption = viewModel.buildHumanShareCaption(
+                        includePersonalHistory = includeHistory,
+                        footerHint = "Tap the attached .subcycler file to open in SubCycler."
+                    )
                     val uri = withContext(Dispatchers.IO) {
                         val cacheDir = File(context.cacheDir, "shared_backups").apply {
                             mkdirs()
@@ -300,6 +383,7 @@ fun DashboardRoute(
                         type = "application/octet-stream"
                         putExtra(Intent.EXTRA_STREAM, uri)
                         putExtra(Intent.EXTRA_SUBJECT, "SubCycler backup")
+                        putExtra(Intent.EXTRA_TEXT, cleanCaption)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     context.startActivity(Intent.createChooser(sendIntent, "Share SubCycler backup"))
@@ -312,6 +396,7 @@ fun DashboardRoute(
             pendingSaveIncludeHistory = includeHistory
             saveBackupFileLauncher.launch("subcycler-backup-${LocalDate.now()}.subcycler")
         },
+        onPickCardImage = { pickCardImageLauncher.launch("image/*") },
         onPickBackupFile = {
             openBackupFileLauncher.launch(arrayOf("application/octet-stream", "text/plain", "*/*"))
         },
@@ -339,10 +424,12 @@ fun DashboardScreen(
         }
     },
     onRequestCalendarPermission: () -> Unit = {},
+    onShareStackCard: (includePersonalHistory: Boolean) -> Unit = {},
     onShareTransferLink: (includePersonalHistory: Boolean) -> Unit = {},
     onCopyTransferLink: (includePersonalHistory: Boolean) -> Unit = {},
     onShareBackupFile: (includePersonalHistory: Boolean) -> Unit = {},
     onSaveBackupFile: (includePersonalHistory: Boolean) -> Unit = {},
+    onPickCardImage: () -> Unit = {},
     onPickBackupFile: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
     openSubscriptionId: Long? = null,
@@ -1181,6 +1268,10 @@ fun DashboardScreen(
         }
         ShareStackSheet(
             subscriptions = currentSubscriptions,
+            onShareStackCard = { includeHistory ->
+                showShareSheet = false
+                onShareStackCard(includeHistory)
+            },
             onShareTransferLink = { includeHistory ->
                 showShareSheet = false
                 onShareTransferLink(includeHistory)
@@ -1203,6 +1294,10 @@ fun DashboardScreen(
 
     if (showImportSheet) {
         ImportStackSheet(
+            onPickCardImage = {
+                showImportSheet = false
+                onPickCardImage()
+            },
             onInspectTransferText = { raw ->
                 showImportSheet = false
                 onAction(DashboardAction.InspectIncomingTransfer(raw))
