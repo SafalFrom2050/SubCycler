@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     api(libs.androidx.graphics.shapes)
+    implementation(libs.zxing.core)
 
     debugImplementation(libs.androidx.ui.tooling)
 
