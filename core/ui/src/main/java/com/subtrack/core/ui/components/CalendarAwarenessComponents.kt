@@ -445,10 +445,10 @@ fun CalendarSettingsSheet(
                                             ) {
                                                 Column(
                                                     modifier = Modifier
-                                                        .width(74.dp)
-                                                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                                                        .width(84.dp)
+                                                        .padding(horizontal = 6.dp, vertical = 10.dp),
                                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                    verticalArrangement = Arrangement.spacedBy(5.dp)
                                                 ) {
                                                     Box(contentAlignment = Alignment.BottomEnd) {
                                                         SubCyclerSwirlLogo(
@@ -485,14 +485,20 @@ fun CalendarSettingsSheet(
                                                         },
                                                         maxLines = 1
                                                     )
-                                                    if (isStackMatch) {
-                                                        Text(
-                                                            text = "Stack fit",
-                                                            fontSize = 9.5.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            maxLines = 1
-                                                        )
+                                                    Box(
+                                                        modifier = Modifier.height(18.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        if (isStackMatch) {
+                                                            Text(
+                                                                text = "Stack fit",
+                                                                fontSize = 9.5.sp,
+                                                                lineHeight = 12.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
