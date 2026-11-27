@@ -192,4 +192,13 @@ class ExpressiveV4PrimitivesTest {
             assertTrue(items.first() is CheckInDeckItem.BankCompletedBreak)
         }
     }
+
+    @Test
+    fun offscreenEdgeFadeDisabledOnLegacyHwuiApisAndEnabledFromApi29() {
+        assertEquals(false, shouldUseOffscreenEdgeFade(26))
+        assertEquals(false, shouldUseOffscreenEdgeFade(27))
+        assertEquals(false, shouldUseOffscreenEdgeFade(28))
+        assertEquals(true, shouldUseOffscreenEdgeFade(29))
+        assertEquals(true, shouldUseOffscreenEdgeFade(35))
+    }
 }

@@ -1,5 +1,6 @@
 package com.subtrack.core.ui.components
 
+import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,8 +18,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -180,9 +182,9 @@ fun ExpressiveHeroCardBackdrop(
                     .graphicsLayer {
                         rotationZ = watermarkRotationDegrees
                     }
-                    .clip(watermarkShape)
-                    .background(
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                    .expressivePolygonSurface(
+                        shape = watermarkShape,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
                             alpha = ExpressiveMotion.clampEffectProgress(watermarkAlpha)
                         )
                     )
@@ -238,52 +240,102 @@ fun ShapeBloomBackdrop(
                 .graphicsLayer {
                     rotationZ = progress.value * 14f
                 }
-                .clip(shape)
-                .background(color.copy(alpha = alpha))
+                .expressivePolygonSurface(
+                    shape = shape,
+                    color = color.copy(alpha = alpha)
+                )
         )
     }
 }
 
 /**
- * 6-stop `BlendMode.DstIn` progressive edge fade (inspired by BunPod's `ProgressiveFade`)
- * so scrolling feeds melt transparently into textured backdrops without solid color banding.
+ * Returns `true` when the runtime Android graphics pipeline supports low-overhead offscreen
+ * `BlendMode.DstIn` alpha masking cleanly (Android 10 / API 29+ SkiaGL/Vulkan).
+ * On Android 8.0–9 (API 26–28) legacy HWUI GL pipelines, a zero-FBO gradient scrim avoids
+ * full-screen `saveLayer` frame drops and nested `LazyRow` offscreen clipping artifacts.
  */
+internal fun shouldUseOffscreenEdgeFade(sdkInt: Int): Boolean = sdkInt >= Build.VERSION_CODES.Q
+
+/**
+ * 6-stop `BlendMode.DstIn` progressive edge fade on Android 10+ (API 29+), with an automatic
+ * zero-offscreen gradient scrim fallback on Android 8.0–9 (API 26–28) for smooth scrolling on
+ * legacy HWUI GL pipelines.
+ */
+@Composable
 fun Modifier.progressiveEdgeFade(
     topFadeHeight: Dp = 0.dp,
-    bottomFadeHeight: Dp = 0.dp
-): Modifier = this
-    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-    .drawWithContent {
-        drawContent()
-        val topPx = topFadeHeight.toPx().coerceIn(0f, size.height * 0.45f)
-        if (topPx > 1f) {
-            val endStop = (topPx / size.height).coerceIn(0.01f, 0.45f)
-            drawRect(
-                brush = Brush.verticalGradient(
-                    0.0f to Color.Transparent,
-                    endStop * 0.25f to Color.Black.copy(alpha = 0.15f),
-                    endStop * 0.50f to Color.Black.copy(alpha = 0.40f),
-                    endStop * 0.75f to Color.Black.copy(alpha = 0.72f),
-                    endStop to Color.Black,
-                    1.0f to Color.Black
-                ),
-                blendMode = BlendMode.DstIn
-            )
-        }
-        val bottomPx = bottomFadeHeight.toPx().coerceIn(0f, size.height * 0.45f)
-        if (bottomPx > 1f) {
-            val startStop = (1f - bottomPx / size.height).coerceIn(0.55f, 0.99f)
-            val span = 1f - startStop
-            drawRect(
-                brush = Brush.verticalGradient(
-                    0.0f to Color.Black,
-                    startStop to Color.Black,
-                    startStop + span * 0.25f to Color.Black.copy(alpha = 0.72f),
-                    startStop + span * 0.50f to Color.Black.copy(alpha = 0.40f),
-                    startStop + span * 0.75f to Color.Black.copy(alpha = 0.15f),
-                    1.0f to Color.Transparent
-                ),
-                blendMode = BlendMode.DstIn
-            )
+    bottomFadeHeight: Dp = 0.dp,
+    fallbackScrimColor: Color = MaterialTheme.colorScheme.background
+): Modifier {
+    if (!shouldUseOffscreenEdgeFade(Build.VERSION.SDK_INT)) {
+        return this.drawWithContent {
+            drawContent()
+            val topPx = topFadeHeight.toPx().coerceIn(0f, size.height * 0.45f)
+            if (topPx > 1f) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        0.0f to fallbackScrimColor.copy(alpha = 0.92f),
+                        0.55f to fallbackScrimColor.copy(alpha = 0.42f),
+                        1.0f to Color.Transparent,
+                        startY = 0f,
+                        endY = topPx
+                    ),
+                    topLeft = Offset.Zero,
+                    size = Size(size.width, topPx)
+                )
+            }
+            val bottomPx = bottomFadeHeight.toPx().coerceIn(0f, size.height * 0.45f)
+            if (bottomPx > 1f) {
+                val startY = size.height - bottomPx
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        0.0f to Color.Transparent,
+                        0.45f to fallbackScrimColor.copy(alpha = 0.42f),
+                        1.0f to fallbackScrimColor.copy(alpha = 0.92f),
+                        startY = startY,
+                        endY = size.height
+                    ),
+                    topLeft = Offset(0f, startY),
+                    size = Size(size.width, bottomPx)
+                )
+            }
         }
     }
+
+    return this
+        .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+        .drawWithContent {
+            drawContent()
+            val topPx = topFadeHeight.toPx().coerceIn(0f, size.height * 0.45f)
+            if (topPx > 1f) {
+                val endStop = (topPx / size.height).coerceIn(0.01f, 0.45f)
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        0.0f to Color.Transparent,
+                        endStop * 0.25f to Color.Black.copy(alpha = 0.15f),
+                        endStop * 0.50f to Color.Black.copy(alpha = 0.40f),
+                        endStop * 0.75f to Color.Black.copy(alpha = 0.72f),
+                        endStop to Color.Black,
+                        1.0f to Color.Black
+                    ),
+                    blendMode = BlendMode.DstIn
+                )
+            }
+            val bottomPx = bottomFadeHeight.toPx().coerceIn(0f, size.height * 0.45f)
+            if (bottomPx > 1f) {
+                val startStop = (1f - bottomPx / size.height).coerceIn(0.55f, 0.99f)
+                val span = 1f - startStop
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        0.0f to Color.Black,
+                        startStop to Color.Black,
+                        startStop + span * 0.25f to Color.Black.copy(alpha = 0.72f),
+                        startStop + span * 0.50f to Color.Black.copy(alpha = 0.40f),
+                        startStop + span * 0.75f to Color.Black.copy(alpha = 0.15f),
+                        1.0f to Color.Transparent
+                    ),
+                    blendMode = BlendMode.DstIn
+                )
+            }
+        }
+}

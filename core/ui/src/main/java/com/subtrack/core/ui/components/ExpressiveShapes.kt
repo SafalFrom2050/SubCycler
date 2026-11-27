@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -59,6 +60,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
@@ -337,6 +339,35 @@ class MorphPolygonShape(
         matrix.postScale(size.width, size.height)
         androidPath.transform(matrix)
         return Outline.Generic(androidPath.asComposePath())
+    }
+}
+
+/**
+ * Renders any Material 3 Expressive [Shape] (including non-convex [RoundedPolygonShape] and
+ * [MorphPolygonShape] cubic-Bézier paths) directly via [drawOutline] (`Canvas.drawPath`)
+ * **without** calling `Modifier.clip(shape)`.
+ *
+ * Backward-compatibility rationale (API 26–28):
+ * On Android 8.0–8.1 legacy HWUI GL pipelines (and pre-API 30 non-convex `Outline.Generic`),
+ * `Modifier.clip(Outline.Generic(path))` falls back to hardware stencil `clipPath()` which drops
+ * the entire clipped layer (0 pixels rendered). Painting fill and optional stroke directly via
+ * [drawOutline] preserves pixel-identical Material 3 Expressive silhouettes and smooth live
+ * morphing across every Android version from API 26 through API 36+.
+ */
+fun Modifier.expressivePolygonSurface(
+    shape: Shape,
+    color: Color,
+    borderColor: Color? = null,
+    borderWidth: Dp = 1.dp
+): Modifier = drawBehind {
+    val outline = shape.createOutline(size, layoutDirection, this)
+    drawOutline(outline = outline, color = color)
+    if (borderColor != null && borderWidth > 0.dp) {
+        drawOutline(
+            outline = outline,
+            color = borderColor,
+            style = Stroke(width = borderWidth.toPx())
+        )
     }
 }
 
@@ -1154,6 +1185,27 @@ fun ExpressiveServiceBadge(
         label = "badgeContainer"
     )
 
+    val badgeBorderColor: Color?
+    val badgeBorderWidth: Dp
+    when {
+        lifecycleState == ServiceBadgeLifecycleState.INCOMPLETE -> {
+            badgeBorderColor = null
+            badgeBorderWidth = 0.dp
+        }
+        isSelected -> {
+            badgeBorderColor = effectivePalette.accent.copy(alpha = 0.55f)
+            badgeBorderWidth = 1.5.dp
+        }
+        !isDark -> {
+            badgeBorderColor = effectivePalette.border.copy(alpha = 0.35f)
+            badgeBorderWidth = 1.dp
+        }
+        else -> {
+            badgeBorderColor = null
+            badgeBorderWidth = 0.dp
+        }
+    }
+
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center
@@ -1166,11 +1218,15 @@ fun ExpressiveServiceBadge(
                     scaleY = scale * urgentPulse
                     rotationZ = rotation
                 }
-                .clip(activeShape)
-                .background(containerColor, activeShape)
+                .expressivePolygonSurface(
+                    shape = activeShape,
+                    color = containerColor,
+                    borderColor = badgeBorderColor,
+                    borderWidth = badgeBorderWidth
+                )
                 .then(
-                    when {
-                        lifecycleState == ServiceBadgeLifecycleState.INCOMPLETE -> Modifier.drawWithContent {
+                    if (lifecycleState == ServiceBadgeLifecycleState.INCOMPLETE) {
+                        Modifier.drawWithContent {
                             drawContent()
                             val inset = 2.dp.toPx()
                             drawRoundRect(
@@ -1184,9 +1240,8 @@ fun ExpressiveServiceBadge(
                                 )
                             )
                         }
-                        isSelected -> Modifier.border(1.5.dp, effectivePalette.accent.copy(alpha = 0.55f), activeShape)
-                        !isDark -> Modifier.border(1.dp, effectivePalette.border.copy(alpha = 0.35f), activeShape)
-                        else -> Modifier
+                    } else {
+                        Modifier
                     }
                 ),
             contentAlignment = Alignment.Center
@@ -1209,9 +1264,12 @@ fun ExpressiveServiceBadge(
                     .align(Alignment.BottomEnd)
                     .offset(x = 2.dp, y = 2.dp)
                     .size(checkSize)
-                    .clip(ExpressiveArchShape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .border(1.5.dp, MaterialTheme.colorScheme.surfaceContainer, ExpressiveArchShape),
+                    .expressivePolygonSurface(
+                        shape = ExpressiveArchShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        borderColor = MaterialTheme.colorScheme.surfaceContainer,
+                        borderWidth = 1.5.dp
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
