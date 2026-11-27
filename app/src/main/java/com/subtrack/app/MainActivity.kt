@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -21,20 +22,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.subtrack.app.notification.NotificationHelper
 import com.subtrack.app.ui.navigation.AppViewModel
 import com.subtrack.app.ui.navigation.SubTrackApp
+import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.ui.theme.SubTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var openSubscriptionId by mutableStateOf<Long?>(null)
+    private var pendingTransferPayload by mutableStateOf<String?>(null)
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -45,7 +53,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        openSubscriptionId = intent.calendarSubscriptionId()
+        handleIncomingIntent(intent)
 
         setContent {
             val appViewModel: AppViewModel = hiltViewModel()
@@ -97,6 +105,8 @@ class MainActivity : ComponentActivity() {
                         onRequestNotificationPermission = ::checkAndRequestNotificationPermission,
                         openSubscriptionId = openSubscriptionId,
                         onOpenSubscriptionConsumed = { openSubscriptionId = null },
+                        pendingTransferPayload = pendingTransferPayload,
+                        onTransferPayloadConsumed = { pendingTransferPayload = null },
                         appViewModel = appViewModel
                     )
                 }
@@ -107,7 +117,60 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        openSubscriptionId = intent.calendarSubscriptionId()
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(incoming: Intent?) {
+        if (incoming == null) return
+        incoming.calendarSubscriptionId()?.let { openSubscriptionId = it }
+
+        when (incoming.action) {
+            Intent.ACTION_VIEW -> {
+                val uri = incoming.data ?: return
+                if (uri.scheme.equals(SubscriptionBackupCodec.DEEP_LINK_SCHEME, ignoreCase = true)) {
+                    pendingTransferPayload = uri.toString()
+                } else if (uri.scheme.equals("content", ignoreCase = true)) {
+                    readIncomingTransferUri(uri)
+                }
+            }
+            Intent.ACTION_SEND -> {
+                val sharedText = incoming.getStringExtra(Intent.EXTRA_TEXT)
+                if (!sharedText.isNullOrBlank()) {
+                    pendingTransferPayload = sharedText
+                    return
+                }
+                val streamUri = IntentCompat.getParcelableExtra(incoming, Intent.EXTRA_STREAM, Uri::class.java)
+                if (streamUri != null) {
+                    readIncomingTransferUri(streamUri)
+                }
+            }
+        }
+    }
+
+    private fun readIncomingTransferUri(uri: Uri) {
+        lifecycleScope.launch {
+            val content = withContext(Dispatchers.IO) {
+                runCatching {
+                    contentResolver.openInputStream(uri)?.use { stream ->
+                        val maxBytes = 512 * 1024
+                        val buffer = ByteArray(4096)
+                        val out = java.io.ByteArrayOutputStream()
+                        var total = 0
+                        while (true) {
+                            val read = stream.read(buffer)
+                            if (read <= 0) break
+                            total += read
+                            if (total > maxBytes) error("File too large")
+                            out.write(buffer, 0, read)
+                        }
+                        out.toString(Charsets.UTF_8.name())
+                    }
+                }.getOrNull()
+            }
+            if (!content.isNullOrBlank()) {
+                pendingTransferPayload = content
+            }
+        }
     }
 
     private fun Intent.calendarSubscriptionId(): Long? =

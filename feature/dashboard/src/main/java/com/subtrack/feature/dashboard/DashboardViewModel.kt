@@ -68,6 +68,7 @@ data class DashboardUiState(
     val isCalendarPermissionGranted: Boolean = false,
     val calendarSuggestion: CalendarAwareSuggestion? = null,
     val backupFeedback: String? = null,
+    val pendingImportSubscriptions: List<Subscription>? = null,
     val isLoading: Boolean = true
 )
 
@@ -116,7 +117,9 @@ sealed interface DashboardAction {
     data class SetDefaultCurrency(val currencyCode: String) : DashboardAction
     data class SetNotificationLeadDays(val days: Int) : DashboardAction
     data class SetThemeMode(val themeMode: AppThemeMode) : DashboardAction
-    data class ImportBackupJson(val rawJson: String) : DashboardAction
+    data class InspectIncomingTransfer(val rawPayload: String) : DashboardAction
+    data object ConfirmPendingImport : DashboardAction
+    data object DismissPendingImport : DashboardAction
     data class SetBackupFeedback(val message: String?) : DashboardAction
     data object RefreshToday : DashboardAction
     data object BeginCalendarSetup : DashboardAction
@@ -145,6 +148,7 @@ class DashboardViewModel @Inject constructor(
     val selectedFilter: StateFlow<SubscriptionFilter> = _selectedFilter
     private val _selectedSort = MutableStateFlow(SubscriptionSort.SOONEST)
     private val _backupFeedback = MutableStateFlow<String?>(null)
+    private val _pendingImportSubscriptions = MutableStateFlow<List<Subscription>?>(null)
     private val calendarConfiguration = MutableStateFlow(CalendarConfigurationUiState())
 
     private val dashboardContent = combine(
@@ -216,8 +220,9 @@ class DashboardViewModel @Inject constructor(
         dashboardContent,
         calendarAwarenessRepository.settings,
         calendarAwarenessRepository.suggestions,
-        calendarConfiguration
-    ) { dashboard, calendarSettings, calendarSuggestions, configuration ->
+        calendarConfiguration,
+        _pendingImportSubscriptions
+    ) { dashboard, calendarSettings, calendarSuggestions, configuration, pendingImport ->
         val accessState = when {
             configuration.step != CalendarSetupStep.IDLE -> CalendarAccessState.CONFIGURING
             calendarSettings.isEnabled -> CalendarAccessState.ENABLED
@@ -231,7 +236,8 @@ class DashboardViewModel @Inject constructor(
             calendarSelectionSeed = configuration.selectionSeed,
             isCalendarPermissionGranted = configuration.permissionGranted,
             calendarSuggestion = calendarSuggestions.firstOrNull()
-                ?.takeIf { calendarSettings.isEnabled && configuration.permissionGranted }
+                ?.takeIf { calendarSettings.isEnabled && configuration.permissionGranted },
+            pendingImportSubscriptions = pendingImport
         )
     }
     .stateIn(
@@ -240,14 +246,19 @@ class DashboardViewModel @Inject constructor(
         initialValue = DashboardUiState()
     )
 
-    suspend fun buildJsonBackup(): String {
+    suspend fun buildTransferLink(includePersonalHistory: Boolean = true): String {
         val subs = manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
-        return SubscriptionBackupCodec.toJson(subs)
+        return SubscriptionBackupCodec.toTransferLink(subs, includePersonalHistory)
     }
 
-    suspend fun buildCsvExport(): String {
+    suspend fun buildShareMessage(includePersonalHistory: Boolean = true): String {
         val subs = manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
-        return SubscriptionBackupCodec.toCsv(subs)
+        return SubscriptionBackupCodec.toShareMessage(subs, includePersonalHistory)
+    }
+
+    suspend fun buildBackupFilePayload(includePersonalHistory: Boolean = true): String {
+        val subs = manageSubscriptionUseCase.getAllSubscriptionsSnapshot()
+        return SubscriptionBackupCodec.toBackupFilePayload(subs, includePersonalHistory)
     }
 
     /**
@@ -351,23 +362,39 @@ class DashboardViewModel @Inject constructor(
                     userPreferencesRepository.setThemeMode(action.themeMode)
                 }
             }
-            is DashboardAction.ImportBackupJson -> {
+            is DashboardAction.InspectIncomingTransfer -> {
                 viewModelScope.launch {
-                    val parsed = SubscriptionBackupCodec.fromJson(action.rawJson)
+                    val parsed = SubscriptionBackupCodec.decodeTransferPayload(action.rawPayload)
                     parsed.fold(
                         onSuccess = { imported ->
-                            val added = manageSubscriptionUseCase.addSubscriptionsIfMissing(imported)
-                            _backupFeedback.value = if (added.isEmpty()) {
-                                "Backup read (${imported.size} found) — all already in your stack."
+                            if (imported.isEmpty()) {
+                                _backupFeedback.value = "This SubCycler link or file doesn't have any subscriptions yet."
                             } else {
-                                "Restored ${added.size} subscription${if (added.size == 1) "" else "s"}."
+                                _pendingImportSubscriptions.value = imported
                             }
                         },
                         onFailure = { err ->
-                            _backupFeedback.value = "Couldn't read backup: ${err.message ?: "invalid file"}"
+                            _backupFeedback.value = err.message ?: "Couldn't read that SubCycler link or file."
                         }
                     )
                 }
+            }
+            DashboardAction.ConfirmPendingImport -> {
+                viewModelScope.launch {
+                    val pending = _pendingImportSubscriptions.value.orEmpty()
+                    _pendingImportSubscriptions.value = null
+                    if (pending.isEmpty()) return@launch
+                    val added = manageSubscriptionUseCase.addSubscriptionsIfMissing(pending)
+                    userPreferencesRepository.setOnboardingCompleted(true)
+                    _backupFeedback.value = if (added.isEmpty()) {
+                        "All ${pending.size} subscriptions are already in your stack."
+                    } else {
+                        "Imported ${added.size} subscription${if (added.size == 1) "" else "s"}."
+                    }
+                }
+            }
+            DashboardAction.DismissPendingImport -> {
+                _pendingImportSubscriptions.value = null
             }
             is DashboardAction.SetBackupFeedback -> _backupFeedback.value = action.message
             DashboardAction.BeginCalendarSetup -> beginCalendarSetup()

@@ -72,9 +72,17 @@ fun SubTrackApp(
     onRequestNotificationPermission: () -> Unit = {},
     openSubscriptionId: Long? = null,
     onOpenSubscriptionConsumed: () -> Unit = {},
+    pendingTransferPayload: String? = null,
+    onTransferPayloadConsumed: () -> Unit = {},
     appViewModel: AppViewModel = hiltViewModel()
 ) {
     val launchState by appViewModel.launchState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(launchState, pendingTransferPayload) {
+        if (launchState == AppLaunchState.ONBOARDING && !pendingTransferPayload.isNullOrBlank()) {
+            appViewModel.onOnboardingFinished()
+        }
+    }
 
     when (launchState) {
         AppLaunchState.LOADING -> {
@@ -97,7 +105,9 @@ fun SubTrackApp(
         }
         AppLaunchState.MAIN_CONTENT -> SubTrackMainNavigation(
             openSubscriptionId = openSubscriptionId,
-            onOpenSubscriptionConsumed = onOpenSubscriptionConsumed
+            onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
+            pendingTransferPayload = pendingTransferPayload,
+            onTransferPayloadConsumed = onTransferPayloadConsumed
         )
     }
 }
@@ -106,7 +116,9 @@ fun SubTrackApp(
 private fun SubTrackMainNavigation(
     navController: NavHostController = rememberNavController(),
     openSubscriptionId: Long? = null,
-    onOpenSubscriptionConsumed: () -> Unit = {}
+    onOpenSubscriptionConsumed: () -> Unit = {},
+    pendingTransferPayload: String? = null,
+    onTransferPayloadConsumed: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -130,9 +142,9 @@ private fun SubTrackMainNavigation(
         }
     }
 
-    // Ensure notification & home-screen widget deep-links switch back to Subscriptions from Planner/Savings
-    LaunchedEffect(effectiveOpenSubId) {
-        if (effectiveOpenSubId != null && !isOnDashboard) {
+    // Ensure notification, widget, and transfer deep-links switch back to Subscriptions from Planner/Savings
+    LaunchedEffect(effectiveOpenSubId, pendingTransferPayload) {
+        if ((effectiveOpenSubId != null || !pendingTransferPayload.isNullOrBlank()) && !isOnDashboard) {
             navigateToTab(DashboardDestination)
         }
     }
@@ -181,6 +193,8 @@ private fun SubTrackMainNavigation(
                             }
                             internalOpenSubId = null
                         },
+                        pendingTransferPayload = pendingTransferPayload,
+                        onTransferPayloadConsumed = onTransferPayloadConsumed,
                         pendingAddSubscription = pendingAddSubscription,
                         onAddSubscriptionConsumed = { pendingAddSubscription = false },
                         onNavigateToSavings = { navigateToTab(AnalyticsDestination) }

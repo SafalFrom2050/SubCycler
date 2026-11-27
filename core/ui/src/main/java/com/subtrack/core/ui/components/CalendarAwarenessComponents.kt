@@ -87,9 +87,6 @@ fun CalendarSettingsSheet(
     onOpenNotificationSettings: (() -> Unit)? = null,
     onShareStack: (() -> Unit)? = null,
     onImportStack: (() -> Unit)? = null,
-    onExportJson: (() -> Unit)? = null,
-    onImportJson: (() -> Unit)? = null,
-    onExportCsv: (() -> Unit)? = null,
     backupMessage: String? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -395,14 +392,12 @@ fun CalendarSettingsSheet(
             }
 
             // 3. Offline App-to-App Transfer & Backup Connected Stack (Zero Cloud / Zero Jargon)
-            val shareAction = onShareStack ?: onExportJson
-            val importAction = onImportStack ?: onImportJson
             val transferActions = buildList {
-                if (shareAction != null) {
-                    add(Triple("Share stack", "Send via messaging, social apps, or backup file", shareAction))
+                if (onShareStack != null) {
+                    add(Triple("Share stack", "Send via messaging, social apps, or backup file", onShareStack))
                 }
-                if (importAction != null) {
-                    add(Triple("Import stack", "Paste a transfer link or open a SubCycler file", importAction))
+                if (onImportStack != null) {
+                    add(Triple("Import stack", "Paste a transfer link or open a SubCycler file", onImportStack))
                 }
             }
             if (transferActions.isNotEmpty()) {

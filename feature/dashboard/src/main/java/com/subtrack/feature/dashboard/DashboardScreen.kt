@@ -1,10 +1,14 @@
 package com.subtrack.feature.dashboard
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -124,13 +128,17 @@ import com.subtrack.core.ui.components.ExpressiveRemovalCollapse
 import com.subtrack.core.ui.components.ExpressiveSnackHost
 import com.subtrack.core.ui.components.FannedBadgeStack
 import com.subtrack.core.ui.components.FinancialEfficiencyHud
+import com.subtrack.core.ui.components.ImportPreviewSheet
+import com.subtrack.core.ui.components.ImportStackSheet
 import com.subtrack.core.ui.components.NextActionBanner
 import com.subtrack.core.ui.components.PendingSubscriptionActionDialog
 import com.subtrack.core.ui.components.ReactiveMotionType
 import com.subtrack.core.ui.components.ShapeBloomBackdrop
+import com.subtrack.core.ui.components.ShareStackSheet
 import com.subtrack.core.ui.components.SubscriptionDetailBottomSheet
 import com.subtrack.core.ui.components.SubscriptionGridItem
 import com.subtrack.core.ui.components.buildCycleCheckInItems
+import com.subtrack.core.ui.components.buildImportPreviewItems
 import com.subtrack.core.ui.components.expressiveCardBorder
 import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.openCancellationDestination
@@ -145,6 +153,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
 import java.time.LocalDate
 
 @Composable
@@ -152,6 +162,8 @@ fun DashboardRoute(
     viewModel: DashboardViewModel = hiltViewModel(),
     openSubscriptionId: Long? = null,
     onOpenSubscriptionConsumed: () -> Unit = {},
+    pendingTransferPayload: String? = null,
+    onTransferPayloadConsumed: () -> Unit = {},
     pendingAddSubscription: Boolean = false,
     onAddSubscriptionConsumed: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
@@ -161,6 +173,13 @@ fun DashboardRoute(
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var pendingSaveIncludeHistory by remember { mutableStateOf(true) }
+
+    LaunchedEffect(pendingTransferPayload) {
+        val payload = pendingTransferPayload ?: return@LaunchedEffect
+        viewModel.onAction(DashboardAction.InspectIncomingTransfer(payload))
+        onTransferPayloadConsumed()
+    }
 
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -168,56 +187,50 @@ fun DashboardRoute(
         viewModel.onAction(DashboardAction.CalendarPermissionResult(granted))
     }
 
-    val exportJsonLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
+    val saveBackupFileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             runCatching {
-                val payload = viewModel.buildJsonBackup()
+                val payload = viewModel.buildBackupFilePayload(pendingSaveIncludeHistory)
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
                         stream.write(payload.toByteArray(Charsets.UTF_8))
                     } ?: error("Output stream unavailable")
                 }
             }.fold(
-                onSuccess = { viewModel.onAction(DashboardAction.SetBackupFeedback("Backup saved locally.")) },
+                onSuccess = { viewModel.onAction(DashboardAction.SetBackupFeedback("Backup file saved to device.")) },
                 onFailure = { viewModel.onAction(DashboardAction.SetBackupFeedback("Couldn't save backup file.")) }
             )
         }
     }
 
-    val importJsonLauncher = rememberLauncherForActivityResult(
+    val openBackupFileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        val maxBytes = 512 * 1024
+                        val buffer = ByteArray(4096)
+                        val out = ByteArrayOutputStream()
+                        var total = 0
+                        while (true) {
+                            val read = stream.read(buffer)
+                            if (read <= 0) break
+                            total += read
+                            require(total <= maxBytes) { "Selected file is too large." }
+                            out.write(buffer, 0, read)
+                        }
+                        out.toString(Charsets.UTF_8.name())
+                    }.orEmpty()
                 }
             }.fold(
-                onSuccess = { raw -> viewModel.onAction(DashboardAction.ImportBackupJson(raw)) },
+                onSuccess = { raw -> viewModel.onAction(DashboardAction.InspectIncomingTransfer(raw)) },
                 onFailure = { viewModel.onAction(DashboardAction.SetBackupFeedback("Couldn't read selected file.")) }
-            )
-        }
-    }
-
-    val exportCsvLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            runCatching {
-                val csv = viewModel.buildCsvExport()
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use { stream ->
-                        stream.write(csv.toByteArray(Charsets.UTF_8))
-                    } ?: error("Output stream unavailable")
-                }
-            }.fold(
-                onSuccess = { viewModel.onAction(DashboardAction.SetBackupFeedback("CSV exported locally.")) },
-                onFailure = { viewModel.onAction(DashboardAction.SetBackupFeedback("Couldn't export CSV file.")) }
             )
         }
     }
@@ -243,9 +256,65 @@ fun DashboardRoute(
         onAction = viewModel::onAction,
         onAutoSaveSubscription = viewModel::saveSubscription,
         onRequestCalendarPermission = { calendarPermissionLauncher.launch(Manifest.permission.READ_CALENDAR) },
-        onExportJson = { exportJsonLauncher.launch("subcycler-backup-${LocalDate.now()}.json") },
-        onImportJson = { importJsonLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
-        onExportCsv = { exportCsvLauncher.launch("subcycler-subscriptions-${LocalDate.now()}.csv") },
+        onShareTransferLink = { includeHistory ->
+            scope.launch {
+                runCatching {
+                    val shareMessage = viewModel.buildShareMessage(includeHistory)
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, "SubCycler stack")
+                        putExtra(Intent.EXTRA_TEXT, shareMessage)
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, "Share SubCycler stack"))
+                }.onFailure {
+                    viewModel.onAction(DashboardAction.SetBackupFeedback("No app available to share."))
+                }
+            }
+        },
+        onCopyTransferLink = { includeHistory ->
+            scope.launch {
+                runCatching {
+                    val link = viewModel.buildTransferLink(includeHistory)
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                    clipboard?.setPrimaryClip(ClipData.newPlainText("SubCycler transfer link", link))
+                }.fold(
+                    onSuccess = { viewModel.onAction(DashboardAction.SetBackupFeedback("Transfer link copied.")) },
+                    onFailure = { viewModel.onAction(DashboardAction.SetBackupFeedback("Couldn't copy transfer link.")) }
+                )
+            }
+        },
+        onShareBackupFile = { includeHistory ->
+            scope.launch {
+                runCatching {
+                    val payload = viewModel.buildBackupFilePayload(includeHistory)
+                    val uri = withContext(Dispatchers.IO) {
+                        val cacheDir = File(context.cacheDir, "shared_backups").apply {
+                            mkdirs()
+                            listFiles()?.forEach { it.delete() }
+                        }
+                        val file = File(cacheDir, "subcycler-backup-${LocalDate.now()}.subcycler")
+                        file.writeText(payload, Charsets.UTF_8)
+                        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    }
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/octet-stream"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, "SubCycler backup")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, "Share SubCycler backup"))
+                }.onFailure {
+                    viewModel.onAction(DashboardAction.SetBackupFeedback("Couldn't share backup file."))
+                }
+            }
+        },
+        onSaveBackupFile = { includeHistory ->
+            pendingSaveIncludeHistory = includeHistory
+            saveBackupFileLauncher.launch("subcycler-backup-${LocalDate.now()}.subcycler")
+        },
+        onPickBackupFile = {
+            openBackupFileLauncher.launch(arrayOf("application/octet-stream", "text/plain", "*/*"))
+        },
         onNavigateToSavings = onNavigateToSavings,
         openSubscriptionId = openSubscriptionId,
         onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
@@ -270,9 +339,11 @@ fun DashboardScreen(
         }
     },
     onRequestCalendarPermission: () -> Unit = {},
-    onExportJson: () -> Unit = {},
-    onImportJson: () -> Unit = {},
-    onExportCsv: () -> Unit = {},
+    onShareTransferLink: (includePersonalHistory: Boolean) -> Unit = {},
+    onCopyTransferLink: (includePersonalHistory: Boolean) -> Unit = {},
+    onShareBackupFile: (includePersonalHistory: Boolean) -> Unit = {},
+    onSaveBackupFile: (includePersonalHistory: Boolean) -> Unit = {},
+    onPickBackupFile: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
     openSubscriptionId: Long? = null,
     onOpenSubscriptionConsumed: () -> Unit = {},
@@ -292,6 +363,8 @@ fun DashboardScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showShareSheet by rememberSaveable { mutableStateOf(false) }
+    var showImportSheet by rememberSaveable { mutableStateOf(false) }
     var subscriptionToEdit by remember { mutableStateOf<Subscription?>(null) }
     var editInitialStep by remember { mutableIntStateOf(0) }
     var presetToAdd by remember { mutableStateOf<SubscriptionPreset?>(null) }
@@ -1090,10 +1163,70 @@ fun DashboardScreen(
                     context.startActivity(intent)
                 }
             },
-            onExportJson = onExportJson,
-            onImportJson = onImportJson,
-            onExportCsv = onExportCsv,
+            onShareStack = {
+                showSettings = false
+                showShareSheet = true
+            },
+            onImportStack = {
+                showSettings = false
+                showImportSheet = true
+            },
             backupMessage = uiState.backupFeedback
+        )
+    }
+
+    if (showShareSheet) {
+        val currentSubscriptions = remember(lookupStatuses) {
+            lookupStatuses.map { it.subscription }
+        }
+        ShareStackSheet(
+            subscriptions = currentSubscriptions,
+            onShareTransferLink = { includeHistory ->
+                showShareSheet = false
+                onShareTransferLink(includeHistory)
+            },
+            onCopyTransferLink = { includeHistory ->
+                showShareSheet = false
+                onCopyTransferLink(includeHistory)
+            },
+            onShareBackupFile = { includeHistory ->
+                showShareSheet = false
+                onShareBackupFile(includeHistory)
+            },
+            onSaveBackupFile = { includeHistory ->
+                showShareSheet = false
+                onSaveBackupFile(includeHistory)
+            },
+            onDismiss = { showShareSheet = false }
+        )
+    }
+
+    if (showImportSheet) {
+        ImportStackSheet(
+            onInspectTransferText = { raw ->
+                showImportSheet = false
+                onAction(DashboardAction.InspectIncomingTransfer(raw))
+            },
+            onPickBackupFile = {
+                showImportSheet = false
+                onPickBackupFile()
+            },
+            onDismiss = { showImportSheet = false }
+        )
+    }
+
+    uiState.pendingImportSubscriptions?.let { incoming ->
+        val existing = remember(lookupStatuses) { lookupStatuses.map { it.subscription } }
+        val previewItems = remember(incoming, existing) {
+            buildImportPreviewItems(incoming = incoming, existing = existing)
+        }
+        ImportPreviewSheet(
+            items = previewItems,
+            onConfirmImport = {
+                onAction(DashboardAction.ConfirmPendingImport)
+                pulseBrandTicker("Stack imported")
+            },
+            onDismiss = { onAction(DashboardAction.DismissPendingImport) }
         )
     }
 

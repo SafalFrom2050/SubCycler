@@ -137,9 +137,6 @@ object SubscriptionBackupCodec {
 
     fun fromJson(rawJson: String): Result<List<Subscription>> = decodeTransferPayload(rawJson)
 
-    @Deprecated("Replaced by unified offline transfer links and .subcycler backup files")
-    fun toCsv(subscriptions: List<Subscription>): String = toBackupFilePayload(subscriptions)
-
     private fun prepareForExport(
         subscriptions: List<Subscription>,
         includePersonalHistory: Boolean
