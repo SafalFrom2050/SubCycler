@@ -4,66 +4,215 @@ import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.model.SubscriptionCategory
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.time.LocalDate
+import java.util.Base64
 import java.util.Locale
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 
 /**
- * Pure-Kotlin 100% offline JSON backup/restore & CSV export codec.
- * Requires zero extra dependencies and zero network/storage permissions (works via Android SAF).
+ * Pure-Kotlin 100% offline app-to-app stack transfer & backup codec.
+ *
+ * Uses a single unified compressed payload shared across:
+ * - Offline custom deep links (`subcycler://import?d=<token>`)
+ * - Messaging & social media shares (`Intent.ACTION_SEND`, clipboard paste)
+ * - Single portable `.subcycler` backup files (`FileProvider` / SAF)
+ *
+ * Also retains transparent read-compatibility for legacy v1 backup files while requiring
+ * zero extra dependencies and zero network or storage permissions.
  */
 object SubscriptionBackupCodec {
 
-    private const val BACKUP_VERSION = 1
+    private const val BACKUP_VERSION = 2
+    private const val MAX_DECOMPRESSED_BYTES = 512 * 1024
+    private const val MAX_ENCODED_TOKEN_CHARS = 128 * 1024
 
-    fun toJson(subscriptions: List<Subscription>): String {
-        val items = subscriptions.joinToString(",\n") { sub ->
-            buildString {
-                append("    {\n")
-                append("      \"name\": ${jsonString(sub.name)},\n")
-                append("      \"cost\": ${sub.cost},\n")
-                append("      \"currency\": ${jsonString(sub.currency)},\n")
-                append("      \"billingPeriod\": ${jsonString(sub.billingPeriod.name)},\n")
-                append("      \"category\": ${jsonString(sub.category.name)},\n")
-                append("      \"startDate\": ${jsonString(sub.startDate.toString())},\n")
-                append("      \"strategy\": ${jsonString(sub.strategy.name)},\n")
-                append("      \"customActiveDays\": ${sub.customActiveDays},\n")
-                append("      \"customBlackoutDays\": ${sub.customBlackoutDays},\n")
-                append("      \"colorHex\": ${jsonString(sub.colorHex)},\n")
-                append("      \"iconName\": ${jsonString(sub.iconName)},\n")
-                append("      \"notes\": ${jsonString(sub.notes)},\n")
-                append("      \"isAutoRenewCancelled\": ${sub.isAutoRenewCancelled},\n")
-                append("      \"isBillingDateConfirmed\": ${sub.isBillingDateConfirmed},\n")
-                append("      \"isStrategyConfirmed\": ${sub.isStrategyConfirmed},\n")
-                append("      \"cancelledCycleIndex\": ${sub.cancelledCycleIndex ?: "null"},\n")
-                append("      \"completedBreaksCount\": ${sub.completedBreaksCount},\n")
-                append("      \"earnedSavingsTotal\": ${sub.earnedSavingsTotal},\n")
-                append("      \"bonusActiveDays\": ${sub.bonusActiveDays}\n")
-                append("    }")
-            }
-        }
-        return "{\n  \"app\": \"SubCycler\",\n  \"version\": $BACKUP_VERSION,\n  \"subscriptions\": [\n$items\n  ]\n}\n"
+    const val DEEP_LINK_SCHEME = "subcycler"
+    const val DEEP_LINK_HOST = "import"
+    const val DEEP_LINK_PARAM = "d"
+    const val TRANSFER_LINK_PREFIX = "$DEEP_LINK_SCHEME://$DEEP_LINK_HOST?$DEEP_LINK_PARAM="
+    const val BACKUP_FILE_EXTENSION = "subcycler"
+
+    private val transferLinkRegex = Regex(
+        """subcycler://import\?(?:[^#\s]*&)?d=([A-Za-z0-9_-]+)""",
+        RegexOption.IGNORE_CASE
+    )
+
+    fun containsTransferLink(text: String): Boolean = transferLinkRegex.containsMatchIn(text)
+
+    fun extractTransferToken(rawInput: String): String? =
+        transferLinkRegex.find(rawInput)?.groupValues?.getOrNull(1)
+
+    /**
+     * Produces a compact offline deep link (`subcycler://import?d=...`) carrying the stack.
+     * When [includePersonalHistory] is `false`, personal notes, earned savings, completed break
+     * counts, bonus active days, and auto-renew cancellation flags are stripped so users can
+     * safely share a clean subscription stack template with friends.
+     */
+    fun toTransferLink(
+        subscriptions: List<Subscription>,
+        includePersonalHistory: Boolean = true
+    ): String {
+        val prepared = prepareForExport(subscriptions, includePersonalHistory)
+        val compactPayload = encodePayload(prepared, pretty = false)
+        val compressed = gzipCompress(compactPayload.toByteArray(Charsets.UTF_8))
+        val token = Base64.getUrlEncoder().withoutPadding().encodeToString(compressed)
+        return "$TRANSFER_LINK_PREFIX$token"
     }
 
-    fun fromJson(rawJson: String): Result<List<Subscription>> = runCatching {
-        val trimmed = rawJson.trim()
-        require(trimmed.startsWith("{") && trimmed.endsWith("}")) { "Invalid backup JSON format." }
+    /**
+     * Produces a clean, jargon-free share message ready for WhatsApp, Telegram, LINE, Discord,
+     * Messages, Notes, or social apps, embedding the offline `subcycler://import?d=...` link.
+     */
+    fun toShareMessage(
+        subscriptions: List<Subscription>,
+        includePersonalHistory: Boolean = true
+    ): String {
+        val link = toTransferLink(subscriptions, includePersonalHistory)
+        val count = subscriptions.size
+        val previewNames = subscriptions
+            .map { it.name.trim() }
+            .filter { it.isNotEmpty() }
+            .take(4)
+        val namesSummary = when {
+            previewNames.isEmpty() -> ""
+            count > previewNames.size -> " (${previewNames.joinToString(", ")} +${count - previewNames.size} more)"
+            else -> " (${previewNames.joinToString(", ")})"
+        }
+        val noun = if (count == 1) "subscription" else "subscriptions"
+        return buildString {
+            append("SubCycler stack — $count $noun$namesSummary\n\n")
+            append("Tap the link or share this message to SubCycler to import:\n")
+            append(link)
+        }
+    }
+
+    /**
+     * Produces the single unified `.subcycler` portable backup file payload.
+     */
+    fun toBackupFilePayload(
+        subscriptions: List<Subscription>,
+        includePersonalHistory: Boolean = true
+    ): String {
+        val link = toTransferLink(subscriptions, includePersonalHistory)
+        val count = subscriptions.size
+        val noun = if (count == 1) "subscription" else "subscriptions"
+        return "# SubCycler Backup ($count $noun)\n$link\n"
+    }
+
+    /**
+     * Decodes any SubCycler transfer input:
+     * - A `subcycler://import?d=...` deep link
+     * - A chat/social message containing the link anywhere in its body
+     * - A `.subcycler` backup file
+     * - A legacy v1 backup file for backward compatibility
+     */
+    fun decodeTransferPayload(rawInput: String): Result<List<Subscription>> = runCatching {
+        val trimmed = rawInput.trim()
+        require(trimmed.isNotEmpty()) { "Nothing to import." }
+
+        val token = extractTransferToken(trimmed)
+        if (token != null) {
+            require(token.length <= MAX_ENCODED_TOKEN_CHARS) { "Backup link is too large to import." }
+            val compressed = Base64.getUrlDecoder().decode(token)
+            val decompressed = gzipDecompressBounded(compressed)
+            return@runCatching decodeEnvelope(decompressed.toString(Charsets.UTF_8))
+        }
+
+        // Backward-compatibility path for older v1 local backup files
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            return@runCatching decodeEnvelope(trimmed)
+        }
+
+        error("This doesn't look like a SubCycler transfer link or backup file.")
+    }
+
+    /**
+     * Retained for internal/legacy compatibility; new app flows prefer [toBackupFilePayload],
+     * [toTransferLink], and [decodeTransferPayload].
+     */
+    fun toJson(subscriptions: List<Subscription>): String = encodePayload(subscriptions, pretty = true)
+
+    fun fromJson(rawJson: String): Result<List<Subscription>> = decodeTransferPayload(rawJson)
+
+    @Deprecated("Replaced by unified offline transfer links and .subcycler backup files")
+    fun toCsv(subscriptions: List<Subscription>): String = toBackupFilePayload(subscriptions)
+
+    private fun prepareForExport(
+        subscriptions: List<Subscription>,
+        includePersonalHistory: Boolean
+    ): List<Subscription> {
+        if (includePersonalHistory) return subscriptions
+        return subscriptions.map { sub ->
+            sub.copy(
+                notes = "",
+                isAutoRenewCancelled = false,
+                cancelledCycleIndex = null,
+                completedBreaksCount = 0,
+                earnedSavingsTotal = 0.0,
+                bonusActiveDays = 0
+            )
+        }
+    }
+
+    private fun encodePayload(subscriptions: List<Subscription>, pretty: Boolean): String {
+        val sep = if (pretty) ",\n" else ","
+        val items = subscriptions.joinToString(sep) { sub ->
+            buildString {
+                if (pretty) append("    {") else append('{')
+                append("\"name\":${jsonString(sub.name)},")
+                append("\"cost\":${sub.cost},")
+                append("\"currency\":${jsonString(sub.currency)},")
+                append("\"billingPeriod\":${jsonString(sub.billingPeriod.name)},")
+                append("\"category\":${jsonString(sub.category.name)},")
+                append("\"startDate\":${jsonString(sub.startDate.toString())},")
+                append("\"strategy\":${jsonString(sub.strategy.name)},")
+                append("\"customActiveDays\":${sub.customActiveDays},")
+                append("\"customBlackoutDays\":${sub.customBlackoutDays},")
+                append("\"colorHex\":${jsonString(sub.colorHex)},")
+                append("\"iconName\":${jsonString(sub.iconName)},")
+                append("\"notes\":${jsonString(sub.notes)},")
+                append("\"isAutoRenewCancelled\":${sub.isAutoRenewCancelled},")
+                append("\"isBillingDateConfirmed\":${sub.isBillingDateConfirmed},")
+                append("\"isStrategyConfirmed\":${sub.isStrategyConfirmed},")
+                append("\"cancelledCycleIndex\":${sub.cancelledCycleIndex ?: "null"},")
+                append("\"completedBreaksCount\":${sub.completedBreaksCount},")
+                append("\"earnedSavingsTotal\":${sub.earnedSavingsTotal},")
+                append("\"bonusActiveDays\":${sub.bonusActiveDays}")
+                append('}')
+            }
+        }
+        return if (pretty) {
+            "{\n  \"app\": \"SubCycler\",\n  \"version\": $BACKUP_VERSION,\n  \"subscriptions\": [\n$items\n  ]\n}\n"
+        } else {
+            "{\"app\":\"SubCycler\",\"version\":$BACKUP_VERSION,\"subscriptions\":[$items]}"
+        }
+    }
+
+    private fun decodeEnvelope(rawEnvelope: String): List<Subscription> {
+        val trimmed = rawEnvelope.trim()
+        require(trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            "This doesn't look like a valid SubCycler backup."
+        }
 
         val arrayStart = trimmed.indexOf('[')
         val arrayEnd = trimmed.lastIndexOf(']')
-        require(arrayStart in 0 until arrayEnd) { "Missing subscriptions array in backup file." }
+        require(arrayStart in 0 until arrayEnd) { "Backup is missing its subscriptions list." }
 
         val arrayBody = trimmed.substring(arrayStart + 1, arrayEnd).trim()
-        if (arrayBody.isEmpty()) return@runCatching emptyList()
+        if (arrayBody.isEmpty()) return emptyList()
 
         val objectStrings = splitTopLevelObjects(arrayBody)
-        objectStrings.map { objJson ->
+        return objectStrings.map { objJson ->
             val fields = parseFlatJsonObject(objJson)
             val name = fields["name"]?.takeIf { it.isNotBlank() }
-                ?: error("Backup entry missing name")
+                ?: error("A subscription entry is missing its name.")
             val cost = fields["cost"]?.toDoubleOrNull()?.takeIf { it >= 0.0 }
-                ?: error("Backup entry '$name' has invalid cost")
+                ?: error("Subscription '$name' has an invalid price.")
             val startDate = fields["startDate"]?.let { LocalDate.parse(it) }
-                ?: error("Backup entry '$name' missing startDate")
+                ?: error("Subscription '$name' is missing a start date.")
 
             Subscription(
                 name = name,
@@ -95,30 +244,26 @@ object SubscriptionBackupCodec {
         }
     }
 
-    fun toCsv(subscriptions: List<Subscription>): String {
-        val header = "Name,Cost,Currency,BillingPeriod,Category,Strategy,ActiveDays,PauseDays,StartDate,CompletedBreaks,EarnedSavings,WatchlistNotes"
-        val rows = subscriptions.map { sub ->
-            listOf(
-                csvCell(sub.name),
-                sub.cost.toString(),
-                csvCell(sub.currency),
-                csvCell(sub.billingPeriod.displayName),
-                csvCell(sub.category.displayName),
-                csvCell(sub.strategy.name),
-                sub.activeDays.toString(),
-                sub.blackoutDays.toString(),
-                sub.startDate.toString(),
-                sub.completedBreaksCount.toString(),
-                String.format(Locale.US, "%.2f", sub.earnedSavingsTotal),
-                csvCell(sub.notes)
-            ).joinToString(",")
-        }
-        return (listOf(header) + rows).joinToString("\n") + "\n"
+    private fun gzipCompress(bytes: ByteArray): ByteArray {
+        val out = ByteArrayOutputStream()
+        GZIPOutputStream(out).use { gzip -> gzip.write(bytes) }
+        return out.toByteArray()
     }
 
-    private fun csvCell(value: String): String {
-        val escaped = value.replace("\"", "\"\"")
-        return "\"$escaped\""
+    private fun gzipDecompressBounded(bytes: ByteArray): ByteArray {
+        GZIPInputStream(ByteArrayInputStream(bytes)).use { gzip ->
+            val out = ByteArrayOutputStream()
+            val buffer = ByteArray(4096)
+            var total = 0
+            while (true) {
+                val read = gzip.read(buffer)
+                if (read == -1) break
+                total += read
+                require(total <= MAX_DECOMPRESSED_BYTES) { "Backup exceeds maximum safe size." }
+                out.write(buffer, 0, read)
+            }
+            return out.toByteArray()
+        }
     }
 
     private fun jsonString(value: String): String = buildString {
@@ -184,7 +329,7 @@ object SubscriptionBackupCodec {
         }
 
         fun readString(): String {
-            require(i < n && inner[i] == '"') { "Expected JSON string" }
+            require(i < n && inner[i] == '"') { "Expected quoted text" }
             i++
             val sb = StringBuilder()
             while (i < n) {
@@ -208,7 +353,7 @@ object SubscriptionBackupCodec {
                     sb.append(c)
                 }
             }
-            error("Unterminated JSON string")
+            error("Unterminated text in backup")
         }
 
         while (i < n) {
@@ -216,7 +361,7 @@ object SubscriptionBackupCodec {
             if (i >= n) break
             val key = readString()
             while (i < n && inner[i].isWhitespace()) i++
-            require(i < n && inner[i] == ':') { "Expected ':' after key $key" }
+            require(i < n && inner[i] == ':') { "Malformed entry near $key" }
             i++
             while (i < n && inner[i].isWhitespace()) i++
             if (i >= n) break
