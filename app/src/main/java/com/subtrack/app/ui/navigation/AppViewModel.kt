@@ -2,7 +2,11 @@ package com.subtrack.app.ui.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.subtrack.core.domain.engine.RotationEngine
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.AppThemeMode
+import com.subtrack.core.domain.model.CyclePhase
+import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.repository.SubscriptionRepository
 import com.subtrack.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,10 +15,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 enum class AppLaunchState {
@@ -22,6 +28,13 @@ enum class AppLaunchState {
     ONBOARDING,
     MAIN_CONTENT
 }
+
+data class DockMoodState(
+    val activeSubscriptions: List<Subscription> = emptyList(),
+    val useStackHeroMood: Boolean = true,
+    val launcherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
+    val isLoaded: Boolean = false
+)
 
 @HiltViewModel
 class AppViewModel @Inject constructor(
@@ -40,6 +53,34 @@ class AppViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = AppThemeMode.SYSTEM
         )
+
+    val launcherIcon: StateFlow<AppLauncherIcon> = userPreferencesRepository.userPreferences
+        .map { it.launcherIcon }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = AppLauncherIcon.BOTANICAL
+        )
+
+    val dockMood: StateFlow<DockMoodState> = combine(
+        subscriptionRepository.getAllSubscriptions(),
+        userPreferencesRepository.userPreferences
+    ) { subscriptions, preferences ->
+        val today = LocalDate.now()
+        val active = subscriptions.filter { sub ->
+            !sub.isIncomplete && RotationEngine.calculateCycleStatus(sub, today).phase == CyclePhase.ACTIVE
+        }
+        DockMoodState(
+            activeSubscriptions = active,
+            useStackHeroMood = preferences.useStackHeroMood,
+            launcherIcon = preferences.launcherIcon,
+            isLoaded = true
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = DockMoodState()
+    )
 
     init {
         resolveLaunchState()
