@@ -1,7 +1,7 @@
 package com.subtrack.core.ui.theme
 
 import android.provider.Settings
-import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -158,5 +158,5 @@ fun rememberReducedMotionEnabled(): Boolean {
 /**
  * Returns [spec] when motion is enabled, or an instant [snap] when reduced motion is active.
  */
-fun <T> AnimationSpec<T>.orSnapIfReduced(reducedMotion: Boolean): AnimationSpec<T> =
+fun <T> FiniteAnimationSpec<T>.orSnapIfReduced(reducedMotion: Boolean): FiniteAnimationSpec<T> =
     if (reducedMotion) snap() else this
