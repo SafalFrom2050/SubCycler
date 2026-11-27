@@ -819,7 +819,7 @@ private fun PairedSwapBatonVisualizer(
             }
 
             AnimatedContent(
-                targetState = Triple(service1.id, service2.id, swapNonce),
+                targetState = Triple(service1, service2, swapNonce),
                 transitionSpec = {
                     if (reducedMotion) {
                         fadeIn(tween(0)).togetherWith(fadeOut(tween(0)))
@@ -833,7 +833,7 @@ private fun PairedSwapBatonVisualizer(
                     }
                 },
                 label = "batonTrackSlide"
-            ) { _ ->
+            ) { (activeFirst, activeSecond, _) ->
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     // Track 1: Service 1 Active first (Days 1–30), then Rest (Days 31–60)
@@ -843,7 +843,7 @@ private fun PairedSwapBatonVisualizer(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ExpressiveServiceBadge(
-                            serviceName = service1.name,
+                            serviceName = activeFirst.name,
                             size = 26.dp,
                             fontSize = 9.5.sp
                         )
@@ -901,7 +901,7 @@ private fun PairedSwapBatonVisualizer(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ExpressiveServiceBadge(
-                            serviceName = service2.name,
+                            serviceName = activeSecond.name,
                             size = 26.dp,
                             fontSize = 9.5.sp
                         )
