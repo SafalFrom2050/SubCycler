@@ -1,15 +1,15 @@
 package com.subtrack.core.ui.components
 
+import android.graphics.Matrix
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -19,23 +19,32 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,8 +55,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
@@ -65,8 +76,20 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.graphics.shapes.CornerRounding
+import androidx.graphics.shapes.Morph
+import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.TransformResult
+import androidx.graphics.shapes.circle
+import androidx.graphics.shapes.pillStar
+import androidx.graphics.shapes.rectangle
+import androidx.graphics.shapes.star
+import androidx.graphics.shapes.toPath
 import com.subtrack.core.ui.theme.DisplayFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.orSnapIfReduced
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
@@ -75,8 +98,280 @@ import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Material 3 Expressive Scalloped Cookie / Clover shape using polar harmonic modulation:
- * r(theta) = R * (1 - grooveDepth * (1 - cos(lobes * (theta - phaseOffset))) / 2)
+ * Pure-math polygon rotation helper (works identically on Android and JVM unit tests).
+ */
+fun RoundedPolygon.rotated(degrees: Float): RoundedPolygon {
+    if (degrees == 0f) return this
+    val rad = Math.toRadians(degrees.toDouble())
+    val cosA = cos(rad).toFloat()
+    val sinA = sin(rad).toFloat()
+    return transformed { x, y ->
+        TransformResult(x * cosA - y * sinA, x * sinA + y * cosA)
+    }
+}
+
+/**
+ * Material 3 Expressive v4.0 Normalized Cubic-Bézier Polygon Library backed by
+ * Jetpack `androidx.graphics:graphics-shapes` (100% offline, ~35 KB math library).
+ */
+object ExpressiveMaterialPolygons {
+    val Circle: RoundedPolygon = RoundedPolygon.circle(numVertices = 10).normalized()
+
+    val Square: RoundedPolygon = RoundedPolygon.rectangle(
+        width = 1f,
+        height = 1f,
+        rounding = CornerRounding(0.18f, 0.25f)
+    ).normalized()
+
+    val Squircle: RoundedPolygon = RoundedPolygon.rectangle(
+        width = 1f,
+        height = 1f,
+        rounding = CornerRounding(0.32f, 0.5f)
+    ).normalized()
+
+    val Cookie7: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 7,
+        radius = 1f,
+        innerRadius = 0.78f,
+        rounding = CornerRounding(0.24f),
+        innerRounding = CornerRounding(0.24f)
+    ).normalized()
+
+    val Cookie8: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 8,
+        radius = 1f,
+        innerRadius = 0.80f,
+        rounding = CornerRounding(0.22f),
+        innerRounding = CornerRounding(0.22f)
+    ).normalized()
+
+    val Cookie9: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 9,
+        radius = 1f,
+        innerRadius = 0.82f,
+        rounding = CornerRounding(0.20f),
+        innerRounding = CornerRounding(0.20f)
+    ).normalized()
+
+    val Cookie12: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 12,
+        radius = 1f,
+        innerRadius = 0.86f,
+        rounding = CornerRounding(0.16f),
+        innerRounding = CornerRounding(0.16f)
+    ).normalized()
+
+    val Clover4: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 4,
+        radius = 1f,
+        innerRadius = 0.56f,
+        rounding = CornerRounding(0.34f),
+        innerRounding = CornerRounding(0.22f)
+    ).rotated(45f).normalized()
+
+    val Clover8: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 8,
+        radius = 1f,
+        innerRadius = 0.68f,
+        rounding = CornerRounding(0.26f),
+        innerRounding = CornerRounding(0.18f)
+    ).normalized()
+
+    val Sunny: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 8,
+        radius = 1f,
+        innerRadius = 0.78f,
+        rounding = CornerRounding(0.16f),
+        innerRounding = CornerRounding(0.16f)
+    ).rotated(22.5f).normalized()
+
+    val SoftBurst: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 10,
+        radius = 1f,
+        innerRadius = 0.74f,
+        rounding = CornerRounding(0.18f),
+        innerRounding = CornerRounding(0.14f)
+    ).normalized()
+
+    // Vertex order of RoundedPolygon.rectangle: bottom-right, bottom-left, top-left, top-right
+    val Arch: RoundedPolygon = RoundedPolygon.rectangle(
+        width = 1f,
+        height = 1f,
+        perVertexRounding = listOf(
+            CornerRounding(0.18f),
+            CornerRounding(0.18f),
+            CornerRounding(0.50f),
+            CornerRounding(0.50f)
+        )
+    ).normalized()
+
+    /** Dome facing Left (for LTR leading stadium snack icon chips). */
+    val ArchLeft: RoundedPolygon = Arch.rotated(-90f).normalized()
+
+    /** Dome facing Right (for RTL leading stadium snack icon chips). */
+    val ArchRight: RoundedPolygon = Arch.rotated(90f).normalized()
+
+    val Pebble: RoundedPolygon = RoundedPolygon.rectangle(
+        width = 1f,
+        height = 1f,
+        perVertexRounding = listOf(
+            CornerRounding(0.46f),
+            CornerRounding(0.22f),
+            CornerRounding(0.46f),
+            CornerRounding(0.22f)
+        )
+    ).normalized()
+
+    val Gem: RoundedPolygon = RoundedPolygon(
+        numVertices = 6,
+        radius = 1f,
+        rounding = CornerRounding(0.26f, 0.35f)
+    ).rotated(-90f).normalized()
+
+    val Pentagon: RoundedPolygon = RoundedPolygon(
+        numVertices = 5,
+        radius = 1f,
+        rounding = CornerRounding(0.24f, 0.30f)
+    ).rotated(-90f).normalized()
+
+    val Flower: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 6,
+        radius = 1f,
+        innerRadius = 0.62f,
+        rounding = CornerRounding(0.32f),
+        innerRounding = CornerRounding(0.16f)
+    ).normalized()
+
+    val Bun: RoundedPolygon = RoundedPolygon.pillStar(
+        width = 1f,
+        height = 1.08f,
+        numVerticesPerRadius = 6,
+        innerRadiusRatio = 0.78f,
+        rounding = CornerRounding(0.28f),
+        innerRounding = CornerRounding(0.22f)
+    ).normalized()
+
+    val Puffy: RoundedPolygon = RoundedPolygon.star(
+        numVerticesPerRadius = 5,
+        radius = 1f,
+        innerRadius = 0.76f,
+        rounding = CornerRounding(0.32f),
+        innerRounding = CornerRounding(0.24f)
+    ).rotated(-90f).normalized()
+
+    /** 10 distinct silhouettes used by the Onboarding Vault Mosaic Wall. */
+    val mosaicPalette: List<RoundedPolygon> = listOf(
+        Cookie7,
+        Clover4,
+        Sunny,
+        Cookie9,
+        Gem,
+        SoftBurst,
+        Cookie12,
+        Pentagon,
+        Puffy,
+        Flower
+    )
+}
+
+/**
+ * Compose [Shape] backed by a normalized [RoundedPolygon].
+ */
+class RoundedPolygonShape(
+    private val polygon: RoundedPolygon,
+    private val rotationDegrees: Float = 0f
+) : Shape {
+    private val matrix = Matrix()
+
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val androidPath = polygon.toPath()
+        matrix.reset()
+        if (rotationDegrees != 0f) {
+            matrix.postRotate(rotationDegrees, 0.5f, 0.5f)
+        }
+        matrix.postScale(size.width, size.height)
+        androidPath.transform(matrix)
+        return Outline.Generic(androidPath.asComposePath())
+    }
+}
+
+/**
+ * Compose [Shape] interpolating topologically between two [RoundedPolygon] geometries
+ * via Jetpack's [Morph] engine (`percentage` clamped into `0f..1f`).
+ */
+class MorphPolygonShape(
+    private val morph: Morph,
+    private val percentage: Float,
+    private val rotationDegrees: Float = 0f
+) : Shape {
+    private val matrix = Matrix()
+
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val androidPath = morph.toPath(progress = percentage.coerceIn(0f, 1f))
+        matrix.reset()
+        if (rotationDegrees != 0f) {
+            matrix.postRotate(rotationDegrees, 0.5f, 0.5f)
+        }
+        matrix.postScale(size.width, size.height)
+        androidPath.transform(matrix)
+        return Outline.Generic(androidPath.asComposePath())
+    }
+}
+
+/**
+ * Smoothly morphs a Compose [Shape] whenever [targetPolygon] changes, driven by
+ * [ExpressiveMotion.expressiveSpatialFastFloat] (or snapping instantly under reduced motion).
+ */
+@Composable
+fun rememberMorphingPolygonShape(
+    targetPolygon: RoundedPolygon,
+    rotationDegrees: Float = 0f
+): Shape {
+    val reducedMotion = rememberReducedMotionEnabled()
+    var fromPolygon by remember { mutableStateOf(targetPolygon) }
+    var toPolygon by remember { mutableStateOf(targetPolygon) }
+    val morphProgress = remember { Animatable(1f) }
+
+    LaunchedEffect(targetPolygon, reducedMotion) {
+        if (targetPolygon === toPolygon) return@LaunchedEffect
+        fromPolygon = toPolygon
+        toPolygon = targetPolygon
+        if (reducedMotion) {
+            morphProgress.snapTo(1f)
+        } else {
+            morphProgress.snapTo(0f)
+            morphProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
+            )
+        }
+    }
+
+    val morph = remember(fromPolygon, toPolygon) {
+        if (fromPolygon === toPolygon) null else Morph(fromPolygon, toPolygon)
+    }
+    return if (morph == null || morphProgress.value >= 0.999f) {
+        remember(toPolygon, rotationDegrees) { RoundedPolygonShape(toPolygon, rotationDegrees) }
+    } else {
+        MorphPolygonShape(
+            morph = morph,
+            percentage = morphProgress.value.coerceIn(0f, 1f),
+            rotationDegrees = rotationDegrees
+        )
+    }
+}
+
+/**
+ * Legacy polar harmonic shape retained for backwards compatibility where direct groove
+ * modulation is desired; v4.0 shapes prefer [RoundedPolygonShape] / [MorphPolygonShape].
  */
 class ScallopedCookieShape(
     private val lobes: Int = 8,
@@ -111,26 +406,16 @@ class ScallopedCookieShape(
     }
 }
 
-val ExpressiveCookie8Shape: Shape = ScallopedCookieShape(lobes = 8, grooveDepthFraction = 0.125f)
-val ExpressiveCookie12Shape: Shape = ScallopedCookieShape(lobes = 12, grooveDepthFraction = 0.075f)
-val ExpressiveClover4Shape: Shape = ScallopedCookieShape(
-    lobes = 4,
-    grooveDepthFraction = 0.24f,
-    phaseOffsetRadians = (PI / 4.0).toFloat()
-)
-val ExpressiveArchShape: Shape = RoundedCornerShape(
-    topStartPercent = 50,
-    topEndPercent = 50,
-    bottomStartPercent = 24,
-    bottomEndPercent = 24
-)
-val ExpressivePebbleShape: Shape = RoundedCornerShape(
-    topStartPercent = 48,
-    topEndPercent = 30,
-    bottomEndPercent = 48,
-    bottomStartPercent = 30
-)
-val ExpressiveSquircleShape: Shape = RoundedCornerShape(32)
+val ExpressiveCookie7Shape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Cookie7)
+val ExpressiveCookie8Shape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Cookie8)
+val ExpressiveCookie9Shape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Cookie9)
+val ExpressiveCookie12Shape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Cookie12)
+val ExpressiveClover4Shape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Clover4)
+val ExpressiveSunnyShape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Sunny)
+val ExpressiveGemShape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Gem)
+val ExpressiveArchShape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Arch)
+val ExpressivePebbleShape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Pebble)
+val ExpressiveSquircleShape: Shape = RoundedPolygonShape(ExpressiveMaterialPolygons.Squircle)
 
 enum class ExpressiveBadgeShapeKind {
     COOKIE,
@@ -141,13 +426,34 @@ enum class ExpressiveBadgeShapeKind {
     CIRCLE
 }
 
+fun ExpressiveBadgeShapeKind.toMaterialPolygon(): RoundedPolygon = when (this) {
+    ExpressiveBadgeShapeKind.COOKIE -> ExpressiveMaterialPolygons.Cookie9
+    ExpressiveBadgeShapeKind.CLOVER -> ExpressiveMaterialPolygons.Clover4
+    ExpressiveBadgeShapeKind.PEBBLE -> ExpressiveMaterialPolygons.Pebble
+    ExpressiveBadgeShapeKind.ARCH -> ExpressiveMaterialPolygons.Arch
+    ExpressiveBadgeShapeKind.SQUIRCLE -> ExpressiveMaterialPolygons.Squircle
+    ExpressiveBadgeShapeKind.CIRCLE -> ExpressiveMaterialPolygons.Circle
+}
+
 fun ExpressiveBadgeShapeKind.toComposeShape(): Shape = when (this) {
-    ExpressiveBadgeShapeKind.COOKIE -> ExpressiveCookie8Shape
+    ExpressiveBadgeShapeKind.COOKIE -> ExpressiveCookie9Shape
     ExpressiveBadgeShapeKind.CLOVER -> ExpressiveClover4Shape
     ExpressiveBadgeShapeKind.PEBBLE -> ExpressivePebbleShape
     ExpressiveBadgeShapeKind.ARCH -> ExpressiveArchShape
     ExpressiveBadgeShapeKind.SQUIRCLE -> ExpressiveSquircleShape
     ExpressiveBadgeShapeKind.CIRCLE -> CircleShape
+}
+
+/**
+ * Semantic lifecycle states that drive topological polygon morphing on [ExpressiveServiceBadge].
+ */
+enum class ServiceBadgeLifecycleState {
+    ACTIVE,
+    URGENT_DUE,
+    COASTING_CANCELLED,
+    BLACKOUT_REST,
+    UNBANKED_READY,
+    INCOMPLETE
 }
 
 /**
@@ -189,6 +495,175 @@ fun Modifier.diagonalHatchPattern(
 }
 
 /**
+ * Positional corner geometry helper for BunPod-inspired Connected Card Stacks (`MenuSection`):
+ * Outer caps curve generously (`28dp`), inner seams sit crisp (`4dp`), and pressing a row
+ * springs its inner seams outward (`14dp`).
+ */
+data class PositionalSlabRadii(
+    val topRadius: Dp,
+    val bottomRadius: Dp
+)
+
+fun computeSectionSlabRadii(
+    index: Int,
+    count: Int,
+    isPressed: Boolean = false,
+    outerRadius: Dp = 28.dp,
+    innerRadius: Dp = 4.dp,
+    pressedInnerRadius: Dp = 14.dp
+): PositionalSlabRadii {
+    val safeCount = count.coerceAtLeast(1)
+    val safeIndex = index.coerceIn(0, safeCount - 1)
+    val effectiveInner = if (isPressed) pressedInnerRadius else innerRadius
+    val top = if (safeIndex == 0) outerRadius else effectiveInner
+    val bottom = if (safeIndex == safeCount - 1) outerRadius else effectiveInner
+    return PositionalSlabRadii(topRadius = top, bottomRadius = bottom)
+}
+
+/**
+ * Material 3 Expressive v4.0 Connected Section Stack (`28dp` outer caps, `4dp` inner seams,
+ * `2dp` architectural reveal gap). Replaces repetitive standalone cards in Settings,
+ * Savings Breakdown, and Billing Destinations.
+ */
+@Composable
+fun ExpressiveSectionStack(
+    modifier: Modifier = Modifier,
+    eyebrow: String? = null,
+    tileGap: Dp = 2.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(tileGap)
+    ) {
+        if (!eyebrow.isNullOrBlank()) {
+            ExpressiveEyebrow(
+                text = eyebrow,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
+            )
+        }
+        content()
+    }
+}
+
+/**
+ * Single positional tile inside an [ExpressiveSectionStack]. Automatically assigns `28dp` outer
+ * corners and `4dp` inner seams that bloom to `14dp` when pressed (when [onClick] is supplied).
+ */
+@Composable
+fun ExpressiveSectionRow(
+    index: Int,
+    count: Int,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    outerRadius: Dp = 28.dp,
+    innerRadius: Dp = 4.dp,
+    border: BorderStroke? = expressiveCardBorder(if (LocalSubCyclerDarkTheme.current) 0.28f else 0.48f),
+    content: @Composable BoxScope.() -> Unit
+) {
+    val reducedMotion = rememberReducedMotionEnabled()
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val target = computeSectionSlabRadii(
+        index = index,
+        count = count,
+        isPressed = isPressed && onClick != null,
+        outerRadius = outerRadius,
+        innerRadius = innerRadius
+    )
+    val topRadius by animateDpAsState(
+        targetValue = target.topRadius,
+        animationSpec = ExpressiveMotion.expressiveSpatialFastDp().orSnapIfReduced(reducedMotion),
+        label = "sectionRowTopRadius"
+    )
+    val bottomRadius by animateDpAsState(
+        targetValue = target.bottomRadius,
+        animationSpec = ExpressiveMotion.expressiveSpatialFastDp().orSnapIfReduced(reducedMotion),
+        label = "sectionRowBottomRadius"
+    )
+    val shape = RoundedCornerShape(
+        topStart = topRadius,
+        topEnd = topRadius,
+        bottomStart = bottomRadius,
+        bottomEnd = bottomRadius
+    )
+
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            interactionSource = interactionSource,
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            color = containerColor,
+            border = border,
+            tonalElevation = 0.dp
+        ) {
+            Box(modifier = Modifier.fillMaxWidth(), content = content)
+        }
+    } else {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            color = containerColor,
+            border = border,
+            tonalElevation = 0.dp
+        ) {
+            Box(modifier = Modifier.fillMaxWidth(), content = content)
+        }
+    }
+}
+
+/**
+ * BunPod-inspired spring-stretching stadium progress dots:
+ * active step stretches from `8dp` to `28dp` on [ExpressiveMotion.expressiveSpatialFastDp].
+ */
+@Composable
+fun ExpressiveStepDots(
+    totalSteps: Int,
+    currentStep: Int,
+    modifier: Modifier = Modifier,
+    activeColor: Color = MaterialTheme.colorScheme.primary,
+    passedColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+    inactiveColor: Color = MaterialTheme.colorScheme.outlineVariant
+) {
+    if (totalSteps <= 1) return
+    val reducedMotion = rememberReducedMotionEnabled()
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(totalSteps) { index ->
+            val isCurrent = index == currentStep
+            val isPassed = index < currentStep
+            val width by animateDpAsState(
+                targetValue = if (isCurrent) 28.dp else 8.dp,
+                animationSpec = ExpressiveMotion.expressiveSpatialFastDp().orSnapIfReduced(reducedMotion),
+                label = "stepDotWidth"
+            )
+            val color by animateColorAsState(
+                targetValue = when {
+                    isCurrent -> activeColor
+                    isPassed -> passedColor
+                    else -> inactiveColor
+                },
+                animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
+                label = "stepDotColor"
+            )
+            Box(
+                modifier = Modifier
+                    .width(width)
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+    }
+}
+
+/**
  * Android 16 Material 3 Expressive Connected Segmented Button Group:
  * Outer ends hold generous pill radii (22dp), inner seams tighten to 6dp with a crisp 3dp gap,
  * and the selected (or pressed) segment smoothly morphs all 4 corners with spring physics!
@@ -210,6 +685,7 @@ fun <T> ExpressiveSegmentedGroup(
 ) {
     val haptic = LocalHapticFeedback.current
     val isDark = LocalSubCyclerDarkTheme.current
+    val reducedMotion = rememberReducedMotionEnabled()
     val outerRadius = 22.dp
     val innerSeamRadius = 6.dp
 
@@ -241,26 +717,17 @@ fun <T> ExpressiveSegmentedGroup(
 
             val startRadius by animateDpAsState(
                 targetValue = targetStartRadius,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                ),
+                animationSpec = ExpressiveMotion.expressiveSpatialFastDp().orSnapIfReduced(reducedMotion),
                 label = "segStartRadius"
             )
             val endRadius by animateDpAsState(
                 targetValue = targetEndRadius,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                ),
+                animationSpec = ExpressiveMotion.expressiveSpatialFastDp().orSnapIfReduced(reducedMotion),
                 label = "segEndRadius"
             )
             val segScale by animateFloatAsState(
                 targetValue = if (isPressed) 0.96f else 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                ),
+                animationSpec = ExpressiveMotion.expressiveSpatialFastFloat().orSnapIfReduced(reducedMotion),
                 label = "segScale"
             )
             val containerColor by animateColorAsState(
@@ -269,7 +736,7 @@ fun <T> ExpressiveSegmentedGroup(
                 } else {
                     MaterialTheme.colorScheme.surfaceContainerHigh
                 },
-                animationSpec = tween(160),
+                animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
                 label = "segBg"
             )
             val contentColor by animateColorAsState(
@@ -278,7 +745,7 @@ fun <T> ExpressiveSegmentedGroup(
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                animationSpec = tween(160),
+                animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
                 label = "segContent"
             )
 
@@ -376,7 +843,7 @@ object ExpressivePalettes {
         accent = Color(0xFF4C5D6B)
     )
     private val LightWarmSand = ExpressiveTonalPalette(
-        container = Color(0xFFE7E0D0),          // Deepened editorial sand so badges pop crisply on white & mist surfaces
+        container = Color(0xFFE7E0D0),
         selectedContainer = Color(0xFFD9CFBA),
         border = Color(0x666E6552),
         content = Color(0xFF332D22),
@@ -574,8 +1041,34 @@ object ExpressivePalettes {
 }
 
 /**
- * Material 3 Expressive Monogram Badge using balanced neutral & Botanical Emerald shades
- * and organic shapes, smoothly blooming its groove depth & spring bounce when selected/pressed.
+ * Resolves the target [RoundedPolygon] for a subscription badge based on its base shape,
+ * lifecycle phase, selection state, and anticipatory press-preview state.
+ */
+fun resolveBadgeTargetPolygon(
+    baseShapeKind: ExpressiveBadgeShapeKind,
+    lifecycleState: ServiceBadgeLifecycleState,
+    isSelected: Boolean,
+    isPressed: Boolean
+): RoundedPolygon = when {
+    isPressed -> when (baseShapeKind) {
+        ExpressiveBadgeShapeKind.COOKIE -> ExpressiveMaterialPolygons.Sunny
+        ExpressiveBadgeShapeKind.CIRCLE -> ExpressiveMaterialPolygons.Gem
+        else -> ExpressiveMaterialPolygons.Cookie7
+    }
+    lifecycleState == ServiceBadgeLifecycleState.INCOMPLETE -> ExpressiveMaterialPolygons.Square
+    lifecycleState == ServiceBadgeLifecycleState.UNBANKED_READY -> ExpressiveMaterialPolygons.Cookie12
+    lifecycleState == ServiceBadgeLifecycleState.URGENT_DUE -> ExpressiveMaterialPolygons.SoftBurst
+    lifecycleState == ServiceBadgeLifecycleState.COASTING_CANCELLED -> ExpressiveMaterialPolygons.Circle
+    lifecycleState == ServiceBadgeLifecycleState.BLACKOUT_REST -> ExpressiveMaterialPolygons.Bun
+    isSelected -> ExpressiveMaterialPolygons.Cookie7
+    else -> baseShapeKind.toMaterialPolygon()
+}
+
+/**
+ * Material 3 Expressive v4.0 Topological Morphing Monogram Badge:
+ * Morphs seamlessly across [RoundedPolygon] geometries via `androidx.graphics:graphics-shapes`
+ * to communicate lifecycle state (*Active*, *Urgent Due*, *Coasting Cancelled*, *Blackout Rest*,
+ * *Unbanked Ready*, *Incomplete*) and anticipatory press-preview silhouettes.
  */
 @Composable
 fun ExpressiveServiceBadge(
@@ -585,92 +1078,136 @@ fun ExpressiveServiceBadge(
     size: Dp = 42.dp,
     fontSize: TextUnit = 13.sp,
     isSelected: Boolean = false,
-    isPressed: Boolean = false
+    isPressed: Boolean = false,
+    lifecycleState: ServiceBadgeLifecycleState = ServiceBadgeLifecycleState.ACTIVE
 ) {
     val isDark = LocalSubCyclerDarkTheme.current
-    val (baseShapeKind, palette) = ExpressivePalettes.styleForService(serviceName)
+    val reducedMotion = rememberReducedMotionEnabled()
+    val (baseShapeKind, basePalette) = ExpressivePalettes.styleForService(serviceName)
+    val effectivePalette = when (lifecycleState) {
+        ServiceBadgeLifecycleState.BLACKOUT_REST -> ExpressivePalettes.softLavender()
+        ServiceBadgeLifecycleState.UNBANKED_READY -> ExpressivePalettes.boldPrimary()
+        ServiceBadgeLifecycleState.INCOMPLETE -> ExpressivePalettes.softStone()
+        else -> basePalette
+    }
 
-    val animatedGroove by animateFloatAsState(
-        targetValue = when {
-            isSelected -> 0.125f
-            isPressed && baseShapeKind == ExpressiveBadgeShapeKind.COOKIE -> 0.16f
-            baseShapeKind == ExpressiveBadgeShapeKind.COOKIE -> 0.125f
-            baseShapeKind == ExpressiveBadgeShapeKind.CLOVER -> if (isPressed) 0.18f else 0.24f
-            else -> 0f
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "badgeGrooveMorph"
+    val targetPolygon = resolveBadgeTargetPolygon(
+        baseShapeKind = baseShapeKind,
+        lifecycleState = lifecycleState,
+        isSelected = isSelected,
+        isPressed = isPressed
     )
+    val activeShape = rememberMorphingPolygonShape(targetPolygon = targetPolygon)
 
-    val activeShape = when {
-        isSelected -> ScallopedCookieShape(lobes = 8, grooveDepthFraction = animatedGroove)
-        baseShapeKind == ExpressiveBadgeShapeKind.COOKIE ->
-            ScallopedCookieShape(lobes = 8, grooveDepthFraction = animatedGroove)
-        baseShapeKind == ExpressiveBadgeShapeKind.CLOVER ->
-            ScallopedCookieShape(lobes = 4, grooveDepthFraction = animatedGroove, phaseOffsetRadians = (PI / 4.0).toFloat())
-        else -> baseShapeKind.toComposeShape()
+    // Subtle slow breathing pulse on Urgent Due badges (disabled when reduced motion is active)
+    val urgentPulse = if (lifecycleState == ServiceBadgeLifecycleState.URGENT_DUE && !reducedMotion) {
+        val transition = rememberInfiniteTransition(label = "urgentBadgeBreath")
+        transition.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 1.055f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1500, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "urgentBadgePulseScale"
+        ).value
+    } else {
+        1f
     }
 
     val scale by animateFloatAsState(
         targetValue = when {
             isPressed -> 0.91f
-            isSelected -> 1.07f
+            isSelected -> 1.06f
             else -> 1.0f
         },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat().orSnapIfReduced(reducedMotion),
         label = "badgeScale"
     )
     val rotation by animateFloatAsState(
         targetValue = when {
-            isPressed -> -9f
-            isSelected -> -6f
+            isPressed -> -8f
+            isSelected -> -5f
+            lifecycleState == ServiceBadgeLifecycleState.UNBANKED_READY -> -6f
             else -> 0f
         },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
+        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat().orSnapIfReduced(reducedMotion),
         label = "badgeRotation"
     )
     val containerColor by animateColorAsState(
-        targetValue = if (isSelected) palette.selectedContainer else palette.container,
-        animationSpec = tween(180),
+        targetValue = if (isSelected) effectivePalette.selectedContainer else effectivePalette.container,
+        animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
         label = "badgeContainer"
     )
 
     Box(
-        modifier = modifier
-            .size(size)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                rotationZ = rotation
-            }
-            .clip(activeShape)
-            .background(containerColor, activeShape)
-            .then(
-                when {
-                    isSelected -> Modifier.border(1.5.dp, palette.accent.copy(alpha = 0.55f), activeShape)
-                    !isDark -> Modifier.border(1.dp, palette.border.copy(alpha = 0.35f), activeShape)
-                    else -> Modifier
-                }
-            ),
+        modifier = modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = initials,
-            color = palette.content,
-            fontFamily = DisplayFontFamily,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = fontSize,
-            letterSpacing = (-0.5).sp
-        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    scaleX = scale * urgentPulse
+                    scaleY = scale * urgentPulse
+                    rotationZ = rotation
+                }
+                .clip(activeShape)
+                .background(containerColor, activeShape)
+                .then(
+                    when {
+                        lifecycleState == ServiceBadgeLifecycleState.INCOMPLETE -> Modifier.drawWithContent {
+                            drawContent()
+                            val inset = 2.dp.toPx()
+                            drawRoundRect(
+                                color = effectivePalette.accent.copy(alpha = 0.55f),
+                                topLeft = Offset(inset, inset),
+                                size = Size(this.size.width - inset * 2, this.size.height - inset * 2),
+                                cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx()),
+                                style = Stroke(
+                                    width = 1.2.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 5f), 0f)
+                                )
+                            )
+                        }
+                        isSelected -> Modifier.border(1.5.dp, effectivePalette.accent.copy(alpha = 0.55f), activeShape)
+                        !isDark -> Modifier.border(1.dp, effectivePalette.border.copy(alpha = 0.35f), activeShape)
+                        else -> Modifier
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = initials,
+                color = effectivePalette.content,
+                fontFamily = DisplayFontFamily,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = fontSize,
+                letterSpacing = (-0.5).sp
+            )
+        }
+
+        // Concentric mini Arch protection seal when auto-renew is cancelled ("Coasting")
+        if (lifecycleState == ServiceBadgeLifecycleState.COASTING_CANCELLED && size >= 36.dp) {
+            val checkSize = (size.value * 0.36f).coerceIn(14f, 19f).dp
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 2.dp, y = 2.dp)
+                    .size(checkSize)
+                    .clip(ExpressiveArchShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .border(1.5.dp, MaterialTheme.colorScheme.surfaceContainer, ExpressiveArchShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Auto-renew cancelled",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size((checkSize.value * 0.62f).dp)
+                )
+            }
+        }
     }
 }
 
@@ -691,13 +1228,11 @@ fun CycleRhythmTrack(
     hatchColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.24f),
     modifier: Modifier = Modifier
 ) {
+    val reducedMotion = rememberReducedMotionEnabled()
     val clampedProgress = progress.coerceIn(0f, 1f)
     val animatedProgress by animateFloatAsState(
         targetValue = clampedProgress,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        animationSpec = ExpressiveMotion.standardSpatialDefaultFloat().orSnapIfReduced(reducedMotion),
         label = "cycleRhythmProgress"
     )
 
@@ -790,8 +1325,9 @@ fun CycleRhythmTrack(
 
 /**
  * Material 3 Expressive Wavy / Squiggly Progress Indicator with smooth entry ramp-in,
- * animated sinusoidal phase, rounded dot tip, and optional proportional hatched break capsule
- * so Detail Sheets visualize both active progress and the upcoming rest break!
+ * animated sinusoidal phase, rounded dot tip, optional proportional hatched break capsule,
+ * and v4.0 finger-grab deformation ([grabFraction]: `0f` resting wave → `1f` flattened,
+ * thickened track under finger during Cycle Time-Machine scrubbing).
  */
 @Composable
 fun WavyProgressIndicator(
@@ -802,16 +1338,21 @@ fun WavyProgressIndicator(
     activeDays: Int = 0,
     blackoutDays: Int = 0,
     isActivePhase: Boolean = true,
+    grabFraction: Float = 0f,
+    scrubTotalProgress: Float? = null,
     modifier: Modifier = Modifier
 ) {
+    val reducedMotion = rememberReducedMotionEnabled()
     val clampedProgress = progress.coerceIn(0f, 1f)
     val animatedProgress by animateFloatAsState(
         targetValue = clampedProgress,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        animationSpec = ExpressiveMotion.standardSpatialDefaultFloat().orSnapIfReduced(reducedMotion),
         label = "wavyProgress"
+    )
+    val animatedGrab by animateFloatAsState(
+        targetValue = grabFraction.coerceIn(0f, 1f),
+        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat().orSnapIfReduced(reducedMotion),
+        label = "wavyGrab"
     )
 
     val infiniteTransition = rememberInfiniteTransition(label = "waveDrift")
@@ -824,41 +1365,60 @@ fun WavyProgressIndicator(
         ),
         label = "wavePhase"
     )
-    val currentPhase = if (animateWave) phaseShift else 0f
+    val currentPhase = if (animateWave && !reducedMotion && animatedGrab < 0.95f) phaseShift else 0f
     val hatchColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
+    val breakAccentColor = MaterialTheme.colorScheme.tertiary
 
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(16.dp)
+            .height(22.dp)
             .semantics {
                 progressBarRangeInfo = ProgressBarRangeInfo(clampedProgress, 0f..1f)
             }
     ) {
-        val strokeWidth = 3.4.dp.toPx()
-        val amplitude = 3.2.dp.toPx()
+        val grab = ExpressiveMotion.clampEffectProgress(animatedGrab)
+        val strokeWidth = (3.5f + 2.4f * grab).dp.toPx()
+        val amplitude = (3.2f * (1f - grab)).dp.toPx()
         val wavelength = 24.dp.toPx()
         val centerY = size.height / 2f
         val startX = strokeWidth
         val endX = (size.width - strokeWidth).coerceAtLeast(startX)
-        val totalSpan = endX - startX
+        val totalSpan = (endX - startX).coerceAtLeast(1f)
 
-        val showBreakZone = activeDays > 0 && blackoutDays > 0 && isActivePhase
+        val showBreakZone = activeDays > 0 && blackoutDays > 0
         val gapPx = if (showBreakZone) 8.dp.toPx() else 0f
-        val waveZoneSpan = if (showBreakZone) {
-            val ratio = (activeDays.toFloat() / (activeDays + blackoutDays)).coerceIn(0.45f, 0.78f)
-            (totalSpan - gapPx) * ratio
+        val activeRatio = if (showBreakZone) {
+            (activeDays.toFloat() / (activeDays + blackoutDays)).coerceIn(0.45f, 0.78f)
         } else {
-            totalSpan
+            1f
         }
+        val waveZoneSpan = if (showBreakZone) (totalSpan - gapPx) * activeRatio else totalSpan
         val waveZoneEndX = startX + waveZoneSpan
+        val breakStartX = waveZoneEndX + gapPx
+        val breakWidth = (endX - breakStartX).coerceAtLeast(10.dp.toPx())
 
-        // Ensure Day 1 has an expressive minimum visible wave span (~12% of zone) so it never looks like a stray dot
+        // Resolve indicator X either from live Time-Machine scrub across full cycle or current phase
+        val scrubbedX = scrubTotalProgress?.coerceIn(0f, 1f)?.let { frac ->
+            if (!showBreakZone) {
+                startX + totalSpan * frac
+            } else if (frac <= activeRatio) {
+                val localFrac = (frac / activeRatio).coerceIn(0f, 1f)
+                startX + waveZoneSpan * localFrac
+            } else {
+                val breakLocalFrac = ((frac - activeRatio) / (1f - activeRatio).coerceAtLeast(0.01f)).coerceIn(0f, 1f)
+                breakStartX + breakWidth * breakLocalFrac
+            }
+        }
+
         val minLeadPx = (waveZoneSpan * 0.12f).coerceAtLeast(18.dp.toPx()).coerceAtMost(waveZoneSpan)
-        val activeEndX = if (animatedProgress <= 0f) {
-            startX
-        } else {
-            (startX + waveZoneSpan * animatedProgress).coerceAtLeast(startX + minLeadPx).coerceAtMost(waveZoneEndX)
+        val activeEndX = when {
+            scrubbedX != null -> scrubbedX.coerceAtMost(waveZoneEndX)
+            !isActivePhase && showBreakZone -> waveZoneEndX
+            animatedProgress <= 0f -> startX
+            else -> (startX + waveZoneSpan * animatedProgress)
+                .coerceAtLeast(startX + minLeadPx)
+                .coerceAtMost(waveZoneEndX)
         }
 
         // Remaining active track
@@ -872,7 +1432,12 @@ fun WavyProgressIndicator(
             )
         }
 
-        // Smooth sinusoidal wave with gentle ramp-in at edges
+        // Active sinusoidal wave (flattens & thickens smoothly under finger grab!)
+        val activeWaveColor = if (!isActivePhase && showBreakZone && scrubbedX == null) {
+            activeColor.copy(alpha = 0.34f)
+        } else {
+            activeColor
+        }
         if (activeEndX > startX + 1f) {
             val wavePath = Path()
             val stepPx = 2f
@@ -897,21 +1462,21 @@ fun WavyProgressIndicator(
             }
             drawPath(
                 path = wavePath,
-                color = activeColor,
+                color = activeWaveColor,
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
             )
-            drawCircle(
-                color = activeColor,
-                radius = 4.4.dp.toPx(),
-                center = Offset(activeEndX, lastY)
-            )
+            if (scrubbedX == null && isActivePhase) {
+                drawCircle(
+                    color = activeColor,
+                    radius = (4.4f + 1.8f * grab).dp.toPx(),
+                    center = Offset(activeEndX, lastY)
+                )
+            }
         }
 
-        // Upcoming Break Capsule (proportional hatched pill showing the rest break right ahead!)
+        // Break / Rest zone capsule with 45-degree diagonal hatch texture
         if (showBreakZone) {
-            val breakStartX = waveZoneEndX + gapPx
-            val breakWidth = (endX - breakStartX).coerceAtLeast(10.dp.toPx())
-            val pillHeight = 8.dp.toPx()
+            val pillHeight = (8.5f + 2.5f * grab).dp.toPx()
             val pillTop = centerY - pillHeight / 2f
             val corner = CornerRadius(pillHeight / 2f, pillHeight / 2f)
             drawRoundRect(
@@ -938,6 +1503,37 @@ fun WavyProgressIndicator(
                     hx += hatchStep
                 }
             }
+
+            // Fill inside break capsule during active scrub into break OR while currently paused
+            val breakFillWidth = when {
+                scrubbedX != null && scrubbedX > breakStartX -> (scrubbedX - breakStartX).coerceIn(0f, breakWidth)
+                scrubbedX == null && !isActivePhase -> (breakWidth * animatedProgress).coerceIn(pillHeight, breakWidth)
+                else -> 0f
+            }
+            if (breakFillWidth > 0.5f) {
+                drawRoundRect(
+                    color = breakAccentColor.copy(alpha = 0.88f),
+                    topLeft = Offset(breakStartX, pillTop),
+                    size = Size(breakFillWidth, pillHeight),
+                    cornerRadius = corner
+                )
+            }
+        }
+
+        // Tactile scrubber thumb handle when dragging Time-Machine across either zone
+        if (scrubbedX != null) {
+            val inBreak = showBreakZone && scrubbedX >= breakStartX
+            val thumbColor = if (inBreak) breakAccentColor else activeColor
+            drawCircle(
+                color = thumbColor.copy(alpha = 0.24f),
+                radius = 10.dp.toPx(),
+                center = Offset(scrubbedX, centerY)
+            )
+            drawCircle(
+                color = thumbColor,
+                radius = 6.dp.toPx(),
+                center = Offset(scrubbedX, centerY)
+            )
         }
     }
 }
