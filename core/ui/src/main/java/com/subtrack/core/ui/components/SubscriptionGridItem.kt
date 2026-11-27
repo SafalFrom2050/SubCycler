@@ -96,6 +96,14 @@ fun SubscriptionGridItem(
         label = "bentoVesselFill"
     )
 
+    val brandPalette = remember(sub.name, sub.colorHex, isDark) {
+        com.subtrack.core.ui.theme.BrandColorHarmonizer.harmonizedTonalPalette(
+            serviceName = sub.name,
+            storedColorHex = sub.colorHex,
+            isDark = isDark
+        )
+    }
+
     val containerColor = when {
         isIncomplete -> MaterialTheme.colorScheme.surfaceContainer
         isActionDue -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
@@ -107,12 +115,12 @@ fun SubscriptionGridItem(
     val vesselFillColor = when {
         isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.16f else 0.11f)
         !isActive -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.30f else 0.34f)
-        else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.22f else 0.26f)
+        else -> brandPalette.container.copy(alpha = if (isDark) 0.38f else 0.44f)
     }
     val vesselSeamColor = when {
         isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = 0.28f)
         !isActive -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.26f)
-        else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+        else -> brandPalette.accent.copy(alpha = if (isDark) 0.32f else 0.24f)
     }
     val restHatchColor = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = if (isDark) 0.12f else 0.08f)
 
@@ -228,6 +236,7 @@ fun SubscriptionGridItem(
                     ) {
                         ExpressiveServiceBadge(
                             serviceName = sub.name,
+                            colorHex = sub.colorHex,
                             size = 46.dp,
                             fontSize = 15.sp,
                             isPressed = isPressed,
@@ -352,7 +361,7 @@ fun SubscriptionGridItem(
                         isActivePhase = isActive,
                         activeDays = if (sub.isRotating) sub.activeDays else 0,
                         blackoutDays = if (sub.isRotating) sub.blackoutDays else 0,
-                        activeColor = if (isActionDue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        activeColor = if (isActionDue) MaterialTheme.colorScheme.error else brandPalette.accent,
                         pausedColor = MaterialTheme.colorScheme.tertiary
                     )
                 }

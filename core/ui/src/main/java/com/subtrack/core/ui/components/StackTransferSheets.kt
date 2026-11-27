@@ -236,6 +236,7 @@ fun ShareStackSheet(
 
                                 FannedBadgeStack(
                                     serviceNames = subscriptions.map { it.name },
+                                    serviceColors = subscriptions.map { it.colorHex },
                                     badgeSize = 32.dp,
                                     maxVisible = 4,
                                     ringColor = Color(0xFF0A2B22)
@@ -668,6 +669,7 @@ fun ImportPreviewSheet(
                     Spacer(modifier = Modifier.width(10.dp))
                     FannedBadgeStack(
                         serviceNames = items.map { it.subscription.name },
+                        serviceColors = items.map { it.subscription.colorHex },
                         badgeSize = 34.dp,
                         maxVisible = 3,
                         ringColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -714,6 +716,7 @@ fun ImportPreviewSheet(
                         ) {
                             ExpressiveServiceBadge(
                                 serviceName = sub.name,
+                                colorHex = sub.colorHex,
                                 size = 38.dp,
                                 fontSize = 12.sp
                             )

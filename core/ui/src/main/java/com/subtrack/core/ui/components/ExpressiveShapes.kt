@@ -1004,6 +1004,8 @@ object ExpressivePalettes {
         "netflix" to "NF",
         "disney+" to "D+",
         "max (hbo)" to "MX",
+        "hulu" to "HU",
+        "crunchyroll" to "CR",
         "youtube premium" to "YT",
         "spotify" to "SP",
         "apple music" to "AM",
@@ -1011,12 +1013,16 @@ object ExpressivePalettes {
         "amazon prime video" to "PV",
         "chatgpt plus" to "AI",
         "claude pro" to "CL",
+        "google ai (gemini)" to "GM",
         "google ai plus" to "G+",
         "google ai pro" to "GP",
         "google ai ultra" to "GU",
         "notion plus" to "NO",
+        "microsoft 365" to "M3",
+        "xbox game pass" to "XB",
         "xbox game pass ultimate" to "XB",
         "playstation plus" to "PS",
+        "nintendo switch online" to "NS",
         "icloud+" to "iC",
         "google one" to "G1"
     )
@@ -1029,11 +1035,16 @@ object ExpressivePalettes {
         return when {
             normalized.contains("netflix") -> "NF"
             normalized.contains("disney") -> "D+"
+            normalized.contains("hulu") -> "HU"
+            normalized.contains("crunchyroll") -> "CR"
             normalized.contains("prime video") -> "PV"
             normalized.contains("youtube") -> "YT"
             normalized.contains("spotify") -> "SP"
             normalized.contains("chatgpt") -> "AI"
             normalized.contains("claude") -> "CL"
+            normalized.contains("gemini") -> "GM"
+            normalized.contains("microsoft 365") || normalized.contains("office 365") -> "M3"
+            normalized.contains("nintendo") -> "NS"
             normalized.contains("icloud") -> "iC"
             normalized.contains("playstation") -> "PS"
             normalized.contains("xbox") -> "XB"
@@ -1049,39 +1060,44 @@ object ExpressivePalettes {
     }
 
     @Composable
-    fun styleForService(serviceName: String): Pair<ExpressiveBadgeShapeKind, ExpressiveTonalPalette> {
+    fun styleForService(
+        serviceName: String,
+        colorHex: String? = null
+    ): Pair<ExpressiveBadgeShapeKind, ExpressiveTonalPalette> {
         val isDark = LocalSubCyclerDarkTheme.current
-        val mint = if (isDark) DarkFreshMint else LightFreshMint
-        val jade = if (isDark) DarkCoolJade else LightCoolJade
-        val slate = if (isDark) DarkCoolSlate else LightCoolSlate
-        val sand = if (isDark) DarkWarmSand else LightWarmSand
-        val bold = if (isDark) DarkLuminousMint else LightDeepEmerald
-        val allShades = listOf(slate, sand, mint, jade, bold)
         val allShapes = ExpressiveBadgeShapeKind.entries
 
         val normalized = serviceName.trim().lowercase(Locale.ROOT)
-        return when {
-            normalized.contains("netflix") -> ExpressiveBadgeShapeKind.COOKIE to bold
-            normalized.contains("prime") -> ExpressiveBadgeShapeKind.PEBBLE to slate
-            normalized.contains("chatgpt") -> ExpressiveBadgeShapeKind.SQUIRCLE to mint
-            normalized.contains("disney") -> ExpressiveBadgeShapeKind.PEBBLE to sand
-            normalized.contains("google ai") -> ExpressiveBadgeShapeKind.SQUIRCLE to jade
-            normalized.contains("notion") -> ExpressiveBadgeShapeKind.CIRCLE to sand
-            normalized.contains("spotify") -> ExpressiveBadgeShapeKind.CLOVER to bold
-            normalized.contains("youtube") -> ExpressiveBadgeShapeKind.ARCH to slate
-            normalized.contains("claude") -> ExpressiveBadgeShapeKind.COOKIE to sand
-            normalized.contains("icloud") || normalized.contains("apple") -> ExpressiveBadgeShapeKind.CIRCLE to slate
-            normalized.contains("playstation") -> ExpressiveBadgeShapeKind.CLOVER to jade
-            normalized.contains("xbox") -> ExpressiveBadgeShapeKind.CLOVER to mint
-            normalized.contains("max") || normalized.contains("hbo") -> ExpressiveBadgeShapeKind.ARCH to slate
-            normalized.contains("google one") -> ExpressiveBadgeShapeKind.ARCH to jade
+        val shapeKind = when {
+            normalized.contains("netflix") -> ExpressiveBadgeShapeKind.COOKIE
+            normalized.contains("prime") -> ExpressiveBadgeShapeKind.PEBBLE
+            normalized.contains("chatgpt") -> ExpressiveBadgeShapeKind.SQUIRCLE
+            normalized.contains("disney") -> ExpressiveBadgeShapeKind.PEBBLE
+            normalized.contains("hulu") -> ExpressiveBadgeShapeKind.SQUIRCLE
+            normalized.contains("crunchyroll") -> ExpressiveBadgeShapeKind.COOKIE
+            normalized.contains("google ai") || normalized.contains("gemini") -> ExpressiveBadgeShapeKind.SQUIRCLE
+            normalized.contains("notion") -> ExpressiveBadgeShapeKind.CIRCLE
+            normalized.contains("microsoft 365") || normalized.contains("office 365") -> ExpressiveBadgeShapeKind.SQUIRCLE
+            normalized.contains("spotify") -> ExpressiveBadgeShapeKind.CLOVER
+            normalized.contains("youtube") -> ExpressiveBadgeShapeKind.ARCH
+            normalized.contains("claude") -> ExpressiveBadgeShapeKind.COOKIE
+            normalized.contains("icloud") || normalized.contains("apple") -> ExpressiveBadgeShapeKind.CIRCLE
+            normalized.contains("playstation") -> ExpressiveBadgeShapeKind.CLOVER
+            normalized.contains("xbox") -> ExpressiveBadgeShapeKind.CLOVER
+            normalized.contains("nintendo") -> ExpressiveBadgeShapeKind.COOKIE
+            normalized.contains("max") || normalized.contains("hbo") -> ExpressiveBadgeShapeKind.ARCH
+            normalized.contains("google one") -> ExpressiveBadgeShapeKind.ARCH
             else -> {
                 val hash = abs(normalized.hashCode())
-                val shape = allShapes[hash % allShapes.size]
-                val shade = allShades[(hash / 7) % allShades.size]
-                shape to shade
+                allShapes[hash % allShapes.size]
             }
         }
+        val palette = com.subtrack.core.ui.theme.BrandColorHarmonizer.harmonizedTonalPalette(
+            serviceName = serviceName,
+            storedColorHex = colorHex,
+            isDark = isDark
+        )
+        return shapeKind to palette
     }
 }
 
@@ -1120,6 +1136,7 @@ fun ExpressiveServiceBadge(
     serviceName: String,
     initials: String = ExpressivePalettes.initialsForService(serviceName),
     modifier: Modifier = Modifier,
+    colorHex: String? = null,
     size: Dp = 42.dp,
     fontSize: TextUnit = 13.sp,
     isSelected: Boolean = false,
@@ -1128,7 +1145,7 @@ fun ExpressiveServiceBadge(
 ) {
     val isDark = LocalSubCyclerDarkTheme.current
     val reducedMotion = rememberReducedMotionEnabled()
-    val (baseShapeKind, basePalette) = ExpressivePalettes.styleForService(serviceName)
+    val (baseShapeKind, basePalette) = ExpressivePalettes.styleForService(serviceName, colorHex)
     val effectivePalette = when (lifecycleState) {
         ServiceBadgeLifecycleState.BLACKOUT_REST -> ExpressivePalettes.softLavender()
         ServiceBadgeLifecycleState.UNBANKED_READY -> ExpressivePalettes.boldPrimary()

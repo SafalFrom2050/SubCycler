@@ -180,6 +180,7 @@ fun ExpressiveStaggeredArrival(
 fun FannedBadgeStack(
     serviceNames: List<String>,
     modifier: Modifier = Modifier,
+    serviceColors: List<String?> = emptyList(),
     maxVisible: Int = 5,
     badgeSize: Dp = 48.dp,
     step: Dp = 32.dp,
@@ -274,6 +275,7 @@ fun FannedBadgeStack(
             ) {
                 ExpressiveServiceBadge(
                     serviceName = serviceName,
+                    colorHex = serviceColors.getOrNull(i),
                     size = badgeSize,
                     fontSize = (badgeSize.value * 0.30f).coerceIn(10f, 15f).sp
                 )

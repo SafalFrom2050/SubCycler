@@ -392,14 +392,6 @@ fun renderStackShareCardBitmap(
         textSize = 24f
         color = 0xFF9AC5B7.toInt()
     }
-    val badgeBgColors = intArrayOf(
-        0xFF195845.toInt(),
-        0xFF28484D.toInt(),
-        0xFF39423E.toInt(),
-        0xFF174F49.toInt(),
-        0xFF2B3F4A.toInt(),
-        0xFF1E513E.toInt()
-    )
     val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = displayBold
         textSize = 28f
@@ -413,19 +405,35 @@ fun renderStackShareCardBitmap(
         val left = padX + col * (colWidth + colGap)
         val top = gridTop + row * (tileHeight + rowGap)
         val cardRect = RectF(left, top, left + colWidth, top + tileHeight)
+        val tonal = com.subtrack.core.ui.theme.BrandColorHarmonizer.harmonizedTonalPalette(
+            serviceName = sub.name,
+            storedColorHex = sub.colorHex,
+            isDark = true
+        )
+        val badgeBgArgb = 0xFF000000.toInt() or com.subtrack.core.ui.theme.BrandColorHarmonizer.composeColorToRgb(tonal.container)
+        val badgeInkArgb = 0xFF000000.toInt() or com.subtrack.core.ui.theme.BrandColorHarmonizer.composeColorToRgb(tonal.content)
+        val badgeBorderArgb = 0x55000000 or com.subtrack.core.ui.theme.BrandColorHarmonizer.composeColorToRgb(tonal.accent)
+
         canvas.drawRoundRect(cardRect, 34f, 34f, tileBgPaint)
         canvas.drawRoundRect(cardRect, 34f, 34f, tileBorderPaint)
 
-        // Monogram squircle badge
+        // Harmonized brand monogram squircle badge
         val badgeSize = 72f
         val badgeLeft = left + 26f
         val badgeTop = top + (tileHeight - badgeSize) / 2f
         val badgeRect = RectF(badgeLeft, badgeTop, badgeLeft + badgeSize, badgeTop + badgeSize)
         val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = badgeBgColors[idx % badgeBgColors.size]
+            color = badgeBgArgb
+        }
+        val badgeRimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = badgeBorderArgb
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
         }
         canvas.drawRoundRect(badgeRect, 24f, 24f, badgePaint)
+        canvas.drawRoundRect(badgeRect, 24f, 24f, badgeRimPaint)
         val initials = ExpressivePalettes.initialsForService(sub.name)
+        badgeTextPaint.color = badgeInkArgb
         val textMetrics = badgeTextPaint.fontMetrics
         val badgeCenterY = badgeRect.centerY() - (textMetrics.ascent + textMetrics.descent) / 2f
         canvas.drawText(initials, badgeRect.centerX(), badgeCenterY, badgeTextPaint)

@@ -212,6 +212,13 @@ fun SubscriptionDetailBottomSheet(
     val reducedMotion = rememberReducedMotionEnabled()
     val cardBorder = expressiveCardBorder()
     val sub = cycleStatus.subscription
+    val brandPalette = remember(sub.name, sub.colorHex, isDark) {
+        com.subtrack.core.ui.theme.BrandColorHarmonizer.harmonizedTonalPalette(
+            serviceName = sub.name,
+            storedColorHex = sub.colorHex,
+            isDark = isDark
+        )
+    }
     val isIncomplete = sub.isIncomplete
     val isActive = cycleStatus.phase == CyclePhase.ACTIVE
     val isYearly = sub.billingPeriod == BillingPeriod.YEARLY
@@ -265,6 +272,7 @@ fun SubscriptionDetailBottomSheet(
                 ) {
                     ExpressiveServiceBadge(
                         serviceName = sub.name,
+                        colorHex = sub.colorHex,
                         size = 54.dp,
                         fontSize = 17.sp,
                         lifecycleState = lifecycleState
@@ -273,6 +281,7 @@ fun SubscriptionDetailBottomSheet(
                     Column {
                         ExpressiveEyebrow(
                             text = sub.category.displayName.uppercase(),
+                            color = if (isActive && !isIncomplete) brandPalette.accent else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -331,10 +340,18 @@ fun SubscriptionDetailBottomSheet(
             // 2. Unified Architectural Status Card + Monumental Countdown + Interactive Cycle Time-Machine Wave
             val action = cycleStatus.nextAction
             val isDue = !isIncomplete && action.urgency == ActionUrgency.ACTION_DUE
+            val statusSurfaceColor = when {
+                isActive && !isDue && !isIncomplete -> androidx.compose.ui.graphics.lerp(
+                    MaterialTheme.colorScheme.surfaceContainer,
+                    brandPalette.container,
+                    if (isDark) 0.36f else 0.38f
+                )
+                else -> MaterialTheme.colorScheme.surfaceContainer
+            }
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(26.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
+                color = statusSurfaceColor,
                 border = cardBorder
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
