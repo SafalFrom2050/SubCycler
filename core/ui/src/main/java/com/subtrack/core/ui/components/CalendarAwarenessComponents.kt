@@ -26,8 +26,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
@@ -86,6 +85,8 @@ fun CalendarSettingsSheet(
     onNotificationLeadDaysSelected: ((Int) -> Unit)? = null,
     onThemeModeSelected: ((AppThemeMode) -> Unit)? = null,
     onOpenNotificationSettings: (() -> Unit)? = null,
+    onShareStack: (() -> Unit)? = null,
+    onImportStack: (() -> Unit)? = null,
     onExportJson: (() -> Unit)? = null,
     onImportJson: (() -> Unit)? = null,
     onExportCsv: (() -> Unit)? = null,
@@ -94,7 +95,6 @@ fun CalendarSettingsSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val skyPalette = ExpressivePalettes.softSky()
     val oceanPalette = ExpressivePalettes.softOcean()
-    val slatePalette = ExpressivePalettes.softLavender()
     var showCurrencyPicker by remember { mutableStateOf(false) }
     var pendingCurrencyChange by remember { mutableStateOf<String?>(null) }
 
@@ -394,23 +394,28 @@ fun CalendarSettingsSheet(
                 }
             }
 
-            // 3. Offline Local Vault & Export Connected Stack (Zero Cloud / Zero Permissions)
-            val vaultActions = buildList {
-                if (onExportJson != null) add(Triple("Backup JSON", "Save full portfolio & earned savings locally", onExportJson))
-                if (onImportJson != null) add(Triple("Restore from JSON", "Import subscriptions from a local backup file", onImportJson))
-                if (onExportCsv != null) add(Triple("Export spreadsheet (.csv)", "Download tabular ledger for spreadsheets", onExportCsv))
+            // 3. Offline App-to-App Transfer & Backup Connected Stack (Zero Cloud / Zero Jargon)
+            val shareAction = onShareStack ?: onExportJson
+            val importAction = onImportStack ?: onImportJson
+            val transferActions = buildList {
+                if (shareAction != null) {
+                    add(Triple("Share stack", "Send via messaging, social apps, or backup file", shareAction))
+                }
+                if (importAction != null) {
+                    add(Triple("Import stack", "Paste a transfer link or open a SubCycler file", importAction))
+                }
             }
-            if (vaultActions.isNotEmpty()) {
-                ExpressiveSectionStack(eyebrow = "OFFLINE VAULT & EXPORT") {
-                    vaultActions.forEachIndexed { index, (title, subtitle, onClick) ->
-                        val (icon, shape, palette) = when (title) {
-                            "Backup JSON" -> Triple(Icons.Default.Download, ExpressiveCookie8Shape, skyPalette)
-                            "Restore from JSON" -> Triple(Icons.Default.Upload, ExpressiveArchShape, oceanPalette)
-                            else -> Triple(Icons.Default.TableChart, ExpressivePebbleShape, slatePalette)
+            if (transferActions.isNotEmpty()) {
+                ExpressiveSectionStack(eyebrow = "TRANSFER & BACKUP") {
+                    transferActions.forEachIndexed { index, (title, subtitle, onClick) ->
+                        val (icon, shape, palette) = if (title == "Share stack") {
+                            Triple(Icons.Default.Share, ExpressiveCookie8Shape, skyPalette)
+                        } else {
+                            Triple(Icons.Default.Download, ExpressiveArchShape, oceanPalette)
                         }
                         SettingsVaultActionRow(
                             index = index,
-                            count = vaultActions.size,
+                            count = transferActions.size,
                             title = title,
                             subtitle = subtitle,
                             icon = icon,

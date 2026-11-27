@@ -201,4 +201,22 @@ class ExpressiveV4PrimitivesTest {
         assertEquals(true, shouldUseOffscreenEdgeFade(29))
         assertEquals(true, shouldUseOffscreenEdgeFade(35))
     }
+
+    @Test
+    fun importPreviewFlagsExistingAndDuplicateServicesCaseInsensitively() {
+        val today = LocalDate.of(2026, 11, 27)
+        val existing = listOf(
+            Subscription(id = 1L, name = "Netflix", cost = 17.99, currency = "USD", startDate = today)
+        )
+        val incoming = listOf(
+            Subscription(name = " netflix ", cost = 17.99, currency = "USD", startDate = today),
+            Subscription(name = "Spotify", cost = 11.99, currency = "USD", startDate = today),
+            Subscription(name = "SPOTIFY", cost = 11.99, currency = "USD", startDate = today)
+        )
+        val preview = buildImportPreviewItems(incoming = incoming, existing = existing)
+        assertEquals(3, preview.size)
+        assertEquals(true, preview[0].alreadyInStack)
+        assertEquals(false, preview[1].alreadyInStack)
+        assertEquals(true, preview[2].alreadyInStack)
+    }
 }
