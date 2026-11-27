@@ -120,17 +120,26 @@ import com.subtrack.core.ui.components.ExpressiveClover4Shape
 import com.subtrack.core.ui.components.ExpressiveCookie12Shape
 import com.subtrack.core.ui.components.ExpressiveCookie8Shape
 import com.subtrack.core.ui.components.ExpressiveEyebrow
+import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressiveMoneyText
 import com.subtrack.core.ui.components.ExpressivePalettes
 import com.subtrack.core.ui.components.ExpressiveReactiveIconButton
 import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
+import com.subtrack.core.ui.components.ExpressiveSectionRow
+import com.subtrack.core.ui.components.ExpressiveSectionStack
 import com.subtrack.core.ui.components.ExpressiveServiceBadge
+import com.subtrack.core.ui.components.ExpressiveStepDots
 import com.subtrack.core.ui.components.ExpressiveTonalPalette
+import com.subtrack.core.ui.components.FannedBadgeStack
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.components.ShapeBloomBackdrop
+import com.subtrack.core.ui.components.rememberMorphingPolygonShape
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -177,6 +186,7 @@ fun OnboardingScreen(
         modifier = modifier,
         emphasized = uiState.step == OnboardingStep.WELCOME || uiState.step == OnboardingStep.STARTER_PLAN
     ) {
+        ShapeBloomBackdrop()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -302,25 +312,16 @@ fun OnboardingScreen(
 private fun OnboardingProgress(step: OnboardingStep) {
     val activeStep = (step.ordinal - 1).coerceAtLeast(0)
     val totalSteps = OnboardingStep.entries.size - 1
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        contentAlignment = Alignment.Center
     ) {
-        repeat(totalSteps) { index ->
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(4.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (index <= activeStep) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerHighest
-                        }
-                    )
-            )
-        }
+        ExpressiveStepDots(
+            totalSteps = totalSteps,
+            currentStep = activeStep
+        )
     }
 }
 
@@ -376,97 +377,17 @@ private fun WelcomeStep(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            val centerInteraction = remember { MutableInteractionSource() }
-            val centerPressed by centerInteraction.collectIsPressedAsState()
-            var centerSpinCount by remember { mutableIntStateOf(0) }
-            val centerScale by animateFloatAsState(
-                targetValue = if (centerPressed) 0.90f else 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                ),
-                label = "welcomeCenterScale"
+            // Interactive "Vault Mosaic" Wall (BunPod ChannelWall inspiration!):
+            // Starts as a gapless 4x2 grid of monogram squares, holds 280ms, then blooms into
+            // 8 distinct M3 Expressive silhouettes — tap any tile to morph it into a fresh polygon!
+            BotanicalVaultMosaic(
+                modifier = Modifier.fillMaxWidth()
             )
-
-            Box(
-                modifier = Modifier.size(170.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(108.dp)
-                        .graphicsLayer {
-                            scaleX = centerScale
-                            scaleY = centerScale
-                        }
-                        .clip(ExpressiveCookie8Shape)
-                        .background(boldPalette.container, ExpressiveCookie8Shape)
-                        .clickable(
-                            interactionSource = centerInteraction,
-                            indication = null
-                        ) {
-                            centerSpinCount++
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    ReactiveIcon(
-                        imageVector = Icons.Default.Autorenew,
-                        contentDescription = null,
-                        tint = boldPalette.content,
-                        size = 46.dp,
-                        motion = ReactiveMotionType.CYCLE_SPIN,
-                        isPressed = centerPressed,
-                        triggerKey = centerSpinCount,
-                        animateOnFirstComposition = true
-                    )
-                }
-
-                // Decorative Top-Left 4-Leaf Clover Badge (-32%)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = 6.dp, y = 8.dp)
-                        .size(58.dp)
-                        .graphicsLayer { rotationZ = -12f }
-                        .clip(ExpressiveClover4Shape)
-                        .background(oceanPalette.container, ExpressiveClover4Shape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "-32%",
-                        color = oceanPalette.content,
-                        fontFamily = DisplayHeroFontFamily,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 13.sp,
-                        letterSpacing = (-0.4).sp
-                    )
-                }
-
-                // Decorative Bottom-Right Privacy Badge
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(x = (-2).dp, y = (-10).dp)
-                        .graphicsLayer { rotationZ = -10f }
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(slatePalette.container, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 13.dp, vertical = 7.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "0% cloud",
-                        color = slatePalette.content,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 11.5.sp
-                    )
-                }
-            }
 
             Spacer(modifier = Modifier.height(18.dp))
 
             ExpressiveBrandWordmark(
-                fontSize = 44.sp,
+                fontSize = 42.sp,
                 textAlign = TextAlign.Center
             )
 
@@ -509,31 +430,34 @@ private fun WelcomeStep(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(26.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            WelcomeFeatureRow(
-                shape = ExpressiveCookie8Shape,
-                palette = ExpressivePalettes.softSky(),
-                icon = Icons.Default.Autorenew,
-                title = "30 days on, 15 days off · save ~32% yearly",
-                border = lightCardBorder
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            WelcomeFeatureRow(
-                shape = CircleShape,
-                palette = oceanPalette,
-                icon = Icons.Default.Shield,
-                title = "100% offline · zero internet permission",
-                border = lightCardBorder
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            WelcomeFeatureRow(
-                shape = ExpressiveClover4Shape,
-                palette = slatePalette,
-                icon = Icons.Default.NotificationsNone,
-                title = "Quiet local reminders before renewal dates",
-                border = lightCardBorder
-            )
+            ExpressiveSectionStack {
+                WelcomeFeatureRow(
+                    index = 0,
+                    count = 3,
+                    shape = ExpressiveCookie8Shape,
+                    palette = ExpressivePalettes.softSky(),
+                    icon = Icons.Default.Autorenew,
+                    title = "30 days on, 15 days off · save ~32% yearly"
+                )
+                WelcomeFeatureRow(
+                    index = 1,
+                    count = 3,
+                    shape = CircleShape,
+                    palette = oceanPalette,
+                    icon = Icons.Default.Shield,
+                    title = "100% offline · zero internet permission"
+                )
+                WelcomeFeatureRow(
+                    index = 2,
+                    count = 3,
+                    shape = ExpressiveClover4Shape,
+                    palette = slatePalette,
+                    icon = Icons.Default.NotificationsNone,
+                    title = "Quiet local reminders before renewal dates"
+                )
+            }
         }
 
         // First-launch single app-wide currency selector
@@ -614,26 +538,116 @@ private fun WelcomeStep(
 }
 
 @Composable
+private fun BotanicalVaultMosaic(
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    val reducedMotion = rememberReducedMotionEnabled()
+    val tiles = remember {
+        listOf(
+            "NF" to 0,
+            "D+" to 1,
+            "SP" to 2,
+            "AI" to 3,
+            "YT" to 4,
+            "CL" to 5,
+            "PV" to 6,
+            "XB" to 7
+        )
+    }
+    val palettes = listOf(
+        ExpressivePalettes.boldPrimary(),
+        ExpressivePalettes.softStone(),
+        ExpressivePalettes.softSky(),
+        ExpressivePalettes.softOcean(),
+        ExpressivePalettes.softLavender(),
+        ExpressivePalettes.softStone(),
+        ExpressivePalettes.softOcean(),
+        ExpressivePalettes.softSky()
+    )
+    var bloomed by remember { mutableStateOf(reducedMotion) }
+    LaunchedEffect(reducedMotion) {
+        if (reducedMotion) {
+            bloomed = true
+        } else {
+            delay(280L)
+            bloomed = true
+        }
+    }
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        tiles.chunked(4).forEachIndexed { rowIdx, row ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                row.forEachIndexed { colIdx, (monogram, seedIdx) ->
+                    val palette = palettes[(rowIdx * 4 + colIdx) % palettes.size]
+                    var shapeIdx by remember { mutableIntStateOf(seedIdx % ExpressiveMaterialPolygons.mosaicPalette.size) }
+                    val targetPolygon = if (!bloomed) {
+                        ExpressiveMaterialPolygons.Square
+                    } else {
+                        ExpressiveMaterialPolygons.mosaicPalette[shapeIdx]
+                    }
+                    val shape = rememberMorphingPolygonShape(targetPolygon = targetPolygon)
+
+                    Box(
+                        modifier = Modifier
+                            .size(66.dp)
+                            .clip(shape)
+                            .background(palette.container, shape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                shapeIdx = (shapeIdx + 3) % ExpressiveMaterialPolygons.mosaicPalette.size
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = monogram,
+                            fontFamily = DisplayHeroFontFamily,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 18.sp,
+                            letterSpacing = (-0.5).sp,
+                            color = palette.content
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun WelcomeFeatureRow(
+    index: Int,
+    count: Int,
     shape: Shape,
     palette: ExpressiveTonalPalette,
     icon: ImageVector,
-    title: String,
-    border: BorderStroke?
+    title: String
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = border
+    ExpressiveSectionRow(
+        index = index,
+        count = count,
+        outerRadius = 24.dp,
+        innerRadius = 4.dp
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(34.dp)
                     .clip(shape)
                     .background(palette.container, shape),
                 contentAlignment = Alignment.Center
@@ -642,7 +656,7 @@ private fun WelcomeFeatureRow(
                     imageVector = icon,
                     contentDescription = null,
                     tint = palette.content,
-                    modifier = Modifier.size(17.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -969,6 +983,23 @@ private fun ServiceSelectionStep(
         Spacer(modifier = Modifier.height(8.dp))
 
         val selectedCount = uiState.selectedServices.size
+        if (selectedCount > 0) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                FannedBadgeStack(
+                    serviceNames = uiState.selectedServices.map { it.preset.name },
+                    maxVisible = 5,
+                    badgeSize = 32.dp,
+                    step = 21.dp,
+                    ringWidth = 2.dp
+                )
+            }
+        }
         PrimaryOnboardingButton(
             text = if (selectedCount == 0) {
                 "Pick at least 1 service"
@@ -1800,36 +1831,13 @@ private fun StarterPlanStep(
 
 @Composable
 private fun SelectedServiceAvatars(services: List<OnboardingServiceDraft>) {
-    val visibleServices = services.take(5)
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        visibleServices.forEach { service ->
-            ExpressiveServiceBadge(
-                serviceName = service.preset.name,
-                initials = service.initials,
-                size = 44.dp,
-                fontSize = 13.sp
-            )
-        }
-        if (services.size > visibleServices.size) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+${services.size - visibleServices.size}",
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
+    FannedBadgeStack(
+        serviceNames = services.map { it.preset.name },
+        maxVisible = 5,
+        badgeSize = 46.dp,
+        step = 32.dp,
+        ringWidth = 3.dp
+    )
 }
 
 @Composable

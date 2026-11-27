@@ -55,6 +55,7 @@ import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.ui.components.CycleTimelineView
 import com.subtrack.core.ui.components.ExpressiveCookie8Shape
 import com.subtrack.core.ui.components.ExpressiveEyebrow
+import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressivePalettes
 import com.subtrack.core.ui.components.ExpressiveReactiveIconButton
 import com.subtrack.core.ui.components.ExpressiveScreenTitle
@@ -63,10 +64,16 @@ import com.subtrack.core.ui.components.ExpressiveSegmentedGroup
 import com.subtrack.core.ui.components.ExpressiveServiceBadge
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.components.ShapeBloomBackdrop
 import com.subtrack.core.ui.components.diagonalHatchPattern
 import com.subtrack.core.ui.components.expressiveCardBorder
+import com.subtrack.core.ui.components.progressiveEdgeFade
+import com.subtrack.core.ui.components.rememberMorphingPolygonShape
 import com.subtrack.core.ui.theme.DisplayFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.orSnapIfReduced
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -164,11 +171,17 @@ fun PlannerScreen(
                 },
                 label = "plannerModeTransition"
             ) { tab ->
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(bottom = 112.dp + navBarBottom)
-                ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (tab == PlannerTab.TIMELINE && uiState.cycleStatuses.isEmpty()) {
+                        ShapeBloomBackdrop()
+                    }
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .progressiveEdgeFade(bottomFadeHeight = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(bottom = 112.dp + navBarBottom)
+                    ) {
                     if (tab == PlannerTab.TIMELINE) {
                         item(key = "date_inspector_card", contentType = "inspector") {
                             val skyPalette = ExpressivePalettes.softSky()
@@ -445,7 +458,17 @@ fun PlannerScreen(
                                             }
                                         )
 
-                                        // Tactile Scalloped Swap-Order Button nestled between the pair
+                                        // Kinetic Morphing Baton-Swap Medallion (Cookie9 -> Sunny on press + 180° flip!)
+                                        val swapMedallionInteraction = remember { MutableInteractionSource() }
+                                        val swapMedallionPressed by swapMedallionInteraction.collectIsPressedAsState()
+                                        var swapFlipTrigger by remember { mutableIntStateOf(0) }
+                                        val batonShape = rememberMorphingPolygonShape(
+                                            targetPolygon = if (swapMedallionPressed) {
+                                                ExpressiveMaterialPolygons.Sunny
+                                            } else {
+                                                ExpressiveMaterialPolygons.Cookie9
+                                            }
+                                        )
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -456,18 +479,30 @@ fun PlannerScreen(
                                                 thickness = 1.dp,
                                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                                             )
-                                            ExpressiveReactiveIconButton(
-                                                imageVector = Icons.Default.SwapVert,
-                                                contentDescription = "Swap service order",
-                                                onClick = { onAction(PlannerAction.SwapServiceOrder) },
-                                                shape = ExpressiveCookie8Shape,
-                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                buttonSize = 36.dp,
-                                                iconSize = 18.dp,
-                                                motion = ReactiveMotionType.SWAP_FLIP
-                                            )
+                                            Surface(
+                                                onClick = {
+                                                    swapFlipTrigger++
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    onAction(PlannerAction.SwapServiceOrder)
+                                                },
+                                                interactionSource = swapMedallionInteraction,
+                                                modifier = Modifier.size(40.dp),
+                                                shape = batonShape,
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    ReactiveIcon(
+                                                        imageVector = Icons.Default.SwapVert,
+                                                        contentDescription = "Swap service order",
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        size = 19.dp,
+                                                        motion = ReactiveMotionType.SWAP_FLIP,
+                                                        isPressed = swapMedallionPressed,
+                                                        triggerKey = swapFlipTrigger
+                                                    )
+                                                }
+                                            }
                                         }
 
                                         Text("Service 2 (Active Second)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -485,7 +520,8 @@ fun PlannerScreen(
                                             Spacer(modifier = Modifier.height(12.dp))
                                             PairedSwapBatonVisualizer(
                                                 service1 = uiState.service1,
-                                                service2 = uiState.service2
+                                                service2 = uiState.service2,
+                                                swapNonce = swapFlipTrigger
                                             )
                                         }
 
@@ -604,6 +640,7 @@ fun PlannerScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }
@@ -748,8 +785,10 @@ private fun InspectorServiceChip(
 @Composable
 private fun PairedSwapBatonVisualizer(
     service1: Subscription,
-    service2: Subscription
+    service2: Subscription,
+    swapNonce: Int = 0
 ) {
+    val reducedMotion = rememberReducedMotionEnabled()
     val hatchColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.16f)
     val dashColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
     val restBg = MaterialTheme.colorScheme.surfaceContainer
@@ -779,6 +818,22 @@ private fun PairedSwapBatonVisualizer(
                 )
             }
 
+            AnimatedContent(
+                targetState = Triple(service1.id, service2.id, swapNonce),
+                transitionSpec = {
+                    if (reducedMotion) {
+                        fadeIn(tween(0)).togetherWith(fadeOut(tween(0)))
+                    } else {
+                        (slideInHorizontally(
+                            animationSpec = ExpressiveMotion.expressiveSpatialDefaultIntOffset()
+                                .orSnapIfReduced(reducedMotion)
+                        ) { w -> w / 5 } + fadeIn(tween(180))).togetherWith(
+                            slideOutHorizontally(tween(130)) { w -> -w / 5 } + fadeOut(tween(110))
+                        )
+                    }
+                },
+                label = "batonTrackSlide"
+            ) { _ ->
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     // Track 1: Service 1 Active first (Days 1–30), then Rest (Days 31–60)
@@ -913,6 +968,7 @@ private fun PairedSwapBatonVisualizer(
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 5f), 0f)
                     )
                 }
+            }
             }
         }
     }
