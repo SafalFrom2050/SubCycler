@@ -25,6 +25,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -179,6 +180,7 @@ fun DashboardRoute(
     onAddSubscriptionConsumed: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
+    onFirstDataReady: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -186,6 +188,12 @@ fun DashboardRoute(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pendingSaveIncludeHistory by remember { mutableStateOf(true) }
+
+    LaunchedEffect(uiState.isLoading) {
+        if (!uiState.isLoading) {
+            onFirstDataReady()
+        }
+    }
 
     LaunchedEffect(pendingTransferPayload) {
         val payload = pendingTransferPayload ?: return@LaunchedEffect
@@ -473,6 +481,7 @@ fun DashboardScreen(
     }
     var brandTickerText by remember { mutableStateOf<String?>(null) }
     var brandTickerNonce by remember { mutableIntStateOf(0) }
+    var savedDuringEditSession by remember { mutableStateOf(false) }
     var hideCheckInDeck by rememberSaveable { mutableStateOf(false) }
     val pendingRemovalIds = remember { mutableStateListOf<Long>() }
 
@@ -483,7 +492,7 @@ fun DashboardScreen(
 
     LaunchedEffect(brandTickerNonce) {
         if (brandTickerText == null) return@LaunchedEffect
-        delay(1500L)
+        delay(2000L)
         brandTickerText = null
     }
 
@@ -642,17 +651,19 @@ fun DashboardScreen(
             .filter { it.phase == CyclePhase.ACTIVE }
             .map { it.subscription }
     }
-    val swirlColors = remember(activeSubscriptions, uiState.useStackHeroMood) {
+    val swirlColors = remember(activeSubscriptions, uiState.useStackHeroMood, uiState.launcherIcon) {
         com.subtrack.core.ui.theme.BrandColorHarmonizer.resolveSwirlPetalColors(
             activeSubscriptions = activeSubscriptions,
-            useStackMood = uiState.useStackHeroMood
+            useStackMood = uiState.useStackHeroMood,
+            fallbackIcon = uiState.launcherIcon
         )
     }
-    val heroMood = remember(activeSubscriptions, uiState.useStackHeroMood, isDark) {
+    val heroMood = remember(activeSubscriptions, uiState.useStackHeroMood, uiState.launcherIcon, isDark) {
         com.subtrack.core.ui.theme.BrandColorHarmonizer.resolveHeroMoodPalette(
             activeSubscriptions = activeSubscriptions,
             useStackMood = uiState.useStackHeroMood,
-            isDark = isDark
+            isDark = isDark,
+            fallbackIcon = uiState.launcherIcon
         )
     }
 
@@ -706,13 +717,17 @@ fun DashboardScreen(
         containerColor = Color.Transparent
     ) { innerPadding ->
         val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        Box(
+        BoxWithConstraints(
             modifier = modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            // Subliminal ambient ShapeBloomBackdrop behind empty portfolio states
-            if (uiState.cycleStatuses.isEmpty()) {
+            // Fill the horizontal swipe target down to the top of the floating bottom nav dock
+            // even when only 1 row of Bento cards (or an empty filter tab) is displayed.
+            val pagerMinHeight = (maxHeight - 274.dp - 84.dp - navBarBottom).coerceAtLeast(360.dp)
+
+            // Subliminal ambient ShapeBloomBackdrop behind empty portfolio states (never during initial load)
+            if (!uiState.isLoading && uiState.cycleStatuses.isEmpty()) {
                 ShapeBloomBackdrop()
             }
 
@@ -977,7 +992,7 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.Top,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .defaultMinSize(minHeight = 280.dp)
+                            .defaultMinSize(minHeight = pagerMinHeight)
                     ) { pageIndex ->
                         val pageFilter = filters[pageIndex]
                         val pageStatuses = remember(lookupStatuses, pageFilter, uiState.selectedSort) {
@@ -985,7 +1000,9 @@ fun DashboardScreen(
                         }
 
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = pagerMinHeight),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if ((pageFilter == SubscriptionFilter.BLACKOUT ||
@@ -1017,8 +1034,9 @@ fun DashboardScreen(
                             }
 
                             if (pageStatuses.isEmpty()) {
-                                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                    DashboardEmptyState(
+                                if (!uiState.isLoading) {
+                                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                        DashboardEmptyState(
                                         isFilteredEmpty = uiState.totalSubscriptionCount > 0,
                                         activeFilter = pageFilter,
                                         currencyCode = uiState.preferredCurrencyCode,
@@ -1079,6 +1097,7 @@ fun DashboardScreen(
                                             showAddDialog = true
                                         }
                                     )
+                                    }
                                 }
                             } else {
                                 val rows = pageStatuses.chunked(2)
@@ -1303,13 +1322,19 @@ fun DashboardScreen(
             initialStep = editInitialStep,
             defaultCurrencyCode = uiState.preferredCurrencyCode,
             onDismiss = {
+                val hadSaves = savedDuringEditSession
+                savedDuringEditSession = false
                 showAddDialog = false
                 subscriptionToEdit = null
                 editInitialStep = 0
                 presetToAdd = null
+                if (hadSaves) {
+                    pulseBrandTicker("Saved locally")
+                }
             },
             onAutoSave = { sub ->
                 val savedId = onAutoSaveSubscription(sub)
+                savedDuringEditSession = true
                 pulseBrandTicker("Saved locally")
                 savedId
             }
