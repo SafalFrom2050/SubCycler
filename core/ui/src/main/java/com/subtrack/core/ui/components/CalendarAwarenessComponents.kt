@@ -1,6 +1,5 @@
 package com.subtrack.core.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -52,6 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,11 +61,12 @@ import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.domain.model.CalendarAccessIssue
 import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.DeviceCalendar
-import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 
 /**
- * Full Offline Settings Sheet (preserves backward-compatible signature & Calendar toggle as
- * the sheet's single Switch so CalendarAwarenessComponentsTest stays 100% compatible).
+ * Full Offline Settings Sheet using BunPod-inspired Positional Connected Card Stacks
+ * (`28dp` outer radii, `4dp` inner seams, `2dp` gaps, press-blooming `14dp` inner corners).
+ * Preserves backward-compatible signature & Calendar toggle as the sheet's single Switch so
+ * `CalendarAwarenessComponentsTest` stays 100% compatible.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +93,8 @@ fun CalendarSettingsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val skyPalette = ExpressivePalettes.softSky()
-    val cardBorder = expressiveCardBorder()
+    val oceanPalette = ExpressivePalettes.softOcean()
+    val slatePalette = ExpressivePalettes.softLavender()
     var showCurrencyPicker by remember { mutableStateOf(false) }
     var pendingCurrencyChange by remember { mutableStateOf<String?>(null) }
 
@@ -109,27 +112,27 @@ fun CalendarSettingsSheet(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 22.dp)
+                .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Text(
                 text = "Settings",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
                 letterSpacing = (-0.5).sp,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 2.dp)
             )
 
-            // 1. Calendar-Aware Suggestions Card (Single Switch in sheet!)
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                border = cardBorder
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+            // 1. Calendar-Aware Suggestions Connected Stack (Single Switch in sheet!)
+            val calendarRowCount = if (enabled) 2 else 1
+            ExpressiveSectionStack(eyebrow = "CALENDAR AWARENESS") {
+                ExpressiveSectionRow(index = 0, count = calendarRowCount) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
@@ -167,42 +170,40 @@ fun CalendarSettingsSheet(
                             onCheckedChange = onEnabledChange
                         )
                     }
+                }
 
-                    if (enabled) {
-                        Spacer(Modifier.height(14.dp))
-                        Surface(
-                            onClick = onOpenCalendars,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh
+                if (enabled) {
+                    ExpressiveSectionRow(
+                        index = 1,
+                        count = calendarRowCount,
+                        onClick = onOpenCalendars
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(
-                                        "Calendars",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        "$selectedCalendarCount selected",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.Default.ChevronRight,
-                                    contentDescription = "Change calendars",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
+                            Column {
+                                Text(
+                                    "Calendars",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "$selectedCalendarCount selected",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = "Change calendars",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
@@ -217,32 +218,115 @@ fun CalendarSettingsSheet(
                         CalendarAccessIssue.PROVIDER_UNAVAILABLE -> "Calendar data is currently unavailable. The feature was turned off."
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp)
                 )
             }
 
-            // 2. Notification Permission & Reminder Lead Time
-            if (onNotificationLeadDaysSelected != null || !notificationsAvailable) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    border = cardBorder
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        ExpressiveEyebrow(text = "LOCAL REMINDERS")
-
-                        if (!notificationsAvailable) {
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
+            // 2. Preferences Connected Stack (App Currency · Appearance · Reminder Timing)
+            val prefItems = buildList {
+                if (onCurrencySelected != null) add("currency")
+                if (onThemeModeSelected != null) add("theme")
+                if (!notificationsAvailable) add("notif_off")
+                if (onNotificationLeadDaysSelected != null) add("lead_days")
+            }
+            if (prefItems.isNotEmpty()) {
+                ExpressiveSectionStack(eyebrow = "PREFERENCES & REMINDERS") {
+                    prefItems.forEachIndexed { index, key ->
+                        when (key) {
+                            "currency" -> ExpressiveSectionRow(
+                                index = index,
+                                count = prefItems.size,
+                                onClick = { showCurrencyPicker = true }
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(12.dp),
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(38.dp)
+                                                .clip(ExpressiveClover4Shape)
+                                                .background(oceanPalette.container),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = MoneyFormatter.symbol(currencyCode),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 14.sp,
+                                                color = oceanPalette.content
+                                            )
+                                        }
+                                        Spacer(Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = "App currency",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "${MoneyFormatter.symbol(currencyCode)} $currencyCode · ${MoneyFormatter.displayName(currencyCode)}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronRight,
+                                        contentDescription = "Change currency",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            "theme" -> ExpressiveSectionRow(index = index, count = prefItems.size) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        text = "Appearance",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    val themeOptions = remember {
+                                        listOf(
+                                            ExpressiveSegmentOption(AppThemeMode.SYSTEM, AppThemeMode.SYSTEM.displayName, Icons.Default.BrightnessAuto),
+                                            ExpressiveSegmentOption(AppThemeMode.LIGHT, AppThemeMode.LIGHT.displayName, Icons.Default.LightMode),
+                                            ExpressiveSegmentOption(AppThemeMode.DARK, AppThemeMode.DARK.displayName, Icons.Default.DarkMode)
+                                        )
+                                    }
+                                    ExpressiveSegmentedGroup(
+                                        options = themeOptions,
+                                        selectedValue = themeMode,
+                                        onSelect = onThemeModeSelected!!,
+                                        height = 42.dp,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+
+                            "notif_off" -> ExpressiveSectionRow(
+                                index = index,
+                                count = prefItems.size,
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
@@ -259,7 +343,7 @@ fun CalendarSettingsSheet(
                                         Spacer(Modifier.width(10.dp))
                                         Text(
                                             text = "Notifications are off for SubCycler.",
-                                            fontSize = 12.sp,
+                                            fontSize = 12.5.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.onErrorContainer
                                         )
@@ -275,190 +359,71 @@ fun CalendarSettingsSheet(
                                     }
                                 }
                             }
-                        }
 
-                        if (onNotificationLeadDaysSelected != null) {
-                            Text(
-                                text = "Remind me before renewal",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.5.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            val leadOptions = remember {
-                                listOf(1, 3, 5, 7).map { ExpressiveSegmentOption(it, "${it}d") }
-                            }
-                            ExpressiveSegmentedGroup(
-                                options = leadOptions,
-                                selectedValue = notificationLeadDays,
-                                onSelect = onNotificationLeadDaysSelected,
-                                height = 42.dp,
-                                fontSize = 12.5.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 3. Default Currency & Appearance
-            if (onCurrencySelected != null || onThemeModeSelected != null) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    border = cardBorder
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        ExpressiveEyebrow(text = "PREFERENCES")
-
-                        if (onCurrencySelected != null) {
-                            Surface(
-                                onClick = { showCurrencyPicker = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh
-                            ) {
-                                Row(
+                            "lead_days" -> ExpressiveSectionRow(index = index, count = prefItems.size) {
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                        .padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Column {
-                                        Text(
-                                            text = "App currency",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.5.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "${MoneyFormatter.symbol(currencyCode)} $currencyCode · ${MoneyFormatter.displayName(currencyCode)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                    Text(
+                                        text = "Remind me before renewal",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    val leadOptions = remember {
+                                        listOf(1, 3, 5, 7).map { ExpressiveSegmentOption(it, "${it}d") }
                                     }
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronRight,
-                                        contentDescription = "Change currency",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp)
+                                    ExpressiveSegmentedGroup(
+                                        options = leadOptions,
+                                        selectedValue = notificationLeadDays,
+                                        onSelect = onNotificationLeadDaysSelected!!,
+                                        height = 42.dp,
+                                        fontSize = 12.5.sp
                                     )
                                 }
-                            }
-                        }
-
-                        if (onThemeModeSelected != null) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    text = "Appearance",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                val themeOptions = remember {
-                                    listOf(
-                                        ExpressiveSegmentOption(AppThemeMode.SYSTEM, AppThemeMode.SYSTEM.displayName, Icons.Default.BrightnessAuto),
-                                        ExpressiveSegmentOption(AppThemeMode.LIGHT, AppThemeMode.LIGHT.displayName, Icons.Default.LightMode),
-                                        ExpressiveSegmentOption(AppThemeMode.DARK, AppThemeMode.DARK.displayName, Icons.Default.DarkMode)
-                                    )
-                                }
-                                ExpressiveSegmentedGroup(
-                                    options = themeOptions,
-                                    selectedValue = themeMode,
-                                    onSelect = onThemeModeSelected,
-                                    height = 42.dp,
-                                    fontSize = 12.sp
-                                )
                             }
                         }
                     }
                 }
             }
 
-            // 4. Offline Data Portability (JSON Backup/Restore & CSV Export — Zero Permissions)
-            if (onExportJson != null || onImportJson != null || onExportCsv != null) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    border = cardBorder
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        ExpressiveEyebrow(text = "OFFLINE BACKUP & EXPORT")
-                        Text(
-                            text = "Keep a local copy of your subscriptions and earned savings on device storage — no cloud required.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            // 3. Offline Local Vault & Export Connected Stack (Zero Cloud / Zero Permissions)
+            val vaultActions = buildList {
+                if (onExportJson != null) add(Triple("Backup JSON", "Save full portfolio & earned savings locally", onExportJson))
+                if (onImportJson != null) add(Triple("Restore from JSON", "Import subscriptions from a local backup file", onImportJson))
+                if (onExportCsv != null) add(Triple("Export spreadsheet (.csv)", "Download tabular ledger for spreadsheets", onExportCsv))
+            }
+            if (vaultActions.isNotEmpty()) {
+                ExpressiveSectionStack(eyebrow = "OFFLINE VAULT & EXPORT") {
+                    vaultActions.forEachIndexed { index, (title, subtitle, onClick) ->
+                        val (icon, shape, palette) = when (title) {
+                            "Backup JSON" -> Triple(Icons.Default.Download, ExpressiveCookie8Shape, skyPalette)
+                            "Restore from JSON" -> Triple(Icons.Default.Upload, ExpressiveArchShape, oceanPalette)
+                            else -> Triple(Icons.Default.TableChart, ExpressivePebbleShape, slatePalette)
+                        }
+                        SettingsVaultActionRow(
+                            index = index,
+                            count = vaultActions.size,
+                            title = title,
+                            subtitle = subtitle,
+                            icon = icon,
+                            badgeShape = shape,
+                            palette = palette,
+                            onClick = onClick
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            if (onExportJson != null) {
-                                FilledTonalButton(
-                                    onClick = onExportJson,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(999.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                ) {
-                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Backup JSON", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            if (onImportJson != null) {
-                                FilledTonalButton(
-                                    onClick = onImportJson,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(999.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                    )
-                                ) {
-                                    Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Restore", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                        if (onExportCsv != null) {
-                            FilledTonalButton(
-                                onClick = onExportCsv,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(44.dp),
-                                shape = RoundedCornerShape(999.dp),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
-                                )
-                            ) {
-                                Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Export spreadsheet (.csv)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                        if (!backupMessage.isNullOrBlank()) {
-                            Text(
-                                text = backupMessage,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
+                }
+                if (!backupMessage.isNullOrBlank()) {
+                    Text(
+                        text = backupMessage,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    )
                 }
             }
         }
@@ -534,6 +499,67 @@ fun CalendarSettingsSheet(
     }
 }
 
+@Composable
+private fun SettingsVaultActionRow(
+    index: Int,
+    count: Int,
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    badgeShape: Shape,
+    palette: ExpressiveTonalPalette,
+    onClick: () -> Unit
+) {
+    ExpressiveSectionRow(
+        index = index,
+        count = count,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(badgeShape)
+                    .background(palette.container, badgeShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = palette.content,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(19.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarSelectionSheet(
@@ -580,17 +606,21 @@ fun CalendarSelectionSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 360.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                items(calendars, key = { it.id }) { calendar ->
+                itemsIndexed(calendars, key = { _, cal -> cal.id }) { index, calendar ->
                     val selected = calendar.id in selectedIds
-                    Surface(
+                    ExpressiveSectionRow(
+                        index = index,
+                        count = calendars.size,
                         onClick = {
                             selectedIds = if (selected) selectedIds - calendar.id else selectedIds + calendar.id
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
+                        containerColor = if (selected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainer
+                        }
                     ) {
                         Row(
                             modifier = Modifier

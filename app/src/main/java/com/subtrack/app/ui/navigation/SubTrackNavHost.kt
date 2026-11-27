@@ -51,11 +51,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.subtrack.core.ui.components.ExpressiveCookie12Shape
+import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.components.rememberMorphingPolygonShape
+import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.orSnapIfReduced
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import com.subtrack.feature.analytics.AnalyticsRoute
 import com.subtrack.feature.dashboard.DashboardRoute
 import com.subtrack.feature.onboarding.OnboardingRoute
@@ -360,24 +364,28 @@ private fun SubTrackMainNavigation(
                         }
                     }
 
-                    // Detached 12-Petal Scalloped '+' Action Button (anchored stably on all tabs!)
+                    // Detached 12-Petal Scalloped '+' Action Button with anticipatory press-preview morph (Cookie12 -> Sunny!)
+                    val reducedMotion = rememberReducedMotionEnabled()
                     val fabInteraction = remember { MutableInteractionSource() }
                     val fabPressed by fabInteraction.collectIsPressedAsState()
                     var fabTapCount by remember { mutableIntStateOf(0) }
+                    val fabShape = rememberMorphingPolygonShape(
+                        targetPolygon = if (fabPressed) {
+                            ExpressiveMaterialPolygons.Sunny
+                        } else {
+                            ExpressiveMaterialPolygons.Cookie12
+                        }
+                    )
                     val fabScale by animateFloatAsState(
                         targetValue = if (fabPressed) 0.89f else 1f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        ),
+                        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
+                            .orSnapIfReduced(reducedMotion),
                         label = "detachedFabScale"
                     )
                     val fabCookieRotation by animateFloatAsState(
                         targetValue = if (fabPressed) 18f else 0f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        ),
+                        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
+                            .orSnapIfReduced(reducedMotion),
                         label = "detachedFabRot"
                     )
                     val fabBgColor by animateColorAsState(
@@ -386,7 +394,8 @@ private fun SubTrackMainNavigation(
                         } else {
                             MaterialTheme.colorScheme.primaryContainer
                         },
-                        animationSpec = tween(220),
+                        animationSpec = ExpressiveMotion.effectsFastColor()
+                            .orSnapIfReduced(reducedMotion),
                         label = "detachedFabBg"
                     )
                     val fabIconColor by animateColorAsState(
@@ -395,7 +404,8 @@ private fun SubTrackMainNavigation(
                         } else {
                             MaterialTheme.colorScheme.onPrimaryContainer
                         },
-                        animationSpec = tween(220),
+                        animationSpec = ExpressiveMotion.effectsFastColor()
+                            .orSnapIfReduced(reducedMotion),
                         label = "detachedFabIcon"
                     )
 
@@ -427,11 +437,11 @@ private fun SubTrackMainNavigation(
                                 scaleY = fabScale
                                 rotationZ = fabCookieRotation
                             }
-                            .clip(ExpressiveCookie12Shape)
-                            .background(fabBgColor, ExpressiveCookie12Shape)
+                            .clip(fabShape)
+                            .background(fabBgColor, fabShape)
                             .then(
                                 if (!isOnDashboard) {
-                                    Modifier.border(1.dp, fabRimColor, ExpressiveCookie12Shape)
+                                    Modifier.border(1.dp, fabRimColor, fabShape)
                                 } else {
                                     Modifier
                                 }

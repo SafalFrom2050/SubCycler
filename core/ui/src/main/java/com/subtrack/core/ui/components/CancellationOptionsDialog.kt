@@ -10,14 +10,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,6 +72,7 @@ fun CancellationOptionsDialog(
     var failedUrl by rememberSaveable(subscriptionName) { mutableStateOf<String?>(null) }
     var copied by rememberSaveable(subscriptionName) { mutableStateOf(false) }
     val isUnsubscribe = actionType == SubscriptionActionProgressType.UNSUBSCRIBE
+    val destinations = CancellationLinks.destinationsFor(subscriptionName)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -121,31 +125,70 @@ fun CancellationOptionsDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                CancellationLinks.destinationsFor(subscriptionName).forEach { destination ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        FilledTonalButton(
+
+                // Positional Connected Section Stack for billing destinations (28dp outer / 4dp inner seams)
+                ExpressiveSectionStack {
+                    destinations.forEachIndexed { index, destination ->
+                        ExpressiveSectionRow(
+                            index = index,
+                            count = destinations.size,
                             onClick = {
                                 copied = false
                                 failedUrl = if (onOpenLink(destination)) null else destination.url
                             },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp),
-                            shape = RoundedCornerShape(999.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            )
+                            containerColor = if (index == 0) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            },
+                            outerRadius = 22.dp,
+                            innerRadius = 4.dp
                         ) {
-                            Text(destination.label, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = destination.label,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.5.sp,
+                                        color = if (index == 0) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = destination.guidance,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontSize = 11.5.sp,
+                                        color = if (index == 0) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.80f)
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                    contentDescription = null,
+                                    tint = if (index == 0) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
-                        Text(
-                            destination.guidance,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
+
                 Text(
                     "Billed by a mobile carrier or another partner? Use that provider's account or support. Finish the cancellation there and keep its confirmation.",
                     style = MaterialTheme.typography.bodySmall,

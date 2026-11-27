@@ -427,7 +427,16 @@ fun AddEditSubscriptionDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Spring-expanding stadium progress dots (8dp -> 28dp) above whisper-quiet capsule switcher
+            ExpressiveStepDots(
+                totalSteps = SubscriptionFormStep.entries.size,
+                currentStep = currentStep,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 10.dp)
+            )
 
             // Whisper-Quiet Neutral Capsule Step Switcher (calm, tappable, zero loud bars)
             Surface(
