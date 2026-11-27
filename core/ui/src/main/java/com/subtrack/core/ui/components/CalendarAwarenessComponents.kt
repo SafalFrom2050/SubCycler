@@ -81,9 +81,11 @@ fun CalendarSettingsSheet(
     hasExistingSubscriptions: Boolean = false,
     notificationLeadDays: Int = 3,
     themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    useStackHeroMood: Boolean = true,
     onCurrencySelected: ((String) -> Unit)? = null,
     onNotificationLeadDaysSelected: ((Int) -> Unit)? = null,
     onThemeModeSelected: ((AppThemeMode) -> Unit)? = null,
+    onUseStackHeroMoodChanged: ((Boolean) -> Unit)? = null,
     onOpenNotificationSettings: (() -> Unit)? = null,
     onShareStack: (() -> Unit)? = null,
     onImportStack: (() -> Unit)? = null,
@@ -226,6 +228,7 @@ fun CalendarSettingsSheet(
             val prefItems = buildList {
                 if (onCurrencySelected != null) add("currency")
                 if (onThemeModeSelected != null) add("theme")
+                if (onUseStackHeroMoodChanged != null) add("hero_mood")
                 if (!notificationsAvailable) add("notif_off")
                 if (onNotificationLeadDaysSelected != null) add("lead_days")
             }
@@ -315,6 +318,35 @@ fun CalendarSettingsSheet(
                                         onSelect = onThemeModeSelected!!,
                                         height = 42.dp,
                                         fontSize = 12.sp
+                                    )
+                                }
+                            }
+
+                            "hero_mood" -> ExpressiveSectionRow(index = index, count = prefItems.size) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Living stack mood",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Softly tint the hero card & 3-petal swirl logo from your active subscriptions.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Switch(
+                                        checked = useStackHeroMood,
+                                        onCheckedChange = onUseStackHeroMoodChanged!!
                                     )
                                 }
                             }

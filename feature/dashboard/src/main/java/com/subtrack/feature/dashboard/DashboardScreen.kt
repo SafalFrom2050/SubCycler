@@ -306,7 +306,8 @@ fun DashboardRoute(
                             context = context,
                             subscriptions = subs,
                             transferLink = link,
-                            includePersonalHistory = includeHistory
+                            includePersonalHistory = includeHistory,
+                            useStackMood = uiState.useStackHeroMood
                         )
                         try {
                             val cacheDir = File(context.cacheDir, "shared_backups").apply {
@@ -590,6 +591,25 @@ fun DashboardScreen(
         }
     }
 
+    val activeSubscriptions = remember(lookupStatuses) {
+        lookupStatuses
+            .filter { it.phase == CyclePhase.ACTIVE }
+            .map { it.subscription }
+    }
+    val swirlColors = remember(activeSubscriptions, uiState.useStackHeroMood) {
+        com.subtrack.core.ui.theme.BrandColorHarmonizer.resolveSwirlPetalColors(
+            activeSubscriptions = activeSubscriptions,
+            useStackMood = uiState.useStackHeroMood
+        )
+    }
+    val heroMood = remember(activeSubscriptions, uiState.useStackHeroMood, isDark) {
+        com.subtrack.core.ui.theme.BrandColorHarmonizer.resolveHeroMoodPalette(
+            activeSubscriptions = activeSubscriptions,
+            useStackMood = uiState.useStackHeroMood,
+            isDark = isDark
+        )
+    }
+
     val filterCounts = remember(lookupStatuses) {
         mapOf(
             SubscriptionFilter.ALL to lookupStatuses.size,
@@ -605,6 +625,7 @@ fun DashboardScreen(
                 title = {
                     ExpressiveKineticBrandHeader(
                         statusTicker = brandTickerText,
+                        swirlColors = swirlColors,
                         fontSize = 28.sp
                     )
                 },
@@ -668,6 +689,7 @@ fun DashboardScreen(
                         excludedCurrencyCount = uiState.excludedCurrencyCount,
                         incompleteCount = uiState.incompleteCount,
                         scrollProgress = heroCollapseProgress,
+                        heroMood = heroMood,
                         onSavingsClick = onNavigateToSavings,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
@@ -1231,6 +1253,7 @@ fun DashboardScreen(
             hasExistingSubscriptions = uiState.totalSubscriptionCount > 0,
             notificationLeadDays = uiState.notificationLeadDays,
             themeMode = uiState.themeMode,
+            useStackHeroMood = uiState.useStackHeroMood,
             onCurrencySelected = {
                 onAction(DashboardAction.SetDefaultCurrency(it))
                 snackHostState.show(
@@ -1241,6 +1264,9 @@ fun DashboardScreen(
             },
             onNotificationLeadDaysSelected = { onAction(DashboardAction.SetNotificationLeadDays(it)) },
             onThemeModeSelected = { onAction(DashboardAction.SetThemeMode(it)) },
+            onUseStackHeroMoodChanged = { enabled ->
+                onAction(DashboardAction.SetUseStackHeroMood(enabled))
+            },
             onOpenNotificationSettings = {
                 runCatching {
                     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -1268,6 +1294,7 @@ fun DashboardScreen(
         }
         ShareStackSheet(
             subscriptions = currentSubscriptions,
+            useStackHeroMood = uiState.useStackHeroMood,
             onShareStackCard = { includeHistory ->
                 showShareSheet = false
                 onShareStackCard(includeHistory)

@@ -1,5 +1,6 @@
 package com.subtrack.core.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
@@ -54,6 +55,7 @@ import com.subtrack.core.domain.model.PortfolioSummary
 import com.subtrack.core.ui.theme.BodyFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
 import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.HeroMoodPalette
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
@@ -71,6 +73,7 @@ fun FinancialEfficiencyHud(
     excludedCurrencyCount: Int = 0,
     incompleteCount: Int = 0,
     scrollProgress: Float = 0f,
+    heroMood: HeroMoodPalette? = null,
     onSavingsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -101,6 +104,11 @@ fun FinancialEfficiencyHud(
 
     val clampedScroll = ExpressiveMotion.clampEffectProgress(scrollProgress)
     val boldBadgePalette = ExpressivePalettes.boldPrimary()
+    val heroInkColor by animateColorAsState(
+        targetValue = heroMood?.contentColor ?: MaterialTheme.colorScheme.onPrimaryContainer,
+        animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
+        label = "heroInkColor"
+    )
     val heroPillColor = if (LocalSubCyclerDarkTheme.current) {
         MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.72f)
     } else {
@@ -119,7 +127,8 @@ fun FinancialEfficiencyHud(
                 .clip(RoundedCornerShape(28.dp)),
             watermarkPolygon = ExpressiveMaterialPolygons.Clover8,
             watermarkRotationDegrees = if (reducedMotion) 0f else clampedScroll * 20f,
-            watermarkAlpha = 0.09f * (1f - clampedScroll * 0.6f)
+            watermarkAlpha = 0.09f * (1f - clampedScroll * 0.6f),
+            heroMood = heroMood
         ) {
             Row(
                 modifier = Modifier
@@ -131,13 +140,13 @@ fun FinancialEfficiencyHud(
                 Column(modifier = Modifier.weight(1f)) {
                     ExpressiveEyebrow(
                         text = if (hasSavings) "EFFECTIVE MONTHLY" else "MONTHLY SPEND",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.74f)
+                        color = heroInkColor.copy(alpha = 0.74f)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     ExpressiveMoneyText(
                         formattedAmount = MoneyFormatter.format(summary.totalMonthlyOptimizedCost, currencyCode),
                         heroFontSize = 44.sp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = heroInkColor
                     )
                     if (hasSavings && summary.totalMonthlyStandardCost > summary.totalMonthlyOptimizedCost) {
                         Spacer(modifier = Modifier.height(3.dp))
@@ -145,7 +154,7 @@ fun FinancialEfficiencyHud(
                         val pctOff = summary.overallSavingsPercentage.roundToInt()
                         Text(
                             text = "Down from $fullMonthly/mo · -$pctOff%",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                            color = heroInkColor.copy(alpha = 0.78f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -155,7 +164,7 @@ fun FinancialEfficiencyHud(
                         val spendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost)
                             .toFloat()
                             .coerceIn(0.18f, 0.92f)
-                        val spendBarColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.70f)
+                        val spendBarColor = heroInkColor.copy(alpha = 0.70f)
                         val savedBarColor = MaterialTheme.colorScheme.primary
                         Canvas(
                             modifier = Modifier

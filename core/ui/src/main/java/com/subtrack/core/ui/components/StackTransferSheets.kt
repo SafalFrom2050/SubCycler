@@ -112,6 +112,7 @@ fun buildImportPreviewItems(
 @Composable
 fun ShareStackSheet(
     subscriptions: List<Subscription>,
+    useStackHeroMood: Boolean = true,
     onShareStackCard: (includePersonalHistory: Boolean) -> Unit,
     onShareTransferLink: (includePersonalHistory: Boolean) -> Unit,
     onCopyTransferLink: (includePersonalHistory: Boolean) -> Unit,
@@ -217,13 +218,17 @@ fun ShareStackSheet(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.ic_subcycler_brand_mark),
-                                        contentDescription = "SubCycler logo",
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .clip(RoundedCornerShape(8.dp))
+                                    val cardSwirlColors = remember(subscriptions, useStackHeroMood) {
+                                        com.subtrack.core.ui.theme.BrandColorHarmonizer.resolveSwirlPetalColors(
+                                            activeSubscriptions = subscriptions,
+                                            useStackMood = useStackHeroMood
+                                        )
+                                    }
+                                    SubCyclerSwirlLogo(
+                                        colors = cardSwirlColors,
+                                        size = 28.dp,
+                                        cornerRadius = 8.dp,
+                                        contentDescriptionText = "SubCycler logo"
                                     )
                                     Text(
                                         text = "SubCycler",

@@ -6,6 +6,7 @@ import com.subtrack.core.common.dispatcher.DefaultDispatcher
 import com.subtrack.core.common.time.TimeProvider
 import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.ActionUrgency
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.domain.model.CalendarAccessIssue
 import com.subtrack.core.domain.model.CalendarAccessState
@@ -55,6 +56,8 @@ data class DashboardUiState(
     val preferredCurrencyCode: String = "USD",
     val notificationLeadDays: Int = 3,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val useStackHeroMood: Boolean = true,
+    val launcherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
     val excludedCurrencyCount: Int = 0,
     val incompleteCount: Int = 0,
     val selectedFilter: SubscriptionFilter = SubscriptionFilter.ALL,
@@ -117,6 +120,8 @@ sealed interface DashboardAction {
     data class SetDefaultCurrency(val currencyCode: String) : DashboardAction
     data class SetNotificationLeadDays(val days: Int) : DashboardAction
     data class SetThemeMode(val themeMode: AppThemeMode) : DashboardAction
+    data class SetUseStackHeroMood(val enabled: Boolean) : DashboardAction
+    data class SetLauncherIcon(val icon: AppLauncherIcon) : DashboardAction
     data class InspectIncomingTransfer(val rawPayload: String) : DashboardAction
     data object ConfirmPendingImport : DashboardAction
     data object DismissPendingImport : DashboardAction
@@ -205,6 +210,8 @@ class DashboardViewModel @Inject constructor(
             preferredCurrencyCode = preferences.currency,
             notificationLeadDays = preferences.notificationLeadDays,
             themeMode = preferences.themeMode,
+            useStackHeroMood = preferences.useStackHeroMood,
+            launcherIcon = preferences.launcherIcon,
             excludedCurrencyCount = statuses.size - summaryStatuses.size,
             incompleteCount = incompleteCount,
             selectedFilter = filter,
@@ -371,6 +378,16 @@ class DashboardViewModel @Inject constructor(
             is DashboardAction.SetThemeMode -> {
                 viewModelScope.launch {
                     userPreferencesRepository.setThemeMode(action.themeMode)
+                }
+            }
+            is DashboardAction.SetUseStackHeroMood -> {
+                viewModelScope.launch {
+                    userPreferencesRepository.setUseStackHeroMood(action.enabled)
+                }
+            }
+            is DashboardAction.SetLauncherIcon -> {
+                viewModelScope.launch {
+                    userPreferencesRepository.setLauncherIcon(action.icon)
                 }
             }
             is DashboardAction.InspectIncomingTransfer -> {

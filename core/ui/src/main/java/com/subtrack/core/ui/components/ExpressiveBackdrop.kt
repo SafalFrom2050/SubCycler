@@ -1,6 +1,7 @@
 package com.subtrack.core.ui.components
 
 import android.os.Build
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -40,7 +41,9 @@ import com.subtrack.core.ui.theme.BrandDarkHeroContainer
 import com.subtrack.core.ui.theme.BrandLightBackground
 import com.subtrack.core.ui.theme.BrandLightHeroContainer
 import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.HeroMoodPalette
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import kotlinx.coroutines.delay
 
@@ -136,22 +139,39 @@ fun ExpressiveHeroCardBackdrop(
     watermarkPolygon: RoundedPolygon? = ExpressiveMaterialPolygons.Clover8,
     watermarkRotationDegrees: Float = 0f,
     watermarkAlpha: Float = 0.085f,
+    heroMood: HeroMoodPalette? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     val isDark = LocalSubCyclerDarkTheme.current
-    val baseColor = if (isDark) BrandDarkHeroContainer else BrandLightHeroContainer
+    val reducedMotion = rememberReducedMotionEnabled()
+    val colorSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion)
+
+    val targetBase = heroMood?.baseColor ?: if (isDark) BrandDarkHeroContainer else BrandLightHeroContainer
+    val targetStart = heroMood?.gradientStart ?: if (isDark) Color(0xFF154536) else Color(0xFFC8F1DF)
+    val targetMid = heroMood?.gradientMid ?: if (isDark) Color(0xFF12392D) else Color(0xFFD7F5E8)
+    val targetEnd = heroMood?.gradientEnd ?: if (isDark) Color(0xFF102E25) else Color(0xFFE2F7EE)
+    val targetWatermark = heroMood?.watermarkTint ?: MaterialTheme.colorScheme.onPrimaryContainer
+
+    val baseColor by animateColorAsState(targetBase, colorSpec, label = "heroMoodBase")
+    val gradStart by animateColorAsState(targetStart, colorSpec, label = "heroMoodStart")
+    val gradMid by animateColorAsState(targetMid, colorSpec, label = "heroMoodMid")
+    val gradEnd by animateColorAsState(targetEnd, colorSpec, label = "heroMoodEnd")
+    val watermarkTint by animateColorAsState(targetWatermark, colorSpec, label = "heroMoodWatermark")
+
     val maskBrush = if (isDark) {
         Brush.linearGradient(
             colors = listOf(
-                Color(0xFF154536).copy(alpha = 0.76f),
-                Color(0xFF102E25).copy(alpha = 0.88f)
+                gradStart.copy(alpha = 0.78f),
+                gradMid.copy(alpha = 0.84f),
+                gradEnd.copy(alpha = 0.90f)
             )
         )
     } else {
         Brush.linearGradient(
             colors = listOf(
-                Color(0xFFC8F1DF).copy(alpha = 0.72f),
-                Color(0xFFE2F7EE).copy(alpha = 0.86f)
+                gradStart.copy(alpha = 0.72f),
+                gradMid.copy(alpha = 0.80f),
+                gradEnd.copy(alpha = 0.88f)
             )
         )
     }
@@ -184,7 +204,7 @@ fun ExpressiveHeroCardBackdrop(
                     }
                     .expressivePolygonSurface(
                         shape = watermarkShape,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                        color = watermarkTint.copy(
                             alpha = ExpressiveMotion.clampEffectProgress(watermarkAlpha)
                         )
                     )

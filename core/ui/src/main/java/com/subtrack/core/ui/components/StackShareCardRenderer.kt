@@ -2,7 +2,6 @@ package com.subtrack.core.ui.components
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
 import android.graphics.LinearGradient
@@ -220,7 +219,8 @@ fun renderStackShareCardBitmap(
     context: Context,
     subscriptions: List<Subscription>,
     transferLink: String,
-    includePersonalHistory: Boolean
+    includePersonalHistory: Boolean,
+    useStackMood: Boolean = true
 ): Bitmap {
     val w = 1080
     val h = 1350
@@ -250,11 +250,18 @@ fun renderStackShareCardBitmap(
     }
     canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
 
-    // Soft ambient botanical glow orbs behind header & chips
+    val swirlColors = com.subtrack.core.ui.theme.BrandColorHarmonizer.resolveSwirlPetalColors(
+        activeSubscriptions = subscriptions,
+        useStackMood = useStackMood
+    )
+    val orb1AccentRgb = com.subtrack.core.ui.theme.BrandColorHarmonizer.composeColorToRgb(swirlColors.midPetal)
+    val orb2AccentRgb = com.subtrack.core.ui.theme.BrandColorHarmonizer.composeColorToRgb(swirlColors.lightPetal)
+
+    // Soft ambient harmonized glow orbs behind header & chips
     val orb1Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         shader = RadialGradient(
             w * 0.88f, h * 0.14f, 440f,
-            intArrayOf(0x305CE8AE, 0x00000000),
+            intArrayOf((0x30 shl 24) or orb1AccentRgb, 0x00000000),
             floatArrayOf(0f, 1f),
             Shader.TileMode.CLAMP
         )
@@ -264,7 +271,7 @@ fun renderStackShareCardBitmap(
     val orb2Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         shader = RadialGradient(
             w * 0.12f, h * 0.56f, 380f,
-            intArrayOf(0x207CE6C1, 0x00000000),
+            intArrayOf((0x20 shl 24) or orb2AccentRgb, 0x00000000),
             floatArrayOf(0f, 1f),
             Shader.TileMode.CLAMP
         )
@@ -273,23 +280,16 @@ fun renderStackShareCardBitmap(
 
     val padX = 72f
 
-    // 2. Top Brand Row: New SubCycler swirling logo + two-tone wordmark + 100% offline badge
+    // 2. Top Brand Row: Personalized 3-petal SubCycler swirl logo + two-tone wordmark + 100% offline badge
     val logoSize = 86f
     val headerTop = 76f
-    val logoBmp = runCatching {
-        BitmapFactory.decodeResource(context.resources, R.drawable.ic_subcycler_brand_mark)
-    }.getOrNull()
-    if (logoBmp != null) {
-        val logoRect = RectF(padX, headerTop, padX + logoSize, headerTop + logoSize)
-        val clipPath = android.graphics.Path().apply {
-            addRoundRect(logoRect, 24f, 24f, android.graphics.Path.Direction.CW)
-        }
-        canvas.save()
-        canvas.clipPath(clipPath)
-        canvas.drawBitmap(logoBmp, null, logoRect, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
-        canvas.restore()
-        logoBmp.recycle()
-    }
+    val logoRect = RectF(padX, headerTop, padX + logoSize, headerTop + logoSize)
+    drawSubCyclerSwirlLogoOnCanvas(
+        canvas = canvas,
+        bounds = logoRect,
+        colors = swirlColors,
+        cornerRadiusPx = 24f
+    )
 
     val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = displayBold
