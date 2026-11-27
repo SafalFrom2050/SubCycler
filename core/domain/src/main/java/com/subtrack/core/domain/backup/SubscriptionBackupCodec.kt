@@ -6,47 +6,84 @@ import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.model.SubscriptionCategory
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.util.Base64
 import java.util.Locale
+import java.util.zip.Deflater
 import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
+import java.util.zip.Inflater
 
 /**
  * Pure-Kotlin 100% offline app-to-app stack transfer & backup codec.
  *
- * Uses a single unified compressed payload shared across:
- * - Offline custom deep links (`subcycler://import?d=<token>`)
- * - Messaging & social media shares (`Intent.ACTION_SEND`, clipboard paste)
- * - Single portable `.subcycler` backup files (`FileProvider` / SAF)
+ * Uses a single ultra-compact binary + raw-Deflate v3 format (`subcycler://s/<token>`) shared
+ * across:
+ * - Short offline deep links & QR Stack Cards (`subcycler://s/<token>`, ~75% shorter than JSON+GZIP)
+ * - Messaging & social media shares (`Intent.ACTION_SEND`, clipboard paste, QR card images)
+ * - Single portable `.subcycler` backup files (`FileProvider` / SAF) paired with clean human captions
  *
- * Also retains transparent read-compatibility for legacy v1 backup files while requiring
- * zero extra dependencies and zero network or storage permissions.
+ * Transparently decodes v3 short links (`subcycler://s/...`), v2 links (`subcycler://import?d=...`),
+ * and legacy v1 local backup files with zero extra dependencies and zero network permissions.
  */
 object SubscriptionBackupCodec {
 
-    private const val BACKUP_VERSION = 2
+    private const val BACKUP_VERSION_JSON = 2
+    private const val BINARY_FORMAT_VERSION: Byte = 3
     private const val MAX_DECOMPRESSED_BYTES = 512 * 1024
     private const val MAX_ENCODED_TOKEN_CHARS = 128 * 1024
+    private const val MAX_SUBSCRIPTION_COUNT = 500
+    private val EPOCH_DATE: LocalDate = LocalDate.of(2020, 1, 1)
 
     const val DEEP_LINK_SCHEME = "subcycler"
-    const val DEEP_LINK_HOST = "import"
+    const val SHORT_LINK_HOST = "s"
+    const val LEGACY_LINK_HOST = "import"
     const val DEEP_LINK_PARAM = "d"
-    const val TRANSFER_LINK_PREFIX = "$DEEP_LINK_SCHEME://$DEEP_LINK_HOST?$DEEP_LINK_PARAM="
+    const val SHORT_LINK_PREFIX = "$DEEP_LINK_SCHEME://$SHORT_LINK_HOST/"
+    const val TRANSFER_LINK_PREFIX = SHORT_LINK_PREFIX
+    const val LEGACY_TRANSFER_LINK_PREFIX = "$DEEP_LINK_SCHEME://$LEGACY_LINK_HOST?$DEEP_LINK_PARAM="
     const val BACKUP_FILE_EXTENSION = "subcycler"
 
-    private val transferLinkRegex = Regex(
+    // Compact binary per-subscription optional field bitmask
+    private const val FLAG_CUSTOM_CURRENCY = 1 shl 0
+    private const val FLAG_YEARLY = 1 shl 1
+    private const val FLAG_NON_DEFAULT_CATEGORY = 1 shl 2
+    private const val FLAG_NON_DEFAULT_STRATEGY = 1 shl 3
+    private const val FLAG_NON_DEFAULT_ACTIVE_DAYS = 1 shl 4
+    private const val FLAG_NON_DEFAULT_BLACKOUT_DAYS = 1 shl 5
+    private const val FLAG_CUSTOM_COLOR = 1 shl 6
+    private const val FLAG_CUSTOM_ICON = 1 shl 7
+    private const val FLAG_HAS_NOTES = 1 shl 8
+    private const val FLAG_AUTO_RENEW_CANCELLED = 1 shl 9
+    private const val FLAG_BILLING_DATE_UNCONFIRMED = 1 shl 10
+    private const val FLAG_STRATEGY_UNCONFIRMED = 1 shl 11
+    private const val FLAG_HAS_CANCELLED_CYCLE = 1 shl 12
+    private const val FLAG_HAS_COMPLETED_BREAKS = 1 shl 13
+    private const val FLAG_HAS_EARNED_SAVINGS = 1 shl 14
+    private const val FLAG_HAS_BONUS_DAYS = 1 shl 15
+
+    private val shortLinkRegex = Regex(
+        """subcycler://s/([A-Za-z0-9_-]+)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val legacyTransferLinkRegex = Regex(
         """subcycler://import\?(?:[^#\s]*&)?d=([A-Za-z0-9_-]+)""",
         RegexOption.IGNORE_CASE
     )
 
-    fun containsTransferLink(text: String): Boolean = transferLinkRegex.containsMatchIn(text)
+    fun containsTransferLink(text: String): Boolean =
+        shortLinkRegex.containsMatchIn(text) || legacyTransferLinkRegex.containsMatchIn(text)
 
     fun extractTransferToken(rawInput: String): String? =
-        transferLinkRegex.find(rawInput)?.groupValues?.getOrNull(1)
+        shortLinkRegex.find(rawInput)?.groupValues?.getOrNull(1)
+            ?: legacyTransferLinkRegex.find(rawInput)?.groupValues?.getOrNull(1)
 
     /**
-     * Produces a compact offline deep link (`subcycler://import?d=...`) carrying the stack.
+     * Produces a sleek, ultra-compact offline deep link (`subcycler://s/<token>`) carrying the
+     * stack using binary field packing + omitted defaults + raw Deflate (zero `H4sI` header).
+     *
      * When [includePersonalHistory] is `false`, personal notes, earned savings, completed break
      * counts, bonus active days, and auto-renew cancellation flags are stripped so users can
      * safely share a clean subscription stack template with friends.
@@ -56,15 +93,55 @@ object SubscriptionBackupCodec {
         includePersonalHistory: Boolean = true
     ): String {
         val prepared = prepareForExport(subscriptions, includePersonalHistory)
-        val compactPayload = encodePayload(prepared, pretty = false)
-        val compressed = gzipCompress(compactPayload.toByteArray(Charsets.UTF_8))
+        val binary = encodeBinaryV3(prepared)
+        val compressed = rawDeflate(binary)
         val token = Base64.getUrlEncoder().withoutPadding().encodeToString(compressed)
-        return "$TRANSFER_LINK_PREFIX$token"
+        return "$SHORT_LINK_PREFIX$token"
     }
 
     /**
-     * Produces a clean, jargon-free share message ready for WhatsApp, Telegram, LINE, Discord,
-     * Messages, Notes, or social apps, embedding the offline `subcycler://import?d=...` link.
+     * Produces a clean, human-readable bulleted summary with ZERO encoded token strings,
+     * ideal as a chat caption paired with a `.subcycler` file attachment or Stack Card PNG.
+     */
+    fun toHumanShareCaption(
+        subscriptions: List<Subscription>,
+        includePersonalHistory: Boolean = true,
+        footerHint: String = "Open the attached file or card in SubCycler to import."
+    ): String {
+        val prepared = prepareForExport(subscriptions, includePersonalHistory)
+        val count = prepared.size
+        val noun = if (count == 1) "subscription" else "subscriptions"
+        return buildString {
+            append("My SubCycler stack ($count $noun)\n")
+            prepared.take(8).forEach { sub ->
+                val cycleText = when {
+                    sub.billingPeriod == BillingPeriod.YEARLY -> "Yearly"
+                    sub.strategy == RotationStrategy.CONTINUOUS -> "Always on"
+                    else -> "${sub.activeDays}d on / ${sub.blackoutDays}d off"
+                }
+                val costText = if (sub.cost > 0.0) {
+                    val formatted = if (sub.cost % 1.0 == 0.0) {
+                        sub.cost.toLong().toString()
+                    } else {
+                        String.format(Locale.US, "%.2f", sub.cost)
+                    }
+                    " · ${sub.currency} $formatted${sub.billingPeriod.shortSuffix}"
+                } else {
+                    ""
+                }
+                append("• ${sub.name}$costText ($cycleText)\n")
+            }
+            if (count > 8) {
+                append("• +${count - 8} more\n")
+            }
+            append("\n")
+            append(footerHint)
+        }
+    }
+
+    /**
+     * Produces a sleek short message for messaging & social apps carrying the compact
+     * `subcycler://s/...` link.
      */
     fun toShareMessage(
         subscriptions: List<Subscription>,
@@ -83,8 +160,8 @@ object SubscriptionBackupCodec {
         }
         val noun = if (count == 1) "subscription" else "subscriptions"
         return buildString {
-            append("SubCycler stack — $count $noun$namesSummary\n\n")
-            append("Tap the link or share this message to SubCycler to import:\n")
+            append("SubCycler stack — $count $noun$namesSummary\n")
+            append("Open or share this message to SubCycler:\n")
             append(link)
         }
     }
@@ -104,19 +181,28 @@ object SubscriptionBackupCodec {
 
     /**
      * Decodes any SubCycler transfer input:
-     * - A `subcycler://import?d=...` deep link
-     * - A chat/social message containing the link anywhere in its body
+     * - A compact v3 deep link (`subcycler://s/<token>`)
+     * - A v2 deep link (`subcycler://import?d=<token>`)
+     * - A chat/social message containing either link anywhere in its body
      * - A `.subcycler` backup file
-     * - A legacy v1 backup file for backward compatibility
+     * - A legacy v1 local backup file for backward compatibility
      */
     fun decodeTransferPayload(rawInput: String): Result<List<Subscription>> = runCatching {
         val trimmed = rawInput.trim()
         require(trimmed.isNotEmpty()) { "Nothing to import." }
 
-        val token = extractTransferToken(trimmed)
-        if (token != null) {
-            require(token.length <= MAX_ENCODED_TOKEN_CHARS) { "Backup link is too large to import." }
-            val compressed = Base64.getUrlDecoder().decode(token)
+        val shortToken = shortLinkRegex.find(trimmed)?.groupValues?.getOrNull(1)
+        if (shortToken != null) {
+            require(shortToken.length <= MAX_ENCODED_TOKEN_CHARS) { "Backup link is too large to import." }
+            val compressed = Base64.getUrlDecoder().decode(shortToken)
+            val decompressed = rawInflateBounded(compressed)
+            return@runCatching decodeBinaryV3(decompressed)
+        }
+
+        val legacyToken = legacyTransferLinkRegex.find(trimmed)?.groupValues?.getOrNull(1)
+        if (legacyToken != null) {
+            require(legacyToken.length <= MAX_ENCODED_TOKEN_CHARS) { "Backup link is too large to import." }
+            val compressed = Base64.getUrlDecoder().decode(legacyToken)
             val decompressed = gzipDecompressBounded(compressed)
             return@runCatching decodeEnvelope(decompressed.toString(Charsets.UTF_8))
         }
@@ -130,8 +216,8 @@ object SubscriptionBackupCodec {
     }
 
     /**
-     * Retained for internal/legacy compatibility; new app flows prefer [toBackupFilePayload],
-     * [toTransferLink], and [decodeTransferPayload].
+     * Retained for internal/legacy compatibility; new app flows prefer [toTransferLink],
+     * [toBackupFilePayload], and [decodeTransferPayload].
      */
     fun toJson(subscriptions: List<Subscription>): String = encodePayload(subscriptions, pretty = true)
 
@@ -151,6 +237,264 @@ object SubscriptionBackupCodec {
                 earnedSavingsTotal = 0.0,
                 bonusActiveDays = 0
             )
+        }
+    }
+
+    private fun encodeBinaryV3(subscriptions: List<Subscription>): ByteArray {
+        val baos = ByteArrayOutputStream()
+        val out = DataOutputStream(baos)
+        out.writeByte(BINARY_FORMAT_VERSION.toInt())
+
+        // Write shared primary currency once in header (3 ASCII bytes)
+        val defaultCurrency = subscriptions
+            .groupingBy { it.currency.uppercase(Locale.US).take(3).ifBlank { "USD" } }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key
+            ?: "USD"
+        out.writeUTF(defaultCurrency)
+        writeVarInt(out, subscriptions.size)
+
+        subscriptions.forEach { sub ->
+            val subCurrency = sub.currency.uppercase(Locale.US).take(3).ifBlank { "USD" }
+            var flags = 0
+            if (subCurrency != defaultCurrency) flags = flags or FLAG_CUSTOM_CURRENCY
+            if (sub.billingPeriod == BillingPeriod.YEARLY) flags = flags or FLAG_YEARLY
+            if (sub.category != SubscriptionCategory.STREAMING) flags = flags or FLAG_NON_DEFAULT_CATEGORY
+            if (sub.strategy != RotationStrategy.ROTATION_45_DAYS) flags = flags or FLAG_NON_DEFAULT_STRATEGY
+            if (sub.customActiveDays != 30) flags = flags or FLAG_NON_DEFAULT_ACTIVE_DAYS
+            if (sub.customBlackoutDays != 15) flags = flags or FLAG_NON_DEFAULT_BLACKOUT_DAYS
+            if (sub.colorHex != "#0C6B4E") flags = flags or FLAG_CUSTOM_COLOR
+            if (sub.iconName != "Tv") flags = flags or FLAG_CUSTOM_ICON
+            if (sub.notes.isNotEmpty()) flags = flags or FLAG_HAS_NOTES
+            if (sub.isAutoRenewCancelled) flags = flags or FLAG_AUTO_RENEW_CANCELLED
+            if (!sub.isBillingDateConfirmed) flags = flags or FLAG_BILLING_DATE_UNCONFIRMED
+            if (!sub.isStrategyConfirmed) flags = flags or FLAG_STRATEGY_UNCONFIRMED
+            if (sub.cancelledCycleIndex != null) flags = flags or FLAG_HAS_CANCELLED_CYCLE
+            if (sub.completedBreaksCount > 0) flags = flags or FLAG_HAS_COMPLETED_BREAKS
+            if (sub.earnedSavingsTotal > 0.0) flags = flags or FLAG_HAS_EARNED_SAVINGS
+            if (sub.bonusActiveDays > 0) flags = flags or FLAG_HAS_BONUS_DAYS
+
+            writeVarInt(out, flags)
+            out.writeUTF(sub.name)
+            // Compact cents encoding (minor units as unsigned varlong)
+            val costCents = kotlin.math.round(sub.cost.coerceAtLeast(0.0) * 100.0).toLong()
+            writeVarLong(out, costCents)
+            // Compact day offset relative to 2020-01-01 (zig-zag varint)
+            val dayOffset = ChronoUnit.DAYS.between(EPOCH_DATE, sub.startDate).toInt()
+            writeSignedVarInt(out, dayOffset)
+
+            if ((flags and FLAG_CUSTOM_CURRENCY) != 0) out.writeUTF(subCurrency)
+            if ((flags and FLAG_NON_DEFAULT_CATEGORY) != 0) out.writeByte(sub.category.ordinal)
+            if ((flags and FLAG_NON_DEFAULT_STRATEGY) != 0) out.writeByte(sub.strategy.ordinal)
+            if ((flags and FLAG_NON_DEFAULT_ACTIVE_DAYS) != 0) writeVarInt(out, sub.customActiveDays)
+            if ((flags and FLAG_NON_DEFAULT_BLACKOUT_DAYS) != 0) writeVarInt(out, sub.customBlackoutDays)
+            if ((flags and FLAG_CUSTOM_COLOR) != 0) out.writeUTF(sub.colorHex)
+            if ((flags and FLAG_CUSTOM_ICON) != 0) out.writeUTF(sub.iconName)
+            if ((flags and FLAG_HAS_NOTES) != 0) out.writeUTF(sub.notes)
+            if ((flags and FLAG_HAS_CANCELLED_CYCLE) != 0) writeSignedVarInt(out, sub.cancelledCycleIndex ?: 0)
+            if ((flags and FLAG_HAS_COMPLETED_BREAKS) != 0) writeVarInt(out, sub.completedBreaksCount)
+            if ((flags and FLAG_HAS_EARNED_SAVINGS) != 0) {
+                writeVarLong(out, kotlin.math.round(sub.earnedSavingsTotal.coerceAtLeast(0.0) * 100.0).toLong())
+            }
+            if ((flags and FLAG_HAS_BONUS_DAYS) != 0) writeVarInt(out, sub.bonusActiveDays)
+        }
+        out.flush()
+        return baos.toByteArray()
+    }
+
+    private fun decodeBinaryV3(bytes: ByteArray): List<Subscription> {
+        val input = DataInputStream(ByteArrayInputStream(bytes))
+        val version = input.readByte()
+        require(version == BINARY_FORMAT_VERSION) { "Unsupported SubCycler backup version." }
+
+        val defaultCurrency = input.readUTF().uppercase(Locale.US).take(3).ifBlank { "USD" }
+        val count = readVarInt(input)
+        require(count in 0..MAX_SUBSCRIPTION_COUNT) { "Backup contains an invalid number of entries." }
+
+        val categories = SubscriptionCategory.entries
+        val strategies = RotationStrategy.entries
+
+        return List(count) {
+            val flags = readVarInt(input)
+            val name = input.readUTF().trim()
+            require(name.isNotBlank()) { "A subscription entry is missing its name." }
+            val costCents = readVarLong(input)
+            require(costCents >= 0L) { "Subscription '$name' has an invalid price." }
+            val dayOffset = readSignedVarInt(input)
+            val startDate = EPOCH_DATE.plusDays(dayOffset.toLong())
+
+            val currency = if ((flags and FLAG_CUSTOM_CURRENCY) != 0) {
+                input.readUTF().uppercase(Locale.US).take(3).ifBlank { defaultCurrency }
+            } else {
+                defaultCurrency
+            }
+            val billingPeriod = if ((flags and FLAG_YEARLY) != 0) BillingPeriod.YEARLY else BillingPeriod.MONTHLY
+            val category = if ((flags and FLAG_NON_DEFAULT_CATEGORY) != 0) {
+                categories.getOrElse(input.readUnsignedByte()) { SubscriptionCategory.OTHER }
+            } else {
+                SubscriptionCategory.STREAMING
+            }
+            val strategy = if ((flags and FLAG_NON_DEFAULT_STRATEGY) != 0) {
+                strategies.getOrElse(input.readUnsignedByte()) { RotationStrategy.ROTATION_45_DAYS }
+            } else {
+                RotationStrategy.ROTATION_45_DAYS
+            }
+            val customActiveDays = if ((flags and FLAG_NON_DEFAULT_ACTIVE_DAYS) != 0) {
+                readVarInt(input).coerceAtLeast(1)
+            } else {
+                30
+            }
+            val customBlackoutDays = if ((flags and FLAG_NON_DEFAULT_BLACKOUT_DAYS) != 0) {
+                readVarInt(input).coerceAtLeast(0)
+            } else {
+                15
+            }
+            val colorHex = if ((flags and FLAG_CUSTOM_COLOR) != 0) {
+                input.readUTF().ifBlank { "#0C6B4E" }
+            } else {
+                "#0C6B4E"
+            }
+            val iconName = if ((flags and FLAG_CUSTOM_ICON) != 0) {
+                input.readUTF().ifBlank { "Tv" }
+            } else {
+                "Tv"
+            }
+            val notes = if ((flags and FLAG_HAS_NOTES) != 0) input.readUTF() else ""
+            val isAutoRenewCancelled = (flags and FLAG_AUTO_RENEW_CANCELLED) != 0
+            val isBillingDateConfirmed = (flags and FLAG_BILLING_DATE_UNCONFIRMED) == 0
+            val isStrategyConfirmed = (flags and FLAG_STRATEGY_UNCONFIRMED) == 0
+            val cancelledCycleIndex = if ((flags and FLAG_HAS_CANCELLED_CYCLE) != 0) readSignedVarInt(input) else null
+            val completedBreaksCount = if ((flags and FLAG_HAS_COMPLETED_BREAKS) != 0) {
+                readVarInt(input).coerceAtLeast(0)
+            } else {
+                0
+            }
+            val earnedSavingsTotal = if ((flags and FLAG_HAS_EARNED_SAVINGS) != 0) {
+                readVarLong(input).coerceAtLeast(0L) / 100.0
+            } else {
+                0.0
+            }
+            val bonusActiveDays = if ((flags and FLAG_HAS_BONUS_DAYS) != 0) {
+                readVarInt(input).coerceAtLeast(0)
+            } else {
+                0
+            }
+
+            Subscription(
+                name = name,
+                cost = costCents / 100.0,
+                currency = currency,
+                billingPeriod = billingPeriod,
+                category = category,
+                startDate = startDate,
+                strategy = strategy,
+                customActiveDays = customActiveDays,
+                customBlackoutDays = customBlackoutDays,
+                colorHex = colorHex,
+                iconName = iconName,
+                notes = notes,
+                isAutoRenewCancelled = isAutoRenewCancelled,
+                isBillingDateConfirmed = isBillingDateConfirmed,
+                isStrategyConfirmed = isStrategyConfirmed,
+                cancelledCycleIndex = cancelledCycleIndex,
+                completedBreaksCount = completedBreaksCount,
+                earnedSavingsTotal = earnedSavingsTotal,
+                bonusActiveDays = bonusActiveDays
+            )
+        }
+    }
+
+    private fun writeVarInt(out: DataOutputStream, value: Int) {
+        var v = value
+        while ((v and 0x7F.inv()) != 0) {
+            out.writeByte((v and 0x7F) or 0x80)
+            v = v ushr 7
+        }
+        out.writeByte(v and 0x7F)
+    }
+
+    private fun readVarInt(input: DataInputStream): Int {
+        var shift = 0
+        var result = 0
+        while (shift < 35) {
+            val b = input.readUnsignedByte()
+            result = result or ((b and 0x7F) shl shift)
+            if ((b and 0x80) == 0) return result
+            shift += 7
+        }
+        error("Malformed backup integer")
+    }
+
+    private fun writeSignedVarInt(out: DataOutputStream, value: Int) {
+        val zigzag = (value shl 1) xor (value shr 31)
+        writeVarInt(out, zigzag)
+    }
+
+    private fun readSignedVarInt(input: DataInputStream): Int {
+        val raw = readVarInt(input)
+        return (raw ushr 1) xor -(raw and 1)
+    }
+
+    private fun writeVarLong(out: DataOutputStream, value: Long) {
+        var v = value
+        while ((v and 0x7FL.inv()) != 0L) {
+            out.writeByte(((v and 0x7FL) or 0x80L).toInt())
+            v = v ushr 7
+        }
+        out.writeByte((v and 0x7FL).toInt())
+    }
+
+    private fun readVarLong(input: DataInputStream): Long {
+        var shift = 0
+        var result = 0L
+        while (shift < 70) {
+            val b = input.readUnsignedByte().toLong()
+            result = result or ((b and 0x7FL) shl shift)
+            if ((b and 0x80L) == 0L) return result
+            shift += 7
+        }
+        error("Malformed backup number")
+    }
+
+    private fun rawDeflate(bytes: ByteArray): ByteArray {
+        val deflater = Deflater(Deflater.BEST_COMPRESSION, true)
+        return try {
+            deflater.setInput(bytes)
+            deflater.finish()
+            val out = ByteArrayOutputStream(bytes.size)
+            val buffer = ByteArray(1024)
+            while (!deflater.finished()) {
+                val count = deflater.deflate(buffer)
+                if (count > 0) out.write(buffer, 0, count)
+            }
+            out.toByteArray()
+        } finally {
+            deflater.end()
+        }
+    }
+
+    private fun rawInflateBounded(bytes: ByteArray): ByteArray {
+        val inflater = Inflater(true)
+        return try {
+            inflater.setInput(bytes)
+            val out = ByteArrayOutputStream()
+            val buffer = ByteArray(4096)
+            var total = 0
+            while (!inflater.finished()) {
+                val count = inflater.inflate(buffer)
+                if (count == 0) {
+                    if (inflater.needsInput() || inflater.needsDictionary()) break
+                } else {
+                    total += count
+                    require(total <= MAX_DECOMPRESSED_BYTES) { "Backup exceeds maximum safe size." }
+                    out.write(buffer, 0, count)
+                }
+            }
+            require(total > 0) { "Backup link is corrupted." }
+            out.toByteArray()
+        } finally {
+            inflater.end()
         }
     }
 
@@ -182,9 +526,9 @@ object SubscriptionBackupCodec {
             }
         }
         return if (pretty) {
-            "{\n  \"app\": \"SubCycler\",\n  \"version\": $BACKUP_VERSION,\n  \"subscriptions\": [\n$items\n  ]\n}\n"
+            "{\n  \"app\": \"SubCycler\",\n  \"version\": $BACKUP_VERSION_JSON,\n  \"subscriptions\": [\n$items\n  ]\n}\n"
         } else {
-            "{\"app\":\"SubCycler\",\"version\":$BACKUP_VERSION,\"subscriptions\":[$items]}"
+            "{\"app\":\"SubCycler\",\"version\":$BACKUP_VERSION_JSON,\"subscriptions\":[$items]}"
         }
     }
 
@@ -239,12 +583,6 @@ object SubscriptionBackupCodec {
                 bonusActiveDays = fields["bonusActiveDays"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0
             )
         }
-    }
-
-    private fun gzipCompress(bytes: ByteArray): ByteArray {
-        val out = ByteArrayOutputStream()
-        GZIPOutputStream(out).use { gzip -> gzip.write(bytes) }
-        return out.toByteArray()
     }
 
     private fun gzipDecompressBounded(bytes: ByteArray): ByteArray {

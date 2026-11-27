@@ -120,6 +120,39 @@ class SubscriptionBackupCodecTest {
     }
 
     @Test
+    fun transferLinkIsCompactAndShortForTypicalThreeServiceStack() {
+        val threeSubs = listOf(
+            Subscription(name = "Netflix", cost = 17.99, currency = "USD", startDate = LocalDate.of(2026, 11, 27)),
+            Subscription(name = "Disney+", cost = 15.99, currency = "USD", startDate = LocalDate.of(2026, 11, 27)),
+            Subscription(
+                name = "Spotify",
+                cost = 11.99,
+                currency = "USD",
+                category = SubscriptionCategory.MUSIC,
+                strategy = RotationStrategy.CONTINUOUS,
+                startDate = LocalDate.of(2026, 11, 27)
+            )
+        )
+        val link = SubscriptionBackupCodec.toTransferLink(threeSubs, includePersonalHistory = false)
+        assertTrue(link.startsWith(SubscriptionBackupCodec.SHORT_LINK_PREFIX))
+        assertFalse(link.contains("H4sI"))
+        assertTrue("Expected compact link under 150 chars, got ${link.length}: $link", link.length < 150)
+
+        val decoded = SubscriptionBackupCodec.decodeTransferPayload(link).getOrThrow()
+        assertEquals(threeSubs, decoded)
+    }
+
+    @Test
+    fun humanShareCaptionContainsZeroEncodedTokensOrJargon() {
+        val caption = SubscriptionBackupCodec.toHumanShareCaption(richSample, includePersonalHistory = false)
+        assertFalse(caption.contains("subcycler://"))
+        assertFalse(caption.contains("json", ignoreCase = true))
+        assertFalse(caption.contains("csv", ignoreCase = true))
+        assertTrue(caption.contains("Netflix"))
+        assertTrue(caption.contains("Amazon Prime Video"))
+    }
+
+    @Test
     fun transferLinkPreservesIncompleteDraftSubscription() {
         val draft = Subscription(
             name = "Draft Service",
