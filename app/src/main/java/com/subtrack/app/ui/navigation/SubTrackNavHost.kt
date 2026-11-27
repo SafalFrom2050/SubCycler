@@ -52,6 +52,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
 import com.subtrack.core.ui.components.ReactiveIcon
@@ -74,6 +75,7 @@ fun SubTrackApp(
     onOpenSubscriptionConsumed: () -> Unit = {},
     pendingTransferPayload: String? = null,
     onTransferPayloadConsumed: () -> Unit = {},
+    onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     appViewModel: AppViewModel = hiltViewModel()
 ) {
     val launchState by appViewModel.launchState.collectAsStateWithLifecycle()
@@ -107,7 +109,8 @@ fun SubTrackApp(
             openSubscriptionId = openSubscriptionId,
             onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
             pendingTransferPayload = pendingTransferPayload,
-            onTransferPayloadConsumed = onTransferPayloadConsumed
+            onTransferPayloadConsumed = onTransferPayloadConsumed,
+            onApplyLauncherIcon = onApplyLauncherIcon
         )
     }
 }
@@ -118,7 +121,8 @@ private fun SubTrackMainNavigation(
     openSubscriptionId: Long? = null,
     onOpenSubscriptionConsumed: () -> Unit = {},
     pendingTransferPayload: String? = null,
-    onTransferPayloadConsumed: () -> Unit = {}
+    onTransferPayloadConsumed: () -> Unit = {},
+    onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -197,7 +201,8 @@ private fun SubTrackMainNavigation(
                         onTransferPayloadConsumed = onTransferPayloadConsumed,
                         pendingAddSubscription = pendingAddSubscription,
                         onAddSubscriptionConsumed = { pendingAddSubscription = false },
-                        onNavigateToSavings = { navigateToTab(AnalyticsDestination) }
+                        onNavigateToSavings = { navigateToTab(AnalyticsDestination) },
+                        onApplyLauncherIcon = onApplyLauncherIcon
                     )
                 }
                 composable<PlannerDestination> {

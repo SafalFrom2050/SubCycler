@@ -1,9 +1,11 @@
 package com.subtrack.core.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,13 +16,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
@@ -56,10 +62,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.domain.model.CalendarAccessIssue
 import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.DeviceCalendar
+import com.subtrack.core.ui.theme.BrandColorHarmonizer
+import com.subtrack.core.ui.theme.SwirlLogoColors
 
 /**
  * Full Offline Settings Sheet using BunPod-inspired Positional Connected Card Stacks
@@ -82,10 +91,13 @@ fun CalendarSettingsSheet(
     notificationLeadDays: Int = 3,
     themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     useStackHeroMood: Boolean = true,
+    selectedLauncherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
+    recommendedLauncherIcon: AppLauncherIcon? = null,
     onCurrencySelected: ((String) -> Unit)? = null,
     onNotificationLeadDaysSelected: ((Int) -> Unit)? = null,
     onThemeModeSelected: ((AppThemeMode) -> Unit)? = null,
     onUseStackHeroMoodChanged: ((Boolean) -> Unit)? = null,
+    onLauncherIconSelected: ((AppLauncherIcon) -> Unit)? = null,
     onOpenNotificationSettings: (() -> Unit)? = null,
     onShareStack: (() -> Unit)? = null,
     onImportStack: (() -> Unit)? = null,
@@ -229,6 +241,7 @@ fun CalendarSettingsSheet(
                 if (onCurrencySelected != null) add("currency")
                 if (onThemeModeSelected != null) add("theme")
                 if (onUseStackHeroMoodChanged != null) add("hero_mood")
+                if (onLauncherIconSelected != null) add("app_icon")
                 if (!notificationsAvailable) add("notif_off")
                 if (onNotificationLeadDaysSelected != null) add("lead_days")
             }
@@ -348,6 +361,143 @@ fun CalendarSettingsSheet(
                                         checked = useStackHeroMood,
                                         onCheckedChange = onUseStackHeroMoodChanged!!
                                     )
+                                }
+                            }
+
+                            "app_icon" -> ExpressiveSectionRow(index = index, count = prefItems.size) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 15.dp),
+                                    verticalArrangement = Arrangement.spacedBy(11.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "App icon",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = "Pick your home screen SubCycler swirl.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        if (recommendedLauncherIcon != null && recommendedLauncherIcon != selectedLauncherIcon) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Surface(
+                                                onClick = { onLauncherIconSelected!!(recommendedLauncherIcon) },
+                                                shape = RoundedCornerShape(999.dp),
+                                                color = MaterialTheme.colorScheme.primaryContainer
+                                            ) {
+                                                Text(
+                                                    text = "Match ${recommendedLauncherIcon.displayName}",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    LazyRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(AppLauncherIcon.entries, key = { it.name }) { iconOption ->
+                                            val isSelected = iconOption == selectedLauncherIcon
+                                            val isStackMatch = iconOption == recommendedLauncherIcon
+                                            val swirlPreviewColors = remember(iconOption) {
+                                                SwirlLogoColors(
+                                                    lightPetal = BrandColorHarmonizer.colorFromHex(iconOption.lightPetalHex),
+                                                    midPetal = BrandColorHarmonizer.colorFromHex(iconOption.midPetalHex),
+                                                    deepPetal = BrandColorHarmonizer.colorFromHex(iconOption.deepPetalHex),
+                                                    backdrop = BrandColorHarmonizer.colorFromHex(iconOption.backdropHex),
+                                                    centerGlyph = BrandColorHarmonizer.colorFromHex(iconOption.lightPetalHex)
+                                                )
+                                            }
+                                            Surface(
+                                                onClick = { onLauncherIconSelected!!(iconOption) },
+                                                shape = RoundedCornerShape(20.dp),
+                                                color = if (isSelected) {
+                                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f)
+                                                },
+                                                border = BorderStroke(
+                                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                                                    }
+                                                )
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .width(74.dp)
+                                                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.BottomEnd) {
+                                                        SubCyclerSwirlLogo(
+                                                            colors = swirlPreviewColors,
+                                                            size = 44.dp,
+                                                            cornerRadius = 13.dp,
+                                                            contentDescriptionText = "${iconOption.displayName} app icon"
+                                                        )
+                                                        if (isSelected) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(18.dp)
+                                                                    .clip(CircleShape)
+                                                                    .background(MaterialTheme.colorScheme.primary),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Check,
+                                                                    contentDescription = "Selected",
+                                                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                                                    modifier = Modifier.size(11.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                    Text(
+                                                        text = iconOption.displayName,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                                        color = if (isSelected) {
+                                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                                        } else {
+                                                            MaterialTheme.colorScheme.onSurface
+                                                        },
+                                                        maxLines = 1
+                                                    )
+                                                    if (isStackMatch) {
+                                                        Text(
+                                                            text = "Stack fit",
+                                                            fontSize = 9.5.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            maxLines = 1
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
 

@@ -101,6 +101,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.CalendarSuggestionType
@@ -171,6 +172,7 @@ fun DashboardRoute(
     pendingAddSubscription: Boolean = false,
     onAddSubscriptionConsumed: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
+    onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -406,6 +408,7 @@ fun DashboardRoute(
         onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
         pendingAddSubscription = pendingAddSubscription,
         onAddSubscriptionConsumed = onAddSubscriptionConsumed,
+        onApplyLauncherIcon = onApplyLauncherIcon,
         modifier = modifier
     )
 }
@@ -437,6 +440,7 @@ fun DashboardScreen(
     onOpenSubscriptionConsumed: () -> Unit = {},
     pendingAddSubscription: Boolean = false,
     onAddSubscriptionConsumed: () -> Unit = {},
+    onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -1232,6 +1236,13 @@ fun DashboardScreen(
     }
 
     if (showSettings) {
+        val recommendedIcon = remember(activeSubscriptions) {
+            if (activeSubscriptions.isNotEmpty()) {
+                com.subtrack.core.ui.theme.BrandColorHarmonizer.recommendedLauncherIcon(activeSubscriptions)
+            } else {
+                null
+            }
+        }
         CalendarSettingsSheet(
             enabled = uiState.calendarSettings.isEnabled,
             selectedCalendarCount = uiState.calendarSettings.selectedCalendarIds.size,
@@ -1254,6 +1265,8 @@ fun DashboardScreen(
             notificationLeadDays = uiState.notificationLeadDays,
             themeMode = uiState.themeMode,
             useStackHeroMood = uiState.useStackHeroMood,
+            selectedLauncherIcon = uiState.launcherIcon,
+            recommendedLauncherIcon = recommendedIcon,
             onCurrencySelected = {
                 onAction(DashboardAction.SetDefaultCurrency(it))
                 snackHostState.show(
@@ -1266,6 +1279,15 @@ fun DashboardScreen(
             onThemeModeSelected = { onAction(DashboardAction.SetThemeMode(it)) },
             onUseStackHeroMoodChanged = { enabled ->
                 onAction(DashboardAction.SetUseStackHeroMood(enabled))
+            },
+            onLauncherIconSelected = { icon ->
+                onAction(DashboardAction.SetLauncherIcon(icon))
+                onApplyLauncherIcon(icon)
+                snackHostState.show(
+                    message = "App icon set to ${icon.displayName}",
+                    icon = Icons.Default.Check,
+                    dedupeKey = "launcher_icon_${icon.name}"
+                )
             },
             onOpenNotificationSettings = {
                 runCatching {

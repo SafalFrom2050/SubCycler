@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.subtrack.app.notification.NotificationHelper
+import com.subtrack.app.ui.LauncherIconController
 import com.subtrack.app.ui.navigation.AppViewModel
 import com.subtrack.app.ui.navigation.SubTrackApp
 import com.subtrack.core.domain.backup.SubscriptionBackupCodec
@@ -109,6 +110,9 @@ class MainActivity : ComponentActivity() {
                         onOpenSubscriptionConsumed = { openSubscriptionId = null },
                         pendingTransferPayload = pendingTransferPayload,
                         onTransferPayloadConsumed = { pendingTransferPayload = null },
+                        onApplyLauncherIcon = { icon ->
+                            LauncherIconController.applyLauncherIcon(this@MainActivity, icon)
+                        },
                         appViewModel = appViewModel
                     )
                 }
