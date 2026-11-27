@@ -109,6 +109,7 @@ SubCycler bundles two 100% offline **SIL Open Font License (OFL)** variable font
 3. ❌ **NEVER bundle third-party trademarked brand logos**. Use trademark-safe organic `ExpressiveServiceBadge` shapes and shared `ExpressivePalettes.initialsForService()` monograms.
 4. ❌ **NEVER add emojis to status badges or headers** (e.g. no `🟢`, `⏸️`, `⚡`, `🔔`). Use reactive vector icons and typography.
 5. ✅ **ALWAYS preserve zero `INTERNET` and zero `USE_EXACT_ALARM` permissions**, offline-only regional price estimation without fabricated currency conversion, reduced-motion (`ANIMATOR_DURATION_SCALE`) snapping via `ExpressiveMotion`, and Room migration safety.
+6. ✅ **ALWAYS paint `RoundedPolygonShape` / `MorphPolygonShape` via `Modifier.expressivePolygonSurface(...)` (NEVER `Modifier.clip(shape)` or `Surface(shape = ...)` on `Outline.Generic`)**: SubCycler targets `minSdk = 26` (Android 8.0). On API 26–28 legacy HWUI GL pipelines, clipping a `RenderNode` to a non-convex/cubic-Bézier `Outline.Generic` drops the entire layer (0 pixels rendered). `Modifier.expressivePolygonSurface(...)` paints fills and borders directly via `drawOutline` (`Canvas.drawPath`), guaranteeing identical Material 3 Expressive silhouettes across API 26–36+. Similarly, `Modifier.progressiveEdgeFade(...)` automatically uses a zero-FBO gradient scrim below API 29 (`Build.VERSION_CODES.Q`) to keep scrolling smooth and prevent nested `LazyRow` clipping artifacts on older GPUs.
 
 ---
 
