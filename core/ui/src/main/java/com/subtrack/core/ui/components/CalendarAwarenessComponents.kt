@@ -394,10 +394,10 @@ fun CalendarSettingsSheet(
             // 3. Offline App-to-App Transfer & Backup Connected Stack (Zero Cloud / Zero Jargon)
             val transferActions = buildList {
                 if (onShareStack != null) {
-                    add(Triple("Share stack", "Send via messaging, social apps, or backup file", onShareStack))
+                    add(Triple("Share stack", "QR Stack Card, short link, or backup file", onShareStack))
                 }
                 if (onImportStack != null) {
-                    add(Triple("Import stack", "Paste a transfer link or open a SubCycler file", onImportStack))
+                    add(Triple("Import stack", "From a Stack Card image, short link, or file", onImportStack))
                 }
             }
             if (transferActions.isNotEmpty()) {

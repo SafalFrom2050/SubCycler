@@ -343,7 +343,7 @@ fun ShareStackSheet(
                         index = 0,
                         count = 2,
                         title = "Short transfer link",
-                        subtitle = "Compact link for chats & messages (${liveShortLink.length} chars)",
+                        subtitle = "Tiny link for chats · ${liveShortLink.length} chars",
                         icon = Icons.Default.Link,
                         badgeShape = ExpressiveCookie8Shape,
                         palette = skyPalette,
@@ -361,7 +361,7 @@ fun ShareStackSheet(
                         index = 1,
                         count = 2,
                         title = "Backup file (.subcycler)",
-                        subtitle = "Clean chat summary with attached file",
+                        subtitle = "Clean chat summary + file",
                         icon = Icons.Default.Description,
                         badgeShape = ExpressiveArchShape,
                         palette = oceanPalette,
@@ -860,7 +860,7 @@ private fun TransferActionRowWithPill(
                     style = MaterialTheme.typography.bodySmall,
                     fontSize = 11.5.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
