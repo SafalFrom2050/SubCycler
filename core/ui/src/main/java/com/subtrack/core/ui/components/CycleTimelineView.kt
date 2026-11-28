@@ -5,6 +5,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -14,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Autorenew
-import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -33,7 +34,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.subtrack.core.common.currency.MoneyFormatter
-import com.subtrack.core.domain.engine.RotationEngine
 import com.subtrack.core.domain.model.ActionUrgency
 import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.CyclePhase
@@ -53,11 +53,11 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 /**
- * Bold Color-Block Material 3 Expressive Cycle Timeline Card:
- * - Harmonized true-hue brand colors for Active windows (matching Home's 2-zone vessels & Savings)
- * - Crisp `45°` hatched Rest blocks with per-break savings reward pills
- * - Live animated progress bar inside the current `NOW` phase window
- * - Automatic horizontal scroll tracking whenever [inspectedDate] scrubs across future/past cycles
+ * Minimal, Uniform-Proportion Bold Color-Block Material 3 Expressive Cycle Timeline Card:
+ * - Uniform `156dp × 90dp` snapping horizontal cycle blocks (zero jagged height/width steps)
+ * - Harmonized true-hue brand colors for Active windows + `45°` hatched Break windows with `+¥X` rewards
+ * - Live animated progress bar tucked cleanly inside the `NOW` block's fixed height
+ * - Minimal text: zero redundant renewal footers on continuous/yearly plans
  */
 @Composable
 fun CycleTimelineView(
@@ -74,6 +74,10 @@ fun CycleTimelineView(
     val reducedMotion = rememberReducedMotionEnabled()
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d") }
     val listState = rememberLazyListState()
+    val snapFling = rememberSnapFlingBehavior(
+        lazyListState = listState,
+        snapPosition = SnapPosition.Start
+    )
 
     val isActiveNow = cycleStatus.phase == CyclePhase.ACTIVE
     val isYearly = sub.billingPeriod == BillingPeriod.YEARLY
@@ -167,13 +171,16 @@ fun CycleTimelineView(
         }
     }
 
+    // Only rotating plans surface a terse actionable cue; Always-on/Yearly cards stay minimal.
+    val showRotatingFooter = sub.isRotating && !isYearly
+
     val cardContent: @Composable () -> Unit = {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 14.dp)
+                .padding(top = 15.dp, bottom = if (showRotatingFooter) 13.dp else 15.dp)
         ) {
-            // 1. Brand Header Row
+            // 1. Minimal Brand Header Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -188,17 +195,17 @@ fun CycleTimelineView(
                     ExpressiveServiceBadge(
                         serviceName = sub.name,
                         colorHex = sub.colorHex,
-                        size = 42.dp,
-                        fontSize = 13.sp,
+                        size = 40.dp,
+                        fontSize = 12.5.sp,
                         lifecycleState = lifecycleState
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(11.dp))
                     Column {
                         Text(
                             text = sub.name,
                             fontFamily = DisplayFontFamily,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp,
+                            fontSize = 15.5.sp,
                             letterSpacing = (-0.2).sp,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
@@ -207,10 +214,9 @@ fun CycleTimelineView(
                         Spacer(modifier = Modifier.height(1.dp))
                         Text(
                             text = when {
-                                isYearly -> "Annual 365d · ${MoneyFormatter.format(sub.cost, sub.currency)}/yr"
-                                sub.strategy == RotationStrategy.CONTINUOUS -> "Always on · ${MoneyFormatter.format(sub.cost, sub.currency)}/mo"
-                                sub.strategy == RotationStrategy.ROTATION_45_DAYS -> "45d rhythm · 30d on / 15d off"
-                                sub.strategy == RotationStrategy.ROTATION_60_DAYS -> "60d swap · 30d on / 30d off"
+                                isYearly -> "${MoneyFormatter.format(sub.cost, sub.currency)}/yr"
+                                sub.strategy == RotationStrategy.CONTINUOUS ->
+                                    "${MoneyFormatter.format(sub.cost, sub.currency)}/mo · Always"
                                 else -> "${sub.activeDays}d on · ${sub.blackoutDays}d off"
                             },
                             fontFamily = BodyFontFamily,
@@ -251,14 +257,15 @@ fun CycleTimelineView(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(13.dp))
 
-            // 2. Proportional Brand-Tinted Horizontal Cycle Track
+            // 2. Uniform-Proportion Snapping Horizontal Cycle Track (156dp × 90dp every tile)
             LazyRow(
                 state = listState,
+                flingBehavior = snapFling,
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 itemsIndexed(
                     items = cycleStatus.timelineBlocks,
@@ -272,10 +279,6 @@ fun CycleTimelineView(
                     val isPausedBlock = !isActiveBlock
 
                     val blockDays = ChronoUnit.DAYS.between(block.startDate, block.endDate).toInt().coerceAtLeast(1)
-                    val blockWidth = when {
-                        isYearly -> 188.dp
-                        else -> (blockDays * 4.4f + 70f).dp.coerceIn(124.dp, 204.dp)
-                    }
                     val blockCorner = RoundedCornerShape(18.dp)
 
                     val blockBg = when {
@@ -311,7 +314,8 @@ fun CycleTimelineView(
 
                     Box(
                         modifier = Modifier
-                            .width(blockWidth)
+                            .width(156.dp)
+                            .height(90.dp)
                             .clip(blockCorner)
                             .background(blockBg)
                             .then(
@@ -326,9 +330,12 @@ fun CycleTimelineView(
                                 }
                             )
                             .border(blockBorderWidth, blockBorderColor, blockCorner)
-                            .padding(horizontal = 12.dp, vertical = 11.dp)
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
-                        Column {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -349,7 +356,7 @@ fun CycleTimelineView(
                                     )
                                     Text(
                                         text = if (isActiveBlock) "ACTIVE" else "BREAK",
-                                        fontSize = 10.sp,
+                                        fontSize = 9.5.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         letterSpacing = 0.8.sp,
                                         color = phaseEyebrowColor
@@ -363,7 +370,7 @@ fun CycleTimelineView(
                                     ) {
                                         Text(
                                             text = "DATE",
-                                            fontSize = 9.sp,
+                                            fontSize = 8.5.sp,
                                             fontWeight = FontWeight.Black,
                                             letterSpacing = 0.5.sp,
                                             color = accentTokens.onHeroPop,
@@ -376,7 +383,7 @@ fun CycleTimelineView(
                                     ) {
                                         Text(
                                             text = "NOW",
-                                            fontSize = 9.sp,
+                                            fontSize = 8.5.sp,
                                             fontWeight = FontWeight.Black,
                                             letterSpacing = 0.5.sp,
                                             color = if (isActiveBlock) brandPalette.content else accentTokens.onHeroPop,
@@ -389,7 +396,7 @@ fun CycleTimelineView(
                                     ) {
                                         Text(
                                             text = "+$formattedPerBreakSave",
-                                            fontSize = 9.sp,
+                                            fontSize = 8.5.sp,
                                             fontWeight = FontWeight.Black,
                                             color = if (isDark) accentTokens.heroPop else accentTokens.onHeroPop,
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -398,41 +405,32 @@ fun CycleTimelineView(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(7.dp))
-
-                            Text(
-                                text = "${block.startDate.format(dateFormatter)} – ${block.endDate.format(dateFormatter)}",
-                                fontFamily = DisplayFontFamily,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = (-0.2).sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            Text(
-                                text = when {
-                                    isYearly -> "365d annual window"
-                                    isActiveBlock -> "${blockDays}d active"
-                                    else -> "${blockDays}d rest"
-                                },
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Column {
+                                Text(
+                                    text = "${block.startDate.format(dateFormatter)} – ${block.endDate.format(dateFormatter)}",
+                                    fontFamily = DisplayFontFamily,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = (-0.2).sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (isYearly) "365d" else "${blockDays}d",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
 
                             if (isCurrent) {
-                                Spacer(modifier = Modifier.height(8.dp))
                                 val targetProgress = cycleStatus.progressFraction.coerceIn(0.06f, 1f)
                                 Canvas(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(4.5.dp)
+                                        .height(4.dp)
                                 ) {
                                     val r = CornerRadius(size.height / 2f, size.height / 2f)
                                     drawRoundRect(
@@ -450,75 +448,76 @@ fun CycleTimelineView(
                                         cornerRadius = r
                                     )
                                 }
+                            } else {
+                                Spacer(modifier = Modifier.height(4.dp))
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            // 3. Terse Action Footer — Rotating Services Only (zero noise on Always-on/Yearly plans)
+            if (showRotatingFooter) {
+                Spacer(modifier = Modifier.height(11.dp))
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = 0.75.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.24f)
+                )
+                Spacer(modifier = Modifier.height(9.dp))
 
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                thickness = 0.75.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // 3. Action Cue Footer
-            val formattedEnd = RotationEngine.formatReadableDate(cycleStatus.phaseEndDate)
-            val footerIcon = when {
-                !sub.isRotating || isYearly -> Icons.Default.EventRepeat
-                cycleStatus.phase == CyclePhase.ACTIVE -> Icons.Default.NotificationsNone
-                else -> Icons.Default.Autorenew
-            }
-            val footerText = when {
-                isYearly -> "Annual renewal on $formattedEnd"
-                !sub.isRotating -> "Continuous monthly renewal on $formattedEnd"
-                cycleStatus.phase == CyclePhase.ACTIVE && cycleStatus.isAutoRenewCancelledForCurrentCycle ->
-                    "Auto-renew off · ${sub.blackoutDays}d break starts $formattedEnd"
-                cycleStatus.phase == CyclePhase.ACTIVE ->
-                    "Turn off auto-renew before $formattedEnd"
-                else ->
-                    "Saves ~${MoneyFormatter.format(cycleStatus.perBreakSavings, sub.currency)} · Resume on $formattedEnd"
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
-                    Icon(
-                        imageVector = footerIcon,
-                        contentDescription = null,
-                        tint = if (isActiveNow) brandPalette.accent else accentTokens.heroPop,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Text(
-                        text = footerText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                val shortEnd = cycleStatus.phaseEndDate.format(dateFormatter)
+                val footerIcon = if (cycleStatus.phase == CyclePhase.ACTIVE) {
+                    Icons.Default.NotificationsNone
+                } else {
+                    Icons.Default.Autorenew
                 }
-                if (onClick != null) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                        modifier = Modifier.size(16.dp)
-                    )
+                val footerText = when {
+                    cycleStatus.phase == CyclePhase.ACTIVE && cycleStatus.isAutoRenewCancelledForCurrentCycle ->
+                        "Break starts $shortEnd"
+                    cycleStatus.phase == CyclePhase.ACTIVE ->
+                        "Cancel by $shortEnd"
+                    formattedPerBreakSave != null ->
+                        "Resume $shortEnd · +$formattedPerBreakSave"
+                    else ->
+                        "Resume $shortEnd"
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = footerIcon,
+                            contentDescription = null,
+                            tint = if (isActiveNow) brandPalette.accent else accentTokens.heroPop,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = footerText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (onClick != null) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.50f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }
