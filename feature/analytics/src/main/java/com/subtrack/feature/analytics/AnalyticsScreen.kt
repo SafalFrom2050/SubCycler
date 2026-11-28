@@ -1,5 +1,6 @@
 package com.subtrack.feature.analytics
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -28,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -63,11 +67,14 @@ import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
 fun AnalyticsRoute(
     viewModel: AnalyticsViewModel = hiltViewModel(),
+    isEntranceReady: Boolean = true,
     onOpenPairedSwap: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -87,6 +94,7 @@ fun AnalyticsRoute(
     AnalyticsScreen(
         uiState = uiState,
         onAction = viewModel::onAction,
+        isEntranceReady = isEntranceReady,
         onOpenPairedSwap = onOpenPairedSwap,
         modifier = modifier
     )
@@ -97,6 +105,7 @@ fun AnalyticsRoute(
 fun AnalyticsScreen(
     uiState: AnalyticsUiState,
     onAction: (AnalyticsAction) -> Unit,
+    isEntranceReady: Boolean = true,
     onOpenPairedSwap: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -135,6 +144,33 @@ fun AnalyticsScreen(
     ) { innerPadding ->
         val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val reducedMotion = rememberReducedMotionEnabled()
+        val skipEntrance = isEntranceReady || reducedMotion
+        val heroReveal = remember { Animatable(if (skipEntrance) 1f else 0f) }
+        val arcDrawReveal = remember { Animatable(if (skipEntrance) 1f else 0f) }
+
+        LaunchedEffect(isEntranceReady, reducedMotion) {
+            if (!isEntranceReady) return@LaunchedEffect
+            if (reducedMotion) {
+                heroReveal.snapTo(1f)
+                arcDrawReveal.snapTo(1f)
+                return@LaunchedEffect
+            }
+            if (heroReveal.value >= 0.99f && arcDrawReveal.value >= 0.99f) return@LaunchedEffect
+            launch {
+                heroReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+            }
+            launch {
+                delay(70L)
+                arcDrawReveal.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = 0.82f,
+                        stiffness = 280f,
+                        visibilityThreshold = 0.001f
+                    )
+                )
+            }
+        }
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -218,7 +254,16 @@ fun AnalyticsScreen(
                     }
 
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                val r = heroReveal.value
+                                val s = 0.96f + 0.04f * r
+                                alpha = ExpressiveMotion.clampEffectProgress(r * 1.45f)
+                                scaleX = s
+                                scaleY = s
+                                translationY = (1f - r) * 14.dp.toPx()
+                            },
                         shape = RoundedCornerShape(28.dp),
                         color = Color.Transparent
                     ) {
@@ -275,6 +320,7 @@ fun AnalyticsScreen(
                                         CompoundingGrowthArc(
                                             strokeColor = accentTokens.heroPop,
                                             nodeColor = savingsHeroInk,
+                                            drawProgress = arcDrawReveal.value,
                                             modifier = Modifier
                                                 .width(96.dp)
                                                 .height(74.dp)
@@ -305,6 +351,8 @@ fun AnalyticsScreen(
                             currencyCode = uiState.currencyCode,
                             palette = if (hasEarned) boldPalette else neutralPalette,
                             progressFraction = if (hasEarned) earnedFraction.coerceAtLeast(0.18f) else 0.08f,
+                            isEntranceReady = isEntranceReady,
+                            entranceIndex = 0,
                             caption = if (!hasEarned) "Bank 1st break" else null,
                             border = if (hasEarned) null else cardBorder,
                             modifier = Modifier
@@ -317,6 +365,8 @@ fun AnalyticsScreen(
                             currencyCode = uiState.currencyCode,
                             palette = ExpressivePalettes.softOcean(),
                             progressFraction = 0.28f,
+                            isEntranceReady = isEntranceReady,
+                            entranceIndex = 1,
                             border = cardBorder,
                             modifier = Modifier
                                 .weight(1f)
@@ -328,6 +378,8 @@ fun AnalyticsScreen(
                             currencyCode = uiState.currencyCode,
                             palette = lavenderPalette,
                             progressFraction = 0.64f,
+                            isEntranceReady = isEntranceReady,
+                            entranceIndex = 2,
                             border = cardBorder,
                             modifier = Modifier
                                 .weight(1f)
@@ -375,6 +427,16 @@ fun AnalyticsScreen(
                                     val vesselSeam = subPalette.accent.copy(
                                         alpha = if (isDark) 0.72f else 0.62f
                                     )
+                                    val rowSweep = remember(sub.id) { Animatable(if (skipEntrance) 1f else 0f) }
+                                    LaunchedEffect(isEntranceReady, reducedMotion, sub.id) {
+                                        if (!isEntranceReady) return@LaunchedEffect
+                                        if (reducedMotion) {
+                                            rowSweep.snapTo(1f)
+                                        } else if (rowSweep.value < 0.99f) {
+                                            delay(80L + index.coerceAtMost(5) * 55L)
+                                            rowSweep.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+                                        }
+                                    }
                                     val animatedShare by animateFloatAsState(
                                         targetValue = item.shareFraction.coerceIn(0.06f, 1f),
                                         animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
@@ -396,7 +458,8 @@ fun AnalyticsScreen(
                                     ) {
                                         // Proportional horizontal brand-tinted vessel sweeping behind the service row
                                         Canvas(modifier = Modifier.matchParentSize()) {
-                                            val fillW = (size.width * animatedShare).coerceIn(0f, size.width)
+                                            val fillW = (size.width * animatedShare * rowSweep.value.coerceIn(0f, 1.03f))
+                                                .coerceIn(0f, size.width)
                                             drawRect(
                                                 color = vesselColor,
                                                 topLeft = Offset.Zero,
@@ -714,6 +777,7 @@ fun AnalyticsScreen(
 private fun CompoundingGrowthArc(
     strokeColor: Color,
     nodeColor: Color,
+    drawProgress: Float = 1f,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
@@ -722,6 +786,7 @@ private fun CompoundingGrowthArc(
         val p0 = Offset(w * 0.08f, h * 0.84f)
         val p1 = Offset(w * 0.50f, h * 0.52f)
         val p2 = Offset(w * 0.88f, h * 0.16f)
+        val t = ExpressiveMotion.clampEffectProgress(drawProgress)
 
         val curvePath = Path().apply {
             moveTo(p0.x, p0.y)
@@ -743,28 +808,36 @@ private fun CompoundingGrowthArc(
             lineTo(p0.x, h * 0.92f)
             close()
         }
-        drawPath(
-            path = fillPath,
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    strokeColor.copy(alpha = 0.26f),
-                    strokeColor.copy(alpha = 0.02f)
+
+        // Smooth left-to-right growth curve sweep on first Savings visit
+        clipRect(left = 0f, top = 0f, right = w * t, bottom = h) {
+            drawPath(
+                path = fillPath,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        strokeColor.copy(alpha = 0.26f),
+                        strokeColor.copy(alpha = 0.02f)
+                    )
                 )
             )
-        )
+            drawPath(
+                path = curvePath,
+                color = strokeColor.copy(alpha = 0.90f),
+                style = Stroke(width = 3.2.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
 
-        drawPath(
-            path = curvePath,
-            color = strokeColor.copy(alpha = 0.85f),
-            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-        )
-
-        // 1Y and 3Y milestone dots
-        drawCircle(color = nodeColor.copy(alpha = 0.65f), radius = 3.2.dp.toPx(), center = p0)
-        drawCircle(color = nodeColor.copy(alpha = 0.80f), radius = 3.8.dp.toPx(), center = p1)
-        // 5Y peak halo + node
-        drawCircle(color = strokeColor.copy(alpha = 0.28f), radius = 9.dp.toPx(), center = p2)
-        drawCircle(color = strokeColor, radius = 5.dp.toPx(), center = p2)
+        // Sequential milestone dot pops (1Y -> 3Y -> 5Y glowing peak)
+        val d0 = (t / 0.25f).coerceIn(0f, 1f)
+        val d1 = ((t - 0.38f) / 0.25f).coerceIn(0f, 1f)
+        val d2 = ((t - 0.72f) / 0.28f).coerceIn(0f, 1f)
+        if (d0 > 0.02f) drawCircle(color = nodeColor.copy(alpha = 0.68f * d0), radius = 3.2.dp.toPx() * d0, center = p0)
+        if (d1 > 0.02f) drawCircle(color = nodeColor.copy(alpha = 0.84f * d1), radius = 3.8.dp.toPx() * d1, center = p1)
+        if (d2 > 0.02f) {
+            val peakPop = (d2 * (if (drawProgress > 1f) 1.12f else 1f)).coerceAtMost(1.18f)
+            drawCircle(color = strokeColor.copy(alpha = 0.30f * d2), radius = 9.5.dp.toPx() * peakPop, center = p2)
+            drawCircle(color = strokeColor.copy(alpha = d2), radius = 5.dp.toPx() * peakPop, center = p2)
+        }
     }
 }
 
@@ -776,9 +849,26 @@ private fun SavingsHorizonCard(
     palette: ExpressiveTonalPalette,
     progressFraction: Float,
     modifier: Modifier = Modifier,
+    isEntranceReady: Boolean = true,
+    entranceIndex: Int = 0,
     caption: String? = null,
     border: BorderStroke? = null
 ) {
+    val reducedMotion = rememberReducedMotionEnabled()
+    val skip = isEntranceReady || reducedMotion
+    val barReveal = remember { Animatable(if (skip) 1f else 0f) }
+    LaunchedEffect(isEntranceReady, reducedMotion) {
+        if (!isEntranceReady) return@LaunchedEffect
+        if (reducedMotion) {
+            barReveal.snapTo(1f)
+        } else if (barReveal.value < 0.99f) {
+            delay(50L + entranceIndex * 45L)
+            barReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+        }
+    }
+    val animatedFill = (progressFraction.coerceIn(0.08f, 1f) * barReveal.value.coerceIn(0f, 1.04f))
+        .coerceIn(0.01f, 1f)
+
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(22.dp),
@@ -825,7 +915,7 @@ private fun SavingsHorizonCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(progressFraction.coerceIn(0.08f, 1f))
+                        .fillMaxWidth(animatedFill)
                         .fillMaxHeight()
                         .clip(CircleShape)
                         .background(palette.accent)
