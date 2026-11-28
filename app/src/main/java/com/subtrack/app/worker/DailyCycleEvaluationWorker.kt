@@ -32,6 +32,9 @@ class DailyCycleEvaluationWorker @AssistedInject constructor(
             val userPrefs = userPreferencesRepository.userPreferences.first()
             getSubscriptionCycleStatusesUseCase.refreshToday()
             val statuses = getSubscriptionCycleStatusesUseCase().first()
+            val activeSubsForMood = statuses
+                .filter { !it.subscription.isIncomplete && it.phase == CyclePhase.ACTIVE }
+                .map { it.subscription }
 
             statuses.forEach { cycleStatus ->
                 val sub = cycleStatus.subscription
@@ -71,7 +74,9 @@ class DailyCycleEvaluationWorker @AssistedInject constructor(
                                 title = "Cancel auto-renew: ${sub.name}",
                                 message = "$whenText. Turn off auto-renew to save ~$annualSaveFormatted/yr.",
                                 launcherIcon = userPrefs.launcherIcon,
-                                themeMode = userPrefs.themeMode
+                                themeMode = userPrefs.themeMode,
+                                useStackMood = userPrefs.useStackHeroMood,
+                                activeSubscriptions = activeSubsForMood
                             )
                             ReminderDeduplicator.markFired(applicationContext, dedupKey)
                         }
@@ -92,7 +97,9 @@ class DailyCycleEvaluationWorker @AssistedInject constructor(
                                 title = "Ready to re-subscribe: ${sub.name}",
                                 message = body,
                                 launcherIcon = userPrefs.launcherIcon,
-                                themeMode = userPrefs.themeMode
+                                themeMode = userPrefs.themeMode,
+                                useStackMood = userPrefs.useStackHeroMood,
+                                activeSubscriptions = activeSubsForMood
                             )
                             ReminderDeduplicator.markFired(applicationContext, dedupKey)
                         }

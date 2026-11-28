@@ -1,8 +1,10 @@
 package com.subtrack.app.notification
 
 import android.content.Context
+import com.subtrack.core.domain.engine.RotationEngine
 import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.AppThemeMode
+import com.subtrack.core.domain.model.CyclePhase
 import com.subtrack.core.domain.model.PendingSubscriptionAction
 import com.subtrack.core.domain.repository.SubscriptionActionNotifier
 import com.subtrack.core.domain.repository.SubscriptionRepository
@@ -13,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,16 +30,24 @@ class AndroidSubscriptionActionNotifier @Inject constructor(
 
     override fun showActiveProgressNotification(action: PendingSubscriptionAction) {
         scope.launch {
-            val subColor = runCatching {
-                subscriptionRepository.getSubscriptionById(action.subscriptionId)?.colorHex
-            }.getOrNull()
+            val allSubs = runCatching {
+                subscriptionRepository.getAllSubscriptions().first()
+            }.getOrDefault(emptyList())
+            val subColor = allSubs.firstOrNull { it.id == action.subscriptionId }?.colorHex
+                ?: runCatching { subscriptionRepository.getSubscriptionById(action.subscriptionId)?.colorHex }.getOrNull()
+            val today = LocalDate.now()
+            val activeForMood = allSubs.filter { sub ->
+                !sub.isIncomplete && RotationEngine.calculateCycleStatus(sub, today).phase == CyclePhase.ACTIVE
+            }
             val prefs = runCatching { userPreferencesRepository.userPreferences.first() }.getOrNull()
             NotificationHelper.showActionProgressNotification(
                 context = context,
                 action = action,
                 serviceColorHex = subColor,
                 launcherIcon = prefs?.launcherIcon ?: AppLauncherIcon.BOTANICAL,
-                themeMode = prefs?.themeMode ?: AppThemeMode.SYSTEM
+                themeMode = prefs?.themeMode ?: AppThemeMode.SYSTEM,
+                useStackMood = prefs?.useStackHeroMood ?: true,
+                activeSubscriptions = activeForMood
             )
         }
     }

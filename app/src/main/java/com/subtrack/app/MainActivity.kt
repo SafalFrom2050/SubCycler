@@ -73,8 +73,8 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.DARK -> true
             }
 
-            // Keep all home-screen widgets live-synced whenever theme, icon accent, or stack mood changes
-            LaunchedEffect(themeMode, launcherIcon, dockMood.useStackHeroMood) {
+            // Keep all home-screen widgets live-synced whenever theme, icon accent, stack mood, or active stack changes
+            LaunchedEffect(themeMode, launcherIcon, dockMood.useStackHeroMood, dockMood.activeSubscriptions) {
                 if (dockMood.isLoaded) {
                     SubCyclerWidgets.requestUpdateAll(this@MainActivity)
                 }
@@ -146,7 +146,9 @@ class MainActivity : ComponentActivity() {
                                     sampleSubscription = sampleSub,
                                     currencyCode = sampleSub?.currency ?: MoneyFormatter.currencyCodeForLocale(),
                                     launcherIcon = launcherIcon,
-                                    themeMode = themeMode
+                                    themeMode = themeMode,
+                                    useStackMood = dockMood.useStackHeroMood,
+                                    activeSubscriptions = dockMood.activeSubscriptions
                                 )
                             }
                         },

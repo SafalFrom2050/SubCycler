@@ -5,8 +5,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.os.Build
+import android.view.View
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.subtrack.app.MainActivity
@@ -22,7 +23,7 @@ import com.subtrack.core.domain.model.PendingSubscriptionAction
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.model.SubscriptionActionProgressType
-import com.subtrack.core.ui.theme.launcherAccentTokensFor
+import com.subtrack.core.ui.theme.BrandColorHarmonizer
 import java.time.LocalDate
 
 object NotificationHelper {
@@ -72,10 +73,11 @@ object NotificationHelper {
     }
 
     /**
-     * Rich Material 3 Expressive renewal / break notification featuring:
-     * - Organic harmonized service monogram LargeIcon + selected App Icon accent color
-     * - Expanded Cycle Rhythm Card (`BigPictureStyle`) with wavy active + hatched break track & scalloped savings seal
-     * - 1-tap inline shade actions (`Already cancelled`, `Keep (+30d)`, or `Bank ¥X & Resume`)
+     * Hybrid Native Material 3 Expressive renewal / break notification:
+     * - Native Android notification header (`setSubText`), system surface, font scaling, and 1-tap inline actions
+     * - Organic harmonized monogram `LargeIcon` avatar on the right
+     * - Transparent `DecoratedCustomViewStyle` expanded body pairing native `TextView`s with a slim
+     *   curly Active + `45°` hatched Break rhythm strip (zero boxed picture card)
      */
     fun showCycleReminderNotification(
         context: Context,
@@ -85,11 +87,19 @@ object NotificationHelper {
         message: String,
         launcherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
         themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+        useStackMood: Boolean = true,
+        activeSubscriptions: List<Subscription> = emptyList(),
         isPreview: Boolean = false
     ) {
         val sub = cycleStatus.subscription
-        val isDark = ExpressiveNotificationArt.resolveDarkTheme(context, themeMode)
-        val accent = launcherAccentTokensFor(launcherIcon, isDark)
+        val isSystemDark = ExpressiveNotificationArt.resolveSystemDarkTheme(context)
+        val moodPool = activeSubscriptions.ifEmpty { listOf(sub) }
+        val accent = BrandColorHarmonizer.resolveEffectiveAccentTokens(
+            activeSubscriptions = moodPool,
+            useStackMood = useStackMood,
+            isDark = isSystemDark,
+            fallbackIcon = launcherIcon
+        )
         val accentArgb = ExpressiveNotificationArt.toArgb(accent.primary)
         val isBlackout = cycleStatus.phase == CyclePhase.BLACKOUT
 
@@ -112,19 +122,57 @@ object NotificationHelper {
                 serviceName = sub.name,
                 colorHex = sub.colorHex,
                 shape = if (isBlackout) NotificationBadgeShape.SUNNY_12 else NotificationBadgeShape.COOKIE_9,
-                isDark = isDark,
-                launcherIcon = launcherIcon
+                isDark = isSystemDark,
+                launcherIcon = launcherIcon,
+                accentOverride = accent
             )
         }.getOrNull()
 
-        val bannerBitmap = runCatching {
-            ExpressiveNotificationArt.renderCycleRhythmBannerBitmap(
-                context = context,
+        val rhythmStrip = runCatching {
+            ExpressiveNotificationArt.renderTransparentCycleRhythmStripBitmap(
                 cycleStatus = cycleStatus,
                 launcherIcon = launcherIcon,
-                isDark = isDark
+                isSystemDark = isSystemDark,
+                accentOverride = accent
             )
         }.getOrNull()
+
+        val savingsLabel = if (isBlackout && cycleStatus.perBreakSavings > 0.5) {
+            "Bank ${MoneyFormatter.format(cycleStatus.perBreakSavings, sub.currency, maximumFractionDigits = 0)}"
+        } else if (cycleStatus.annualSavings > 0.5) {
+            "Save ~${MoneyFormatter.format(cycleStatus.annualSavings, sub.currency, maximumFractionDigits = 0)}/yr"
+        } else {
+            null
+        }
+        val subTextHeader = savingsLabel ?: if (sub.isRotating) "${sub.totalCycleDays}d cycle" else null
+
+        val leftCaption = if (isBlackout) {
+            "${sub.activeDays}d active done"
+        } else {
+            "${sub.activeDays}d active"
+        }
+        val rightCaption = when {
+            sub.isRotating && isBlackout -> "${sub.blackoutDays}d break · ${cycleStatus.daysRemainingInPhase}d left"
+            sub.isRotating -> "${sub.blackoutDays}d break"
+            else -> RotationEngine.formatReadableDate(cycleStatus.phaseEndDate)
+        }
+
+        val collapsedViews = RemoteViews(context.packageName, R.layout.notification_cycle_collapsed).apply {
+            setTextViewText(R.id.notif_title, title)
+            setTextViewText(R.id.notif_body, message)
+        }
+        val expandedViews = RemoteViews(context.packageName, R.layout.notification_cycle_expanded).apply {
+            setTextViewText(R.id.notif_title, title)
+            setTextViewText(R.id.notif_body, message)
+            if (rhythmStrip != null) {
+                setViewVisibility(R.id.notif_rhythm_strip, View.VISIBLE)
+                setImageViewBitmap(R.id.notif_rhythm_strip, rhythmStrip)
+            } else {
+                setViewVisibility(R.id.notif_rhythm_strip, View.GONE)
+            }
+            setTextViewText(R.id.notif_left_caption, leftCaption)
+            setTextViewText(R.id.notif_right_caption, rightCaption)
+        }
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_subcycler)
@@ -136,19 +184,15 @@ object NotificationHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setContentIntent(contentPendingIntent)
             .setAutoCancel(true)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsedViews)
+            .setCustomBigContentView(expandedViews)
 
+        if (subTextHeader != null) {
+            builder.setSubText(subTextHeader)
+        }
         if (largeIcon != null) {
             builder.setLargeIcon(largeIcon)
-        }
-        if (bannerBitmap != null) {
-            builder.setStyle(
-                NotificationCompat.BigPictureStyle()
-                    .bigPicture(bannerBitmap)
-                    .bigLargeIcon(null as Bitmap?)
-                    .setSummaryText(message)
-            )
-        } else {
-            builder.setStyle(NotificationCompat.BigTextStyle().bigText(message))
         }
 
         // Attach 1-tap inline shade actions
@@ -217,10 +261,18 @@ object NotificationHelper {
         message: String,
         subscriptionId: Long? = null,
         launcherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
-        themeMode: AppThemeMode = AppThemeMode.SYSTEM
+        themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+        useStackMood: Boolean = true,
+        activeSubscriptions: List<Subscription> = emptyList()
     ) {
-        val isDark = ExpressiveNotificationArt.resolveDarkTheme(context, themeMode)
-        val accentArgb = ExpressiveNotificationArt.toArgb(launcherAccentTokensFor(launcherIcon, isDark).primary)
+        val isSystemDark = ExpressiveNotificationArt.resolveSystemDarkTheme(context)
+        val accent = BrandColorHarmonizer.resolveEffectiveAccentTokens(
+            activeSubscriptions = activeSubscriptions,
+            useStackMood = useStackMood,
+            isDark = isSystemDark,
+            fallbackIcon = launcherIcon
+        )
+        val accentArgb = ExpressiveNotificationArt.toArgb(accent.primary)
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (subscriptionId != null && subscriptionId > 0L) {
@@ -257,11 +309,19 @@ object NotificationHelper {
         serviceColorHex: String? = null,
         launcherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
         themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+        useStackMood: Boolean = true,
+        activeSubscriptions: List<Subscription> = emptyList(),
         notificationId: Int = ACTION_PROGRESS_NOTIFICATION_ID,
         isPreview: Boolean = false
     ) {
-        val isDark = ExpressiveNotificationArt.resolveDarkTheme(context, themeMode)
-        val accentArgb = ExpressiveNotificationArt.toArgb(launcherAccentTokensFor(launcherIcon, isDark).primary)
+        val isSystemDark = ExpressiveNotificationArt.resolveSystemDarkTheme(context)
+        val accent = BrandColorHarmonizer.resolveEffectiveAccentTokens(
+            activeSubscriptions = activeSubscriptions,
+            useStackMood = useStackMood,
+            isDark = isSystemDark,
+            fallbackIcon = launcherIcon
+        )
+        val accentArgb = ExpressiveNotificationArt.toArgb(accent.primary)
         val isUnsubscribe = action.actionType == SubscriptionActionProgressType.UNSUBSCRIBE
         val title = if (isUnsubscribe) {
             "Unsubscribing from ${action.subscriptionName}"
@@ -269,9 +329,9 @@ object NotificationHelper {
             "Subscribing to ${action.subscriptionName}"
         }
         val message = if (isUnsubscribe) {
-            "Step 1 of 2 · Finish on provider, then tap Completed."
+            "Finish cancelling on ${action.subscriptionName}, then tap Completed below."
         } else {
-            "Step 1 of 2 · Complete checkout, then tap Completed."
+            "Finish checkout on ${action.subscriptionName}, then tap Completed below."
         }
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
@@ -320,27 +380,50 @@ object NotificationHelper {
                 serviceName = action.subscriptionName,
                 colorHex = serviceColorHex,
                 shape = NotificationBadgeShape.SQUIRCLE,
-                isDark = isDark,
-                launcherIcon = launcherIcon
+                isDark = isSystemDark,
+                launcherIcon = launcherIcon,
+                accentOverride = accent
             )
         }.getOrNull()
 
-        val progressBanner = runCatching {
-            ExpressiveNotificationArt.renderActionProgressBannerBitmap(
-                context = context,
-                action = action,
-                serviceColorHex = serviceColorHex,
+        val progressStrip = runCatching {
+            ExpressiveNotificationArt.renderTransparentActionProgressStripBitmap(
                 launcherIcon = launcherIcon,
-                isDark = isDark
+                isSystemDark = isSystemDark,
+                accentOverride = accent,
+                stepFraction = 0.5f
             )
         }.getOrNull()
+
+        val step1Text = if (isUnsubscribe) "1. Cancel" else "1. Subscribe"
+        val collapsedViews = RemoteViews(context.packageName, R.layout.notification_progress_collapsed).apply {
+            setTextViewText(R.id.notif_progress_title, title)
+            if (progressStrip != null) {
+                setViewVisibility(R.id.notif_progress_strip, View.VISIBLE)
+                setImageViewBitmap(R.id.notif_progress_strip, progressStrip)
+            } else {
+                setViewVisibility(R.id.notif_progress_strip, View.GONE)
+            }
+        }
+        val expandedViews = RemoteViews(context.packageName, R.layout.notification_progress_expanded).apply {
+            setTextViewText(R.id.notif_progress_title, title)
+            setTextViewText(R.id.notif_progress_body, message)
+            if (progressStrip != null) {
+                setViewVisibility(R.id.notif_progress_strip, View.VISIBLE)
+                setImageViewBitmap(R.id.notif_progress_strip, progressStrip)
+            } else {
+                setViewVisibility(R.id.notif_progress_strip, View.GONE)
+            }
+            setTextViewText(R.id.notif_step1_label, step1Text)
+            setTextViewText(R.id.notif_step2_label, "2. Tap Completed")
+        }
 
         val builder = NotificationCompat.Builder(context, PROGRESS_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_subcycler)
             .setColor(accentArgb)
+            .setSubText("Step 1 of 2")
             .setContentTitle(title)
             .setContentText(message)
-            .setProgress(2, 1, false)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
@@ -349,21 +432,14 @@ object NotificationHelper {
             .setOngoing(!isPreview)
             .setAutoCancel(isPreview)
             .setContentIntent(contentPendingIntent)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsedViews)
+            .setCustomBigContentView(expandedViews)
             .addAction(0, "Completed", completePendingIntent)
             .addAction(0, "Cancel", cancelPendingIntent)
 
         if (largeIcon != null) {
             builder.setLargeIcon(largeIcon)
-        }
-        if (progressBanner != null) {
-            builder.setStyle(
-                NotificationCompat.BigPictureStyle()
-                    .bigPicture(progressBanner)
-                    .bigLargeIcon(null as Bitmap?)
-                    .setSummaryText(message)
-            )
-        } else {
-            builder.setStyle(NotificationCompat.BigTextStyle().bigText(message))
         }
 
         try {
@@ -393,7 +469,9 @@ object NotificationHelper {
         sampleSubscription: Subscription?,
         currencyCode: String,
         launcherIcon: AppLauncherIcon,
-        themeMode: AppThemeMode
+        themeMode: AppThemeMode,
+        useStackMood: Boolean = true,
+        activeSubscriptions: List<Subscription> = emptyList()
     ) {
         createNotificationChannel(context)
         val today = LocalDate.now()
@@ -418,6 +496,7 @@ object NotificationHelper {
         val status = RotationEngine.calculateCycleStatus(demoSub, today)
         val annualSave = MoneyFormatter.format(status.annualSavings, demoSub.currency, maximumFractionDigits = 0)
         val endDate = RotationEngine.formatReadableDate(status.phaseEndDate)
+        val moodPool = activeSubscriptions.ifEmpty { listOf(demoSub) }
 
         showCycleReminderNotification(
             context = context,
@@ -427,6 +506,8 @@ object NotificationHelper {
             message = "Ends in 2 days ($endDate) · Turn off auto-renew to save ~$annualSave/yr.",
             launcherIcon = launcherIcon,
             themeMode = themeMode,
+            useStackMood = useStackMood,
+            activeSubscriptions = moodPool,
             isPreview = true
         )
 
@@ -440,6 +521,8 @@ object NotificationHelper {
             serviceColorHex = demoSub.colorHex,
             launcherIcon = launcherIcon,
             themeMode = themeMode,
+            useStackMood = useStackMood,
+            activeSubscriptions = moodPool,
             notificationId = PREVIEW_PROGRESS_NOTIFICATION_ID,
             isPreview = true
         )
@@ -451,10 +534,18 @@ object NotificationHelper {
         subscriptionName: String? = null,
         colorHex: String? = null,
         launcherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
-        themeMode: AppThemeMode = AppThemeMode.SYSTEM
+        themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+        useStackMood: Boolean = true,
+        activeSubscriptions: List<Subscription> = emptyList()
     ) {
-        val isDark = ExpressiveNotificationArt.resolveDarkTheme(context, themeMode)
-        val accentArgb = ExpressiveNotificationArt.toArgb(launcherAccentTokensFor(launcherIcon, isDark).primary)
+        val isSystemDark = ExpressiveNotificationArt.resolveSystemDarkTheme(context)
+        val accent = BrandColorHarmonizer.resolveEffectiveAccentTokens(
+            activeSubscriptions = activeSubscriptions,
+            useStackMood = useStackMood,
+            isDark = isSystemDark,
+            fallbackIcon = launcherIcon
+        )
+        val accentArgb = ExpressiveNotificationArt.toArgb(accent.primary)
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EXTRA_OPEN_SUBSCRIPTION_ID, subscriptionId)
@@ -489,7 +580,7 @@ object NotificationHelper {
                     serviceName = subscriptionName,
                     colorHex = colorHex,
                     shape = NotificationBadgeShape.COOKIE_9,
-                    isDark = isDark,
+                    isDark = isSystemDark,
                     launcherIcon = launcherIcon
                 )
             }.getOrNull()?.let { builder.setLargeIcon(it) }

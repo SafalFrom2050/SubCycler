@@ -13,6 +13,7 @@ import com.subtrack.core.data.preferences.userDataStore
 import com.subtrack.core.domain.engine.RotationEngine
 import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.AppThemeMode
+import com.subtrack.core.domain.model.CyclePhase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,17 +44,24 @@ class SubscriptionAlarmReceiver : BroadcastReceiver() {
                 }.getOrNull()
                 val launcherIcon = prefs?.launcherIcon ?: AppLauncherIcon.BOTANICAL
                 val themeMode = prefs?.themeMode ?: AppThemeMode.SYSTEM
+                val useStackMood = prefs?.useStackHeroMood ?: true
 
+                val allSubs = runCatching {
+                    AppDatabase.getDatabase(context).subscriptionDao().getAllSubscriptionsList().toDomain()
+                }.getOrDefault(emptyList())
+                val today = LocalDate.now()
+                val activeSubsForMood = allSubs.filter { subItem ->
+                    !subItem.isIncomplete &&
+                        RotationEngine.calculateCycleStatus(subItem, today).phase == CyclePhase.ACTIVE
+                }
                 val sub = if (subscriptionId != null) {
-                    runCatching {
-                        AppDatabase.getDatabase(context).subscriptionDao().getSubscriptionById(subscriptionId)?.toDomain()
-                    }.getOrNull()
+                    allSubs.firstOrNull { it.id == subscriptionId }
                 } else {
                     null
                 }
 
                 if (sub != null) {
-                    val status = RotationEngine.calculateCycleStatus(sub, LocalDate.now())
+                    val status = RotationEngine.calculateCycleStatus(sub, today)
                     NotificationHelper.showCycleReminderNotification(
                         context = context,
                         cycleStatus = status,
@@ -61,7 +69,9 @@ class SubscriptionAlarmReceiver : BroadcastReceiver() {
                         title = title,
                         message = message,
                         launcherIcon = launcherIcon,
-                        themeMode = themeMode
+                        themeMode = themeMode,
+                        useStackMood = useStackMood,
+                        activeSubscriptions = activeSubsForMood
                     )
                 } else {
                     NotificationHelper.showNotification(
@@ -71,7 +81,9 @@ class SubscriptionAlarmReceiver : BroadcastReceiver() {
                         message = message,
                         subscriptionId = subscriptionId,
                         launcherIcon = launcherIcon,
-                        themeMode = themeMode
+                        themeMode = themeMode,
+                        useStackMood = useStackMood,
+                        activeSubscriptions = activeSubsForMood
                     )
                 }
 
