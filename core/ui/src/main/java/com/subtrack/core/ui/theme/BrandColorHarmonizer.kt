@@ -270,6 +270,161 @@ object BrandColorHarmonizer {
     }
 
     /**
+     * Resolves the active focal accent token set (`primary`, `onPrimary`, `primaryContainer`,
+     * `onPrimaryContainer`, etc.) linked to **Living Stack Mood** when [useStackMood] is enabled
+     * and active subscriptions exist, or falling back cleanly to [fallbackIcon]'s curated colorway.
+     *
+     * Enforces WCAG AAA (>= 7:1) contrast on both primary and container ink pairs across Light & Dark.
+     */
+    fun resolveEffectiveAccentTokens(
+        activeSubscriptions: List<Subscription>,
+        useStackMood: Boolean,
+        isDark: Boolean,
+        fallbackIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL
+    ): LauncherAccentTokens {
+        val fallback = launcherAccentTokensFor(fallbackIcon, isDark)
+        if (!useStackMood || activeSubscriptions.isEmpty()) return fallback
+
+        val activeRgbs = selectDistinctActiveBrandRgb(activeSubscriptions, maxCount = 3)
+        if (activeRgbs.isEmpty()) return fallback
+
+        val (h1, s1, n1) = harmonizedHueAndSat(activeRgbs[0])
+        val (h2, s2, n2) = if (activeRgbs.size >= 2) {
+            harmonizedHueAndSat(activeRgbs[1])
+        } else {
+            Triple(h1, s1, n1)
+        }
+        val (h3, s3, n3) = if (activeRgbs.size >= 3) {
+            harmonizedHueAndSat(activeRgbs[2])
+        } else {
+            Triple(BOTANICAL_ANCHOR_HUE, 0.52f, false)
+        }
+
+        return if (!isDark) {
+            val primarySat = if (n1) 0.14f else (s1 * 0.66f).coerceIn(0.42f, 0.68f)
+            val primaryRgb = ensureContrast(
+                backgroundRgb = 0xFFFFFF,
+                hue = h1,
+                sat = primarySat,
+                initialLight = 0.34f,
+                step = -0.02f,
+                minLimit = 0.16f
+            )
+            val onPrimaryRgb = 0xFFFFFF
+
+            val containerSat = if (n1) 0.10f else (s1 * 0.52f).coerceIn(0.28f, 0.52f)
+            val containerRgb = hslToRgb(h1, containerSat, 0.89f)
+            val onContainerRgb = ensureContrast(
+                backgroundRgb = containerRgb,
+                hue = h1,
+                sat = if (n1) 0.14f else 0.58f,
+                initialLight = 0.20f,
+                step = -0.02f,
+                minLimit = 0.08f
+            )
+
+            val secSat = if (n2) 0.14f else (s2 * 0.56f).coerceIn(0.34f, 0.58f)
+            val secRgb = ensureContrast(
+                backgroundRgb = 0xFFFFFF,
+                hue = h2,
+                sat = secSat,
+                initialLight = 0.36f,
+                step = -0.02f,
+                minLimit = 0.18f
+            )
+            val secContainerRgb = hslToRgb(h2, if (n2) 0.10f else (s2 * 0.46f).coerceIn(0.24f, 0.46f), 0.90f)
+            val onSecContainerRgb = ensureContrast(
+                backgroundRgb = secContainerRgb,
+                hue = h2,
+                sat = if (n2) 0.14f else 0.52f,
+                initialLight = 0.21f,
+                step = -0.02f,
+                minLimit = 0.08f
+            )
+
+            val heroStart = softHeroStop(h1, s1, n1, lightness = 0.875f, maxSat = 0.42f)
+            val heroMid = softHeroStop(h2, s2, n2, lightness = 0.905f, maxSat = 0.36f)
+            val heroEnd = softHeroStop(h3, s3, n3, lightness = 0.925f, maxSat = 0.34f)
+
+            LauncherAccentTokens(
+                primary = rgbToComposeColor(primaryRgb),
+                onPrimary = rgbToComposeColor(onPrimaryRgb),
+                primaryContainer = rgbToComposeColor(containerRgb),
+                onPrimaryContainer = rgbToComposeColor(onContainerRgb),
+                secondary = rgbToComposeColor(secRgb),
+                onSecondary = rgbToComposeColor(0xFFFFFF),
+                secondaryContainer = rgbToComposeColor(secContainerRgb),
+                onSecondaryContainer = rgbToComposeColor(onSecContainerRgb),
+                heroBase = heroMid,
+                heroGradientStart = heroStart,
+                heroGradientMid = heroMid,
+                heroGradientEnd = heroEnd
+            )
+        } else {
+            val primarySat = if (n1) 0.16f else (s1 * 0.68f).coerceIn(0.46f, 0.76f)
+            val primaryRgb = hslToRgb(h1, primarySat, 0.76f)
+            val onPrimaryRgb = ensureContrast(
+                backgroundRgb = primaryRgb,
+                hue = h1,
+                sat = if (n1) 0.14f else 0.56f,
+                initialLight = 0.15f,
+                step = -0.02f,
+                minLimit = 0.06f
+            )
+
+            val containerSat = if (n1) 0.12f else (s1 * 0.46f).coerceIn(0.26f, 0.46f)
+            val containerRgb = hslToRgb(h1, containerSat, 0.24f)
+            val onContainerRgb = ensureContrast(
+                backgroundRgb = containerRgb,
+                hue = h1,
+                sat = if (n1) 0.14f else 0.54f,
+                initialLight = 0.90f,
+                step = 0.02f,
+                minLimit = 0.97f
+            )
+
+            val secSat = if (n2) 0.16f else (s2 * 0.60f).coerceIn(0.40f, 0.68f)
+            val secRgb = hslToRgb(h2, secSat, 0.74f)
+            val onSecRgb = ensureContrast(
+                backgroundRgb = secRgb,
+                hue = h2,
+                sat = if (n2) 0.14f else 0.50f,
+                initialLight = 0.15f,
+                step = -0.02f,
+                minLimit = 0.06f
+            )
+            val secContainerRgb = hslToRgb(h2, if (n2) 0.12f else (s2 * 0.42f).coerceIn(0.24f, 0.42f), 0.24f)
+            val onSecContainerRgb = ensureContrast(
+                backgroundRgb = secContainerRgb,
+                hue = h2,
+                sat = if (n2) 0.14f else 0.50f,
+                initialLight = 0.90f,
+                step = 0.02f,
+                minLimit = 0.97f
+            )
+
+            val heroStart = softHeroStop(h1, s1, n1, lightness = 0.215f, maxSat = 0.38f)
+            val heroMid = softHeroStop(h2, s2, n2, lightness = 0.185f, maxSat = 0.34f)
+            val heroEnd = softHeroStop(h3, s3, n3, lightness = 0.155f, maxSat = 0.32f)
+
+            LauncherAccentTokens(
+                primary = rgbToComposeColor(primaryRgb),
+                onPrimary = rgbToComposeColor(onPrimaryRgb),
+                primaryContainer = rgbToComposeColor(containerRgb),
+                onPrimaryContainer = rgbToComposeColor(onContainerRgb),
+                secondary = rgbToComposeColor(secRgb),
+                onSecondary = rgbToComposeColor(onSecRgb),
+                secondaryContainer = rgbToComposeColor(secContainerRgb),
+                onSecondaryContainer = rgbToComposeColor(onSecContainerRgb),
+                heroBase = heroMid,
+                heroGradientStart = heroStart,
+                heroGradientMid = heroMid,
+                heroGradientEnd = heroEnd
+            )
+        }
+    }
+
+    /**
      * Builds the soft Living Hero Mood backdrop palette from the user's active subscriptions.
      * Reverts cleanly to [fallbackIcon]'s accent palette when [useStackMood] is `false` or no services
      * are currently active.
@@ -280,15 +435,21 @@ object BrandColorHarmonizer {
         isDark: Boolean,
         fallbackIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL
     ): HeroMoodPalette {
-        val accent = launcherAccentTokensFor(fallbackIcon, isDark)
+        val accent = resolveEffectiveAccentTokens(
+            activeSubscriptions = activeSubscriptions,
+            useStackMood = useStackMood,
+            isDark = isDark,
+            fallbackIcon = fallbackIcon
+        )
+        val fallbackAccent = launcherAccentTokensFor(fallbackIcon, isDark)
         val defaultPalette = HeroMoodPalette(
-            baseColor = accent.heroBase,
-            gradientStart = accent.heroGradientStart,
-            gradientMid = accent.heroGradientMid,
-            gradientEnd = accent.heroGradientEnd,
-            watermarkTint = accent.onPrimaryContainer,
-            contentColor = accent.onPrimaryContainer,
-            accentColor = accent.primary
+            baseColor = fallbackAccent.heroBase,
+            gradientStart = fallbackAccent.heroGradientStart,
+            gradientMid = fallbackAccent.heroGradientMid,
+            gradientEnd = fallbackAccent.heroGradientEnd,
+            watermarkTint = fallbackAccent.onPrimaryContainer,
+            contentColor = fallbackAccent.onPrimaryContainer,
+            accentColor = fallbackAccent.primary
         )
         if (!useStackMood || activeSubscriptions.isEmpty()) return defaultPalette
 

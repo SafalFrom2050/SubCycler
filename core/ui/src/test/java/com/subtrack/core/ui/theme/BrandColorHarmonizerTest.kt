@@ -128,4 +128,63 @@ class BrandColorHarmonizerTest {
             }
         }
     }
+
+    @Test
+    fun effectiveAccentTokensFollowLivingMoodWhenEnabledAndLauncherIconWhenDisabled() {
+        val disney = Subscription(
+            name = "Disney+",
+            cost = 15.99,
+            colorHex = "#113CCF",
+            startDate = LocalDate.of(2026, 11, 27)
+        )
+        val staticOcean = BrandColorHarmonizer.resolveEffectiveAccentTokens(
+            activeSubscriptions = listOf(disney),
+            useStackMood = false,
+            isDark = true,
+            fallbackIcon = AppLauncherIcon.OCEAN
+        )
+        assertEquals(launcherAccentTokensFor(AppLauncherIcon.OCEAN, isDark = true), staticOcean)
+
+        val liveMood = BrandColorHarmonizer.resolveEffectiveAccentTokens(
+            activeSubscriptions = listOf(disney),
+            useStackMood = true,
+            isDark = true,
+            fallbackIcon = AppLauncherIcon.BOTANICAL
+        )
+        assertNotEquals(launcherAccentTokensFor(AppLauncherIcon.BOTANICAL, isDark = true).primary, liveMood.primary)
+
+        // Verify high contrast across all top 20 presets in both Light & Dark modes
+        PresetLibrary.presets.forEach { preset ->
+            val sub = Subscription(
+                name = preset.name,
+                cost = 12.99,
+                colorHex = preset.colorHex,
+                startDate = LocalDate.of(2026, 11, 27)
+            )
+            listOf(false, true).forEach { isDark ->
+                val tokens = BrandColorHarmonizer.resolveEffectiveAccentTokens(
+                    activeSubscriptions = listOf(sub),
+                    useStackMood = true,
+                    isDark = isDark,
+                    fallbackIcon = AppLauncherIcon.BOTANICAL
+                )
+                val primaryContrast = BrandColorHarmonizer.contrastRatio(
+                    BrandColorHarmonizer.composeColorToRgb(tokens.primary),
+                    BrandColorHarmonizer.composeColorToRgb(tokens.onPrimary)
+                )
+                val containerContrast = BrandColorHarmonizer.contrastRatio(
+                    BrandColorHarmonizer.composeColorToRgb(tokens.primaryContainer),
+                    BrandColorHarmonizer.composeColorToRgb(tokens.onPrimaryContainer)
+                )
+                assertTrue(
+                    "Low mood primary contrast for ${preset.name} (dark=$isDark): $primaryContrast",
+                    primaryContrast >= 7.0
+                )
+                assertTrue(
+                    "Low mood container contrast for ${preset.name} (dark=$isDark): $containerContrast",
+                    containerContrast >= 7.0
+                )
+            }
+        }
+    }
 }
