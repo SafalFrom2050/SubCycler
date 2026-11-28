@@ -31,6 +31,8 @@ data class PlannerUiState(
     val selectedTargetDate: LocalDate = LocalDate.now(),
     val activeOnSelectedDate: List<String> = emptyList(),
     val blackoutOnSelectedDate: List<String> = emptyList(),
+    val activeSubsOnSelectedDate: List<Subscription> = emptyList(),
+    val blackoutSubsOnSelectedDate: List<Subscription> = emptyList(),
     val monthlySubscriptions: List<Subscription> = emptyList(),
     val service1: Subscription? = null,
     val service2: Subscription? = null,
@@ -79,13 +81,17 @@ class PlannerViewModel @Inject constructor(
         val today = timeProvider.today()
         val activeList = mutableListOf<String>()
         val blackoutList = mutableListOf<String>()
+        val activeSubs = mutableListOf<Subscription>()
+        val blackoutSubs = mutableListOf<Subscription>()
 
         statuses.forEach { cycleStatus ->
             val statusAtDate = RotationEngine.calculateCycleStatus(cycleStatus.subscription, targetDate)
             if (statusAtDate.phase == CyclePhase.ACTIVE) {
                 activeList.add(cycleStatus.subscription.name)
+                activeSubs.add(cycleStatus.subscription)
             } else {
                 blackoutList.add(cycleStatus.subscription.name)
+                blackoutSubs.add(cycleStatus.subscription)
             }
         }
 
@@ -116,6 +122,8 @@ class PlannerViewModel @Inject constructor(
             selectedTargetDate = targetDate,
             activeOnSelectedDate = activeList,
             blackoutOnSelectedDate = blackoutList,
+            activeSubsOnSelectedDate = activeSubs,
+            blackoutSubsOnSelectedDate = blackoutSubs,
             monthlySubscriptions = monthlySubs,
             service1 = s1,
             service2 = s2,

@@ -447,6 +447,7 @@ private fun SubTrackMainNavigation(
     val transitionProgress = remember { Animatable(1f) }
     var isPlannerMounted by remember { mutableStateOf(false) }
     var isAnalyticsMounted by remember { mutableStateOf(false) }
+    var hasVisitedPlanner by rememberSaveable { mutableStateOf(false) }
     var hasVisitedSavings by rememberSaveable { mutableStateOf(false) }
 
     // One-shot launch choreography for the floating dock and detached '+' Cookie12 FAB
@@ -473,6 +474,9 @@ private fun SubTrackMainNavigation(
     }
 
     LaunchedEffect(selectedTabIndex) {
+        if (selectedTabIndex == 1) {
+            hasVisitedPlanner = true
+        }
         if (selectedTabIndex == 2) {
             hasVisitedSavings = true
         }
@@ -623,6 +627,7 @@ private fun SubTrackMainNavigation(
                         PlannerRoute(
                             pendingOpenPairedSwap = pendingOpenPairedSwap,
                             onOpenPairedSwapConsumed = { pendingOpenPairedSwap = false },
+                            isEntranceReady = hasVisitedPlanner,
                             onOpenSubscription = { subId ->
                                 internalOpenSubId = subId
                                 selectTabIndex(0)
