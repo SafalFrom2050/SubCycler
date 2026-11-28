@@ -1,75 +1,77 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 304" width="960" height="304" role="img" aria-label="90-day comparison of Standard Auto-Renew, SubCycler 45-Day Rotation, and Paired Swap 30d/30d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 308" width="960" height="308" role="img" aria-label="90-day comparison of Standard Auto-Renew, SubCycler 45-Day Rotation, and Paired Swap 30d/30d">
   <defs>
     <pattern id="cycleHatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-      <line x1="0" y1="0" x2="0" y2="10" stroke="#4C5D6B" stroke-width="2.4" stroke-opacity="0.42"/>
+      <line x1="0" y1="0" x2="0" y2="10" stroke="#64748B" stroke-width="2.4" stroke-opacity="0.34"/>
     </pattern>
-    <clipPath id="b1"><rect x="478" y="148" width="104" height="36" rx="18"/></clipPath>
-    <clipPath id="b2"><rect x="802" y="148" width="114" height="36" rx="18"/></clipPath>
+    <clipPath id="b1"><rect x="478" y="148" width="104" height="38" rx="14"/></clipPath>
+    <clipPath id="b2"><rect x="802" y="148" width="114" height="38" rx="14"/></clipPath>
   </defs>
 
-  <rect x="4" y="4" width="952" height="296" rx="28" fill="#FAFBFA" stroke="#E2E8E5" stroke-width="1.5"/>
+  <rect x="4" y="4" width="952" height="300" rx="28" fill="#F5F7F6" stroke="#DDE4E0" stroke-width="1.5"/>
 
   <!-- Column scale header -->
-  <g font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="700" letter-spacing="1.1" fill="#5A6561">
-    <text x="34" y="42">90-DAY BILLING CADENCE</text>
-    <text x="260" y="42">DAY 1</text>
-    <text x="476" y="42">DAY 30</text>
-    <text x="696" y="42">DAY 60</text>
-    <text x="916" y="42" text-anchor="end">DAY 90</text>
+  <g font-family="'Google Sans Flex', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="700" letter-spacing="1.2" fill="#5A6661">
+    <text x="34" y="40">90-DAY BILLING CADENCE</text>
+    <text x="260" y="40">DAY 1</text>
+    <text x="476" y="40">DAY 30</text>
+    <text x="696" y="40">DAY 60</text>
+    <text x="916" y="40" text-anchor="end">DAY 90</text>
   </g>
 
   <!-- Row 1: Standard Auto-Renew -->
-  <rect x="24" y="58" width="912" height="68" rx="18" fill="#FFFFFF" stroke="#E2E8E5" stroke-width="1"/>
-  <text x="42" y="88" font-family="'Bricolage Grotesque', 'Plus Jakarta Sans', sans-serif" font-size="16" font-weight="700" fill="#151918">Standard auto-renew</text>
-  <text x="42" y="109" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="600" fill="#5A6561">12 billings / yr · continuous</text>
+  <rect x="24" y="56" width="912" height="70" rx="20" fill="#FFFFFF" stroke="#E2E8E5" stroke-width="1"/>
+  <text x="42" y="87" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="16" font-weight="700" fill="#141917">Standard auto-renew</text>
+  <text x="42" y="108" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="500" fill="#5A6661">12 billings / yr · continuous</text>
 
-  <g font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#4D5754">
-    <rect x="260" y="75" width="212" height="34" rx="17" fill="#E8ECEA"/>
-    <text x="366" y="96" text-anchor="middle">30d paid</text>
-    <rect x="480" y="75" width="212" height="34" rx="17" fill="#E8ECEA"/>
-    <text x="586" y="96" text-anchor="middle">30d paid</text>
-    <rect x="700" y="75" width="216" height="34" rx="17" fill="#E8ECEA"/>
-    <text x="808" y="96" text-anchor="middle">30d paid</text>
+  <g font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="700" fill="#4C5853">
+    <rect x="260" y="74" width="212" height="34" rx="13" fill="#E8ECEA"/>
+    <text x="366" y="95" text-anchor="middle">30d paid</text>
+    <rect x="480" y="74" width="212" height="34" rx="13" fill="#E8ECEA"/>
+    <text x="586" y="95" text-anchor="middle">30d paid</text>
+    <rect x="700" y="74" width="216" height="34" rx="13" fill="#E8ECEA"/>
+    <text x="808" y="95" text-anchor="middle">30d paid</text>
   </g>
 
-  <!-- Row 2: SubCycler 45-Day Rotation -->
-  <rect x="24" y="134" width="912" height="68" rx="18" fill="#FFFFFF" stroke="#0C6B4E" stroke-opacity="0.35" stroke-width="1.2"/>
-  <text x="42" y="164" font-family="'Bricolage Grotesque', 'Plus Jakarta Sans', sans-serif" font-size="16" font-weight="700" fill="#151918">SubCycler 45-day</text>
-  <text x="42" y="185" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#0C6B4E">8 billings / yr · save 33.3%</text>
+  <!-- Row 2: SubCycler 45-Day Rotation (Bold Botanical Emerald + Triadic Lime wave) -->
+  <rect x="24" y="133" width="912" height="70" rx="20" fill="#FFFFFF" stroke="#186445" stroke-opacity="0.35" stroke-width="1.2"/>
+  <text x="42" y="164" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="16" font-weight="700" fill="#141917">SubCycler 45-day</text>
+  <text x="42" y="185" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="700" fill="#186445">8 billings / yr · save 33.3%</text>
 
-  <rect x="260" y="148" width="210" height="36" rx="18" fill="#D6F3E6"/>
-  <text x="365" y="167" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#0A523B">30d active</text>
-  <path d="M 278 178 L 281.6 179 L 285.2 179.7 L 288.9 179.8 L 292.5 179.3 L 296.1 178.4 L 299.8 177.4 L 303.4 176.6 L 307 176.2 L 310.6 176.4 L 314.2 177.2 L 317.9 178.2 L 321.5 179.1 L 325.1 179.7 L 328.8 179.7 L 332.4 179.2 L 336 178.3 L 339.6 177.2 L 343.2 176.5 L 346.9 176.2 L 350.5 176.5 L 354.1 177.3 L 357.8 178.3 L 361.4 179.3 L 365 179.8 L 368.6 179.7 L 372.2 179.1 L 375.9 178.1 L 379.5 177.1 L 383.1 176.4 L 386.8 176.2 L 390.4 176.6 L 394 177.5 L 397.6 178.5 L 401.2 179.4 L 404.9 179.8 L 408.5 179.6 L 412.1 178.9 L 415.8 177.9 L 419.4 176.9 L 423 176.3 L 426.6 176.2 L 430.2 176.7 L 433.9 177.7 L 437.5 178.7 L 441.1 179.5 L 444.8 179.8 L 448.4 179.5 L 452 178.8" fill="none" stroke="#0C6B4E" stroke-width="2.2" stroke-linecap="round" opacity="0.72"/>
+  <rect x="260" y="148" width="210" height="38" rx="14" fill="#186445"/>
+  <text x="365" y="168" text-anchor="middle" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">30d active</text>
+  <path d="M 278 179 L 281.6 180 L 285.2 180.7 L 288.9 180.8 L 292.5 180.3 L 296.1 179.4 L 299.8 178.4 L 303.4 177.6 L 307 177.2 L 310.6 177.4 L 314.2 178.2 L 317.9 179.2 L 321.5 180.1 L 325.1 180.7 L 328.8 180.7 L 332.4 180.2 L 336 179.3 L 339.6 178.2 L 343.2 177.5 L 346.9 177.2 L 350.5 177.5 L 354.1 178.3 L 357.8 179.3 L 361.4 180.3 L 365 180.8 L 368.6 180.7 L 372.2 180.1 L 375.9 179.1 L 379.5 178.1 L 383.1 177.4 L 386.8 177.2 L 390.4 177.6 L 394 178.5 L 397.6 179.5 L 401.2 180.4 L 404.9 180.8 L 408.5 180.6 L 412.1 179.9 L 415.8 178.9 L 419.4 177.9 L 423 177.3 L 426.6 177.2 L 430.2 177.7 L 433.9 178.7 L 437.5 179.7 L 441.1 180.5 L 444.8 180.8 L 448.4 180.5 L 452 179.8" fill="none" stroke="#E2F26B" stroke-width="2.4" stroke-linecap="round"/>
 
   <g clip-path="url(#b1)">
-    <rect x="478" y="148" width="104" height="36" fill="#E5EBEF"/>
-    <rect x="478" y="148" width="104" height="36" fill="url(#cycleHatch)"/>
+    <rect x="478" y="148" width="104" height="38" fill="#E8EEF0"/>
+    <rect x="478" y="148" width="104" height="38" fill="url(#cycleHatch)"/>
   </g>
-  <rect x="498" y="156" width="64" height="20" rx="10" fill="rgba(255,255,255,0.88)"/>
-  <text x="530" y="170" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="700" fill="#5A6561">15d off</text>
+  <rect x="498" y="157" width="64" height="20" rx="10" fill="rgba(255,255,255,0.92)"/>
+  <text x="530" y="171" text-anchor="middle" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="11" font-weight="700" fill="#4C5853">15d off</text>
 
-  <rect x="590" y="148" width="204" height="36" rx="18" fill="#D6F3E6"/>
-  <text x="692" y="167" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#0A523B">30d active</text>
-  <path d="M 608 178 L 611.5 179 L 615 179.6 L 618.5 179.8 L 622 179.4 L 625.5 178.6 L 629 177.6 L 632.5 176.7 L 636 176.2 L 639.5 176.3 L 643 176.9 L 646.5 177.8 L 650 178.8 L 653.5 179.5 L 657 179.8 L 660.5 179.5 L 664 178.8 L 667.5 177.8 L 671 176.9 L 674.5 176.3 L 678 176.2 L 681.5 176.7 L 685 177.6 L 688.5 178.6 L 692 179.4 L 695.5 179.8 L 699 179.6 L 702.5 179 L 706 178.1 L 709.5 177.1 L 713 176.4 L 716.5 176.2 L 720 176.6 L 723.5 177.3 L 727 178.3 L 730.5 179.2 L 734 179.7 L 737.5 179.7 L 741 179.2 L 744.5 178.3 L 748 177.3 L 751.5 176.5 L 755 176.2 L 758.5 176.4 L 762 177.1 L 765.5 178.1 L 769 179.1 L 772.5 179.7 L 776 179.8" fill="none" stroke="#0C6B4E" stroke-width="2.2" stroke-linecap="round" opacity="0.72"/>
+  <rect x="590" y="148" width="204" height="38" rx="14" fill="#186445"/>
+  <text x="692" y="168" text-anchor="middle" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">30d active</text>
+  <path d="M 608 179 L 611.5 180 L 615 180.6 L 618.5 180.8 L 622 180.4 L 625.5 179.6 L 629 178.6 L 632.5 177.7 L 636 177.2 L 639.5 177.3 L 643 177.9 L 646.5 178.8 L 650 179.8 L 653.5 180.5 L 657 180.8 L 660.5 180.5 L 664 179.8 L 667.5 178.8 L 671 177.9 L 674.5 177.3 L 678 177.2 L 681.5 177.7 L 685 178.6 L 688.5 179.6 L 692 180.4 L 695.5 180.8 L 699 180.6 L 702.5 180 L 706 179.1 L 709.5 178.1 L 713 177.4 L 716.5 177.2 L 720 177.6 L 723.5 178.3 L 727 179.3 L 730.5 180.2 L 734 180.7 L 737.5 180.7 L 741 180.2 L 744.5 179.3 L 748 178.3 L 751.5 177.5 L 755 177.2 L 758.5 177.4 L 762 178.1 L 765.5 179.1 L 769 180.1 L 772.5 180.7 L 776 180.8" fill="none" stroke="#E2F26B" stroke-width="2.4" stroke-linecap="round"/>
 
   <g clip-path="url(#b2)">
-    <rect x="802" y="148" width="114" height="36" fill="#E5EBEF"/>
-    <rect x="802" y="148" width="114" height="36" fill="url(#cycleHatch)"/>
+    <rect x="802" y="148" width="114" height="38" fill="#E8EEF0"/>
+    <rect x="802" y="148" width="114" height="38" fill="url(#cycleHatch)"/>
   </g>
-  <rect x="827" y="156" width="64" height="20" rx="10" fill="rgba(255,255,255,0.88)"/>
-  <text x="859" y="170" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="700" fill="#5A6561">15d off</text>
+  <rect x="827" y="157" width="64" height="20" rx="10" fill="rgba(255,255,255,0.92)"/>
+  <text x="859" y="171" text-anchor="middle" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="11" font-weight="700" fill="#4C5853">15d off</text>
 
-  <!-- Row 3: Paired Swap 30d / 30d -->
-  <rect x="24" y="210" width="912" height="68" rx="18" fill="#FFFFFF" stroke="#E2E8E5" stroke-width="1"/>
-  <text x="42" y="240" font-family="'Bricolage Grotesque', 'Plus Jakarta Sans', sans-serif" font-size="16" font-weight="700" fill="#151918">Paired Swap (30d / 30d)</text>
-  <text x="42" y="261" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#0C6B4E">1 active at a time · save 50%</text>
+  <!-- Row 3: Paired Swap 30d / 30d (True-Hue Brand Blocks + Botanical Baton Divider) -->
+  <rect x="24" y="210" width="912" height="70" rx="20" fill="#FFFFFF" stroke="#E2E8E5" stroke-width="1"/>
+  <text x="42" y="241" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="16" font-weight="700" fill="#141917">Paired Swap (30d / 30d)</text>
+  <text x="42" y="262" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="700" fill="#186445">1 active at a time · save 50%</text>
 
-  <rect x="260" y="227" width="212" height="34" rx="17" fill="#DCE8FB"/>
-  <text x="366" y="248" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1B3F72">Service A · 30d active</text>
+  <rect x="260" y="228" width="210" height="34" rx="13" fill="#2554EB"/>
+  <text x="365" y="249" text-anchor="middle" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">Service A · 30d active</text>
+  <line x1="476" y1="224" x2="476" y2="266" stroke="#186445" stroke-width="2" stroke-dasharray="4 4"/>
 
-  <rect x="480" y="227" width="212" height="34" rx="17" fill="#F8E0DC"/>
-  <text x="586" y="248" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#7A2D24">Service B · 30d active</text>
+  <rect x="482" y="228" width="208" height="34" rx="13" fill="#C62828"/>
+  <text x="586" y="249" text-anchor="middle" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">Service B · 30d active</text>
+  <line x1="696" y1="224" x2="696" y2="266" stroke="#186445" stroke-width="2" stroke-dasharray="4 4"/>
 
-  <rect x="700" y="227" width="216" height="34" rx="17" fill="#DCE8FB"/>
-  <text x="808" y="248" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#1B3F72">Service A · 30d active</text>
+  <rect x="702" y="228" width="214" height="34" rx="13" fill="#2554EB"/>
+  <text x="809" y="249" text-anchor="middle" font-family="'Google Sans Flex', 'Google Sans', sans-serif" font-size="12" font-weight="700" fill="#FFFFFF">Service A · 30d active</text>
 </svg>
