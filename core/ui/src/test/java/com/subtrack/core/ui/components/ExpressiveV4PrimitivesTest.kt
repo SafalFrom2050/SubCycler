@@ -219,4 +219,110 @@ class ExpressiveV4PrimitivesTest {
         assertEquals(false, preview[1].alreadyInStack)
         assertEquals(true, preview[2].alreadyInStack)
     }
+
+    @Test
+    fun cycleVesselMetricsProgressMonotonicallyAcrossActiveAndBreakZones() {
+        val startDate = LocalDate.of(2026, 11, 1)
+        val rotating45 = Subscription(
+            id = 10L,
+            name = "Netflix",
+            cost = 890.0,
+            currency = "JPY",
+            billingPeriod = BillingPeriod.MONTHLY,
+            startDate = startDate,
+            strategy = RotationStrategy.ROTATION_45_DAYS,
+            isBillingDateConfirmed = true,
+            isStrategyConfirmed = true
+        )
+
+        val day1 = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(rotating45, startDate))
+        val day15 = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(rotating45, startDate.plusDays(14)))
+        val day30 = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(rotating45, startDate.plusDays(29)))
+        val breakDay1 = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(rotating45, startDate.plusDays(30)))
+        val breakLast = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(rotating45, startDate.plusDays(44)))
+
+        assertTrue(day1.hasBreakZone)
+        assertTrue(day1.isActivePhase)
+        assertEquals(30f / 45f, day1.activeZoneFraction, 0.001f)
+        assertTrue(day1.overallCycleProgress < day15.overallCycleProgress)
+        assertTrue(day15.overallCycleProgress < day30.overallCycleProgress)
+        assertEquals(30f / 45f, day30.overallCycleProgress, 0.001f)
+
+        // Break phase continues cleanly rightward past activeZoneFraction instead of snapping to 0
+        assertFalse(breakDay1.isActivePhase)
+        assertTrue(breakDay1.overallCycleProgress > day30.overallCycleProgress)
+        assertTrue(breakDay1.overallCycleProgress < breakLast.overallCycleProgress)
+        assertEquals(1f, breakLast.overallCycleProgress, 0.001f)
+    }
+
+    @Test
+    fun cycleVesselMetricsHandleShortBreaksBonusDaysContinuousAndIncomplete() {
+        val startDate = LocalDate.of(2026, 11, 1)
+        val shortBreak37 = Subscription(
+            id = 11L,
+            name = "Disney+",
+            cost = 1140.0,
+            currency = "JPY",
+            billingPeriod = BillingPeriod.MONTHLY,
+            startDate = startDate,
+            strategy = RotationStrategy.CUSTOM,
+            customActiveDays = 30,
+            customBlackoutDays = 7,
+            isBillingDateConfirmed = true,
+            isStrategyConfirmed = true
+        )
+        val shortBreakMetrics = computeCycleVesselMetrics(
+            RotationEngine.calculateCycleStatus(shortBreak37, startDate.plusDays(4))
+        )
+        assertTrue(shortBreakMetrics.hasBreakZone)
+        // 30 / 37 = 0.8108 -> clamped to 0.80 so break zone stays clearly visible
+        assertEquals(0.80f, shortBreakMetrics.activeZoneFraction, 0.001f)
+
+        val bonusCycleSub = Subscription(
+            id = 12L,
+            name = "Crunchyroll",
+            cost = 9.99,
+            currency = "USD",
+            billingPeriod = BillingPeriod.MONTHLY,
+            startDate = startDate,
+            strategy = RotationStrategy.ROTATION_45_DAYS,
+            bonusActiveDays = 30,
+            isBillingDateConfirmed = true,
+            isStrategyConfirmed = true
+        )
+        val cycle1 = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(bonusCycleSub, startDate.plusDays(10)))
+        val cycle2 = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(bonusCycleSub, startDate.plusDays(80)))
+        assertEquals(0.80f, cycle1.activeZoneFraction, 0.001f)
+        assertEquals(30f / 45f, cycle2.activeZoneFraction, 0.001f)
+
+        val alwaysOn = Subscription(
+            id = 13L,
+            name = "Spotify",
+            cost = 11.99,
+            currency = "USD",
+            billingPeriod = BillingPeriod.MONTHLY,
+            startDate = startDate,
+            strategy = RotationStrategy.CONTINUOUS,
+            isBillingDateConfirmed = true,
+            isStrategyConfirmed = true
+        )
+        val alwaysMetrics = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(alwaysOn, startDate.plusDays(14)))
+        assertFalse(alwaysMetrics.hasBreakZone)
+        assertEquals(1f, alwaysMetrics.activeZoneFraction, 0.001f)
+        assertEquals(0.5f, alwaysMetrics.overallCycleProgress, 0.001f)
+
+        val incomplete = Subscription(
+            id = 14L,
+            name = "Draft",
+            cost = 0.0,
+            currency = "USD",
+            startDate = startDate,
+            isBillingDateConfirmed = false,
+            isStrategyConfirmed = false
+        )
+        val incompleteMetrics = computeCycleVesselMetrics(RotationEngine.calculateCycleStatus(incomplete, startDate))
+        assertTrue(incompleteMetrics.isIncomplete)
+        assertFalse(incompleteMetrics.hasBreakZone)
+        assertEquals(incomplete.setupCompletionFraction, incompleteMetrics.overallCycleProgress, 0.001f)
+    }
 }
