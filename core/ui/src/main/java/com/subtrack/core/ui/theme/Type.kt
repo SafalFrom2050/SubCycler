@@ -24,6 +24,10 @@ import com.subtrack.core.ui.R
  *
  * 3. [BodyFontFamily] — Plus Jakarta Sans Variable (`wght = 400–800`). Clean, contemporary
  *    geometric sans for UI copy, pills, buttons, wide-tracked editorial eyebrows, and inputs.
+ *
+ * 4. [DisplayExpandedFontFamily] — Google Sans Flex Expanded (`wdth = 125`, `wght = 800`,
+ *    `ROND = 35`, SIL OFL v1.1). Wide, openly proportioned Material 3 Expressive display face
+ *    for prominent section titles.
  */
 @OptIn(ExperimentalTextApi::class)
 val DisplayHeroFontFamily = FontFamily(
@@ -163,6 +167,21 @@ val BodyFontFamily = FontFamily(
         resId = R.font.plus_jakarta_sans_variable,
         weight = FontWeight.Black,
         variationSettings = FontVariation.Settings(FontVariation.weight(800))
+    )
+)
+
+val DisplayExpandedFontFamily = FontFamily(
+    Font(
+        resId = R.font.google_sans_flex_expanded_extrabold,
+        weight = FontWeight.Bold
+    ),
+    Font(
+        resId = R.font.google_sans_flex_expanded_extrabold,
+        weight = FontWeight.ExtraBold
+    ),
+    Font(
+        resId = R.font.google_sans_flex_expanded_extrabold,
+        weight = FontWeight.Black
     )
 )
 
