@@ -96,6 +96,7 @@ fun SubTrackApp(
     var isDashboardHydrated by remember { mutableStateOf(false) }
     var splashRevealStarted by remember { mutableStateOf(false) }
     var splashDismissed by remember { mutableStateOf(false) }
+    var isPreviewingWelcome by remember { mutableStateOf(false) }
 
     LaunchedEffect(launchState, pendingTransferPayload) {
         if (launchState == AppLaunchState.ONBOARDING && !pendingTransferPayload.isNullOrBlank()) {
@@ -121,7 +122,13 @@ fun SubTrackApp(
             }
             AppLaunchState.ONBOARDING -> {
                 OnboardingRoute(
+                    isPreviewMode = isPreviewingWelcome,
+                    onExitPreview = {
+                        isPreviewingWelcome = false
+                        appViewModel.onOnboardingFinished()
+                    },
                     onFinished = { requestNotificationPermission ->
+                        isPreviewingWelcome = false
                         appViewModel.onOnboardingFinished()
                         if (requestNotificationPermission) {
                             onRequestNotificationPermission()
@@ -137,6 +144,10 @@ fun SubTrackApp(
                 onTransferPayloadConsumed = onTransferPayloadConsumed,
                 onApplyLauncherIcon = onApplyLauncherIcon,
                 onPreviewNotifications = onPreviewNotifications,
+                onPreviewWelcome = {
+                    isPreviewingWelcome = true
+                    appViewModel.openOnboarding()
+                },
                 dockMood = dockMood,
                 isSplashDismissed = splashDismissed,
                 isEntranceReady = splashRevealStarted,
@@ -435,6 +446,7 @@ private fun SubTrackMainNavigation(
     onTransferPayloadConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    onPreviewWelcome: () -> Unit = {},
     dockMood: DockMoodState = DockMoodState(),
     isSplashDismissed: Boolean = true,
     isEntranceReady: Boolean = true,
@@ -590,6 +602,7 @@ private fun SubTrackMainNavigation(
                         onNavigateToSavings = { selectTabIndex(2) },
                         onApplyLauncherIcon = onApplyLauncherIcon,
                         onPreviewNotifications = onPreviewNotifications,
+                        onPreviewWelcome = onPreviewWelcome,
                         isEntranceReady = isEntranceReady,
                         onFirstDataReady = onDashboardFirstDataReady
                     )

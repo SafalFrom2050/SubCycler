@@ -190,6 +190,7 @@ fun DashboardRoute(
     onNavigateToSavings: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    onPreviewWelcome: (() -> Unit)? = null,
     isEntranceReady: Boolean = true,
     onFirstDataReady: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -437,6 +438,7 @@ fun DashboardRoute(
         onOpenSettingsConsumed = onOpenSettingsConsumed,
         onApplyLauncherIcon = onApplyLauncherIcon,
         onPreviewNotifications = onPreviewNotifications,
+        onPreviewWelcome = onPreviewWelcome,
         isEntranceReady = isEntranceReady,
         modifier = modifier
     )
@@ -473,6 +475,7 @@ fun DashboardScreen(
     onOpenSettingsConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    onPreviewWelcome: (() -> Unit)? = null,
     isEntranceReady: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -1494,6 +1497,12 @@ fun DashboardScreen(
                     icon = Icons.Default.Check,
                     dedupeKey = "preview_notif"
                 )
+            },
+            onPreviewWelcome = onPreviewWelcome?.let { openWelcome ->
+                {
+                    showSettings = false
+                    openWelcome()
+                }
             },
             onShareStack = {
                 showSettings = false

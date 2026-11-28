@@ -202,4 +202,18 @@ class OnboardingViewModelTest {
         assertTrue(savedAdaptive.useStackHeroMood)
         assertEquals(AppLauncherIcon.BOTANICAL, savedAdaptive.launcherIcon)
     }
+
+    @Test
+    fun resetForWelcomeRestoresWelcomeStepAndClearsCompletionFlag() = runTest(dispatcher) {
+        viewModel.onAction(OnboardingAction.BeginSelection)
+        viewModel.onAction(OnboardingAction.SkipOnboarding)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isCompleted)
+
+        viewModel.resetForWelcome()
+        advanceUntilIdle()
+
+        assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
+        assertFalse(viewModel.uiState.value.isCompleted)
+    }
 }

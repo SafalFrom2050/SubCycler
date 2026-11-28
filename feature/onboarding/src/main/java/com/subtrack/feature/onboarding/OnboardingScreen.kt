@@ -160,11 +160,19 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun OnboardingRoute(
     onFinished: (requestNotificationPermission: Boolean) -> Unit,
+    isPreviewMode: Boolean = false,
+    onExitPreview: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(isPreviewMode) {
+        if (isPreviewMode) {
+            viewModel.resetForWelcome()
+        }
+    }
 
     LaunchedEffect(uiState.isCompleted) {
         if (uiState.isCompleted) {
@@ -174,16 +182,16 @@ fun OnboardingRoute(
 
     OnboardingScreen(
         uiState = uiState,
+        isPreviewMode = isPreviewMode,
+        onExitPreview = onExitPreview,
         onAction = { action ->
+            if (isPreviewMode && action is OnboardingAction.SkipOnboarding) {
+                onExitPreview()
+                return@OnboardingScreen
+            }
             viewModel.onAction(action)
-            when (action) {
-                is OnboardingAction.SetLauncherIcon -> onApplyLauncherIcon(action.icon)
-                is OnboardingAction.SetUseStackHeroMood -> {
-                    if (action.enabled) {
-                        onApplyLauncherIcon(AppLauncherIcon.BOTANICAL)
-                    }
-                }
-                else -> Unit
+            if (action is OnboardingAction.SetLauncherIcon) {
+                onApplyLauncherIcon(action.icon)
             }
         },
         modifier = modifier
@@ -194,6 +202,8 @@ fun OnboardingRoute(
 fun OnboardingScreen(
     uiState: OnboardingUiState,
     onAction: (OnboardingAction) -> Unit,
+    isPreviewMode: Boolean = false,
+    onExitPreview: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var serviceRequestingDate by remember { mutableStateOf<String?>(null) }
@@ -202,8 +212,12 @@ fun OnboardingScreen(
     var customServiceSeed by rememberSaveable { mutableStateOf("") }
     var customServiceCategory by rememberSaveable { mutableStateOf(SubscriptionCategory.OTHER) }
 
-    BackHandler(enabled = uiState.step != OnboardingStep.WELCOME) {
-        onAction(OnboardingAction.Back)
+    BackHandler(enabled = uiState.step != OnboardingStep.WELCOME || isPreviewMode) {
+        if (uiState.step == OnboardingStep.WELCOME && isPreviewMode) {
+            onExitPreview()
+        } else {
+            onAction(OnboardingAction.Back)
+        }
     }
 
     ExpressiveScreenBackdrop(
@@ -256,6 +270,7 @@ fun OnboardingScreen(
                         useStackHeroMood = uiState.useStackHeroMood,
                         selectedLauncherIcon = uiState.selectedLauncherIcon,
                         isSaving = uiState.isSaving,
+                        isPreviewMode = isPreviewMode,
                         onUseStackHeroMoodChanged = {
                             onAction(OnboardingAction.SetUseStackHeroMood(it))
                         },
@@ -264,7 +279,9 @@ fun OnboardingScreen(
                         },
                         onChooseCurrency = { showCurrencyDialog = true },
                         onGetStarted = { onAction(OnboardingAction.BeginSelection) },
-                        onSkip = { onAction(OnboardingAction.SkipOnboarding) }
+                        onSkip = {
+                            if (isPreviewMode) onExitPreview() else onAction(OnboardingAction.SkipOnboarding)
+                        }
                     )
                     OnboardingStep.SELECT_SERVICES -> ServiceSelectionStep(
                         uiState = uiState,
@@ -363,6 +380,7 @@ private fun WelcomeStep(
     useStackHeroMood: Boolean,
     selectedLauncherIcon: AppLauncherIcon,
     isSaving: Boolean,
+    isPreviewMode: Boolean = false,
     onUseStackHeroMoodChanged: (Boolean) -> Unit,
     onLauncherIconSelected: (AppLauncherIcon) -> Unit,
     onChooseCurrency: () -> Unit,
@@ -415,7 +433,7 @@ private fun WelcomeStep(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Skip",
+                        text = if (isPreviewMode) "Close" else "Skip",
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp

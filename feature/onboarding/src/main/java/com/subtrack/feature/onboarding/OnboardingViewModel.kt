@@ -180,6 +180,22 @@ class OnboardingViewModel @Inject constructor(
         loadInitialPreferences()
     }
 
+    fun resetForWelcome() {
+        hasExplicitCurrencySelection = false
+        hasExplicitThemeSelection = false
+        _uiState.update { state ->
+            state.copy(
+                step = OnboardingStep.WELCOME,
+                searchQuery = "",
+                isSaving = false,
+                errorMessage = null,
+                isCompleted = false,
+                shouldRequestNotificationPermission = false
+            )
+        }
+        loadInitialPreferences()
+    }
+
     fun onAction(action: OnboardingAction) {
         when (action) {
             OnboardingAction.BeginSelection -> _uiState.update {

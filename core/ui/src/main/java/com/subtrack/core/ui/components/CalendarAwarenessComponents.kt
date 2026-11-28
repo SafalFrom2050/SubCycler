@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
@@ -122,6 +123,7 @@ fun CalendarSettingsSheet(
     onLauncherIconSelected: ((AppLauncherIcon) -> Unit)? = null,
     onOpenNotificationSettings: (() -> Unit)? = null,
     onPreviewNotifications: (() -> Unit)? = null,
+    onPreviewWelcome: (() -> Unit)? = null,
     onShareStack: (() -> Unit)? = null,
     onImportStack: (() -> Unit)? = null,
     backupMessage: String? = null
@@ -139,7 +141,8 @@ fun CalendarSettingsSheet(
 
     val hasAppearanceSection = onThemeModeSelected != null ||
         onUseStackHeroMoodChanged != null ||
-        onLauncherIconSelected != null
+        onLauncherIconSelected != null ||
+        onPreviewWelcome != null
     val hasTransferSection = onShareStack != null || onImportStack != null
 
     val pageSlideSpec = remember(reducedMotion) {
@@ -373,6 +376,7 @@ fun CalendarSettingsSheet(
                             val appearanceRows = buildList {
                                 if (onThemeModeSelected != null) add("theme")
                                 if (hasThemeStyleSection) add("theme_style")
+                                if (onPreviewWelcome != null) add("preview_welcome")
                             }
                             if (appearanceRows.isNotEmpty()) {
                                 ExpressiveSectionStack(eyebrow = "THEME & ACCENT") {
@@ -600,6 +604,20 @@ fun CalendarSettingsSheet(
                                                     }
                                                 }
                                             }
+
+                                            "preview_welcome" -> SettingsVaultActionRow(
+                                                index = index,
+                                                count = appearanceRows.size,
+                                                title = "Preview welcome",
+                                                subtitle = "Open first-launch screen",
+                                                icon = Icons.Default.AutoAwesome,
+                                                badgeShape = ExpressiveClover4Shape,
+                                                palette = oceanPalette,
+                                                onClick = {
+                                                    onDismiss()
+                                                    onPreviewWelcome!!()
+                                                }
+                                            )
                                         }
                                     }
                                 }
