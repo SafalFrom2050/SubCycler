@@ -4,9 +4,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -16,6 +21,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -94,9 +100,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -151,6 +161,8 @@ import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.core.ui.theme.LocalSubCyclerSwirlColors
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+import kotlin.math.PI
+import kotlin.math.sin
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -222,9 +234,11 @@ fun OnboardingScreen(
 
     ExpressiveScreenBackdrop(
         modifier = modifier,
-        emphasized = uiState.step == OnboardingStep.WELCOME || uiState.step == OnboardingStep.STARTER_PLAN
+        emphasized = uiState.step == OnboardingStep.STARTER_PLAN
     ) {
-        ShapeBloomBackdrop()
+        if (uiState.step != OnboardingStep.WELCOME) {
+            ShapeBloomBackdrop()
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -394,13 +408,12 @@ private fun WelcomeStep(
     val liveSwirl = LocalSubCyclerSwirlColors.current
     val cardBorder = expressiveCardBorder()
     val heroInk = accentTokens.heroContent
-    val heroChipBg = if (isDark) Color.Black.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.20f)
     val themeModeFadeSpec = remember(reducedMotion) {
         ExpressiveMotion.effectsFast<Float>().orSnapIfReduced(reducedMotion)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Unified Brand App-Bar Row (matches Subs, Planner, and Savings) + Minimal Skip Pill
+        // 1. Minimal Top Bar: Unified Brand Mark + Compact Currency Pill + Skip/Close
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -408,171 +421,151 @@ private fun WelcomeStep(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
             ) {
                 SubCyclerSwirlLogo(
                     colors = liveSwirl,
-                    size = 34.dp,
-                    cornerRadius = 11.dp,
+                    size = 32.dp,
+                    cornerRadius = 10.dp,
                     contentDescriptionText = "SubCycler logo"
                 )
-                ExpressiveBrandWordmark(fontSize = 22.sp)
+                ExpressiveBrandWordmark(fontSize = 20.sp)
             }
 
-            Surface(
-                onClick = onSkip,
-                enabled = !isSaving,
-                shape = RoundedCornerShape(999.dp),
-                color = if (isDark) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
-                border = cardBorder
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .heightIn(min = 40.dp)
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center
+                CurrencyPillButton(
+                    currencyCode = currencyCode,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onChooseCurrency()
+                    }
+                )
+                Surface(
+                    onClick = onSkip,
+                    enabled = !isSaving,
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (isDark) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+                    border = cardBorder
                 ) {
-                    Text(
-                        text = if (isPreviewMode) "Close" else "Skip",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
+                    Box(
+                        modifier = Modifier
+                            .heightIn(min = 44.dp)
+                            .padding(horizontal = 15.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isPreviewMode) "Close" else "Skip",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp
+                        )
+                    }
                 }
             }
         }
 
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 2. Option B Abstract Rhythm Wave Hero + Theme Selector anchored cleanly above CTA
         Column(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. Bold Color-Block Hero Banner with True-Hue Brand Mosaic & Triadic Cookie12 Seal
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .heightIn(min = 230.dp),
                 shape = RoundedCornerShape(30.dp),
                 color = Color.Transparent
             ) {
                 ExpressiveHeroCardBackdrop(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .clip(RoundedCornerShape(30.dp))
                 ) {
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp, vertical = 28.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(999.dp),
-                                color = heroChipBg
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Shield,
-                                        contentDescription = null,
-                                        tint = heroInk,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Text(
-                                        text = "100% OFFLINE",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 0.8.sp,
-                                        color = heroInk
-                                    )
-                                }
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(62.dp)
-                                    .expressivePolygonSurface(
-                                        shape = ExpressiveCookie12Shape,
-                                        color = accentTokens.heroPop
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = "-32%",
-                                        fontFamily = DisplayHeroFontFamily,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 15.sp,
-                                        lineHeight = 16.sp,
-                                        letterSpacing = (-0.5).sp,
-                                        color = accentTokens.onHeroPop
-                                    )
-                                    Text(
-                                        text = "45d",
-                                        fontSize = 9.5.sp,
-                                        lineHeight = 10.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = accentTokens.onHeroPop.copy(alpha = 0.82f)
-                                    )
-                                }
-                            }
-                        }
-
-                        // True-Hue Brand Vault Mosaic blooming from squares into organic silhouettes
-                        BrandVaultMosaic(modifier = Modifier.fillMaxWidth())
-
                         Text(
                             text = buildAnnotatedString {
                                 withStyle(
                                     SpanStyle(
-                                        fontFamily = DisplayFontFamily,
-                                        color = heroInk.copy(alpha = 0.80f),
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = (-0.4).sp
+                                        fontFamily = DisplayHeroFontFamily,
+                                        color = heroInk.copy(alpha = 0.86f),
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = (-1.1).sp
                                     )
                                 ) {
-                                    append("Pause. ")
+                                    append("Pause.\n")
                                 }
                                 withStyle(
                                     SpanStyle(
                                         fontFamily = DisplayHeroFontFamily,
                                         color = heroInk,
                                         fontWeight = FontWeight.Black,
-                                        letterSpacing = (-0.6).sp
+                                        letterSpacing = (-1.1).sp
                                     )
                                 ) {
-                                    append("Binge. ")
+                                    append("Binge.\n")
                                 }
                                 withStyle(
                                     SpanStyle(
                                         fontFamily = DisplayHeroFontFamily,
                                         color = accentTokens.heroPop,
                                         fontWeight = FontWeight.Black,
-                                        letterSpacing = (-0.6).sp
+                                        letterSpacing = (-1.1).sp
                                     )
                                 ) {
                                     append("Save.")
                                 }
                             },
-                            fontSize = 28.sp,
-                            lineHeight = 32.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            fontSize = 42.sp,
+                            lineHeight = 45.sp
                         )
+
+                        Spacer(modifier = Modifier.height(26.dp))
+
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            WelcomeRhythmWave(
+                                waveColor = accentTokens.heroPop,
+                                breakColor = heroInk.copy(alpha = 0.34f),
+                                animate = !reducedMotion
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "30d active",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.2.sp,
+                                    color = heroInk.copy(alpha = 0.78f)
+                                )
+                                Text(
+                                    text = "15d break",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.2.sp,
+                                    color = heroInk.copy(alpha = 0.78f)
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // 2. Interactive Theme & App Icon Selection Card (Defaults to Adapt to subscriptions)
+            // 3. De-duplicated Theme & Icon Card (Auto locked to mood vs Custom 6 themes)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(26.dp),
@@ -582,50 +575,18 @@ private fun WelcomeStep(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 15.dp),
+                        .padding(vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        ExpressiveEyebrow(
-                            text = "THEME & APP ICON",
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                if (useStackHeroMood) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lock,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                }
-                                Text(
-                                    text = if (useStackHeroMood) "Auto mood" else selectedLauncherIcon.displayName,
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
+                    ExpressiveEyebrow(
+                        text = "THEME & ICON",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
 
                     val themeStyleOptions = remember {
                         listOf(
-                            ExpressiveSegmentOption(true, "Adapt", Icons.Default.AutoAwesome),
+                            ExpressiveSegmentOption(true, "Auto", Icons.Default.AutoAwesome),
                             ExpressiveSegmentOption(false, "Custom", Icons.Default.Palette)
                         )
                     }
@@ -654,49 +615,46 @@ private fun WelcomeStep(
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp),
                                 shape = RoundedCornerShape(18.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.50f),
-                                border = BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                                )
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = cardBorder
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        .padding(horizontal = 12.dp, vertical = 11.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     SubCyclerSwirlLogo(
                                         colors = liveSwirl,
-                                        size = 40.dp,
-                                        cornerRadius = 12.dp,
+                                        size = 38.dp,
+                                        cornerRadius = 11.dp,
                                         contentDescriptionText = "Adaptive mood icon"
                                     )
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Adapts to subscriptions",
+                                            text = "Matches your subscriptions",
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "App icon matches your stack mood",
+                                            text = "App icon follows active mood",
                                             fontSize = 11.5.sp,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                     Box(
                                         modifier = Modifier
                                             .size(28.dp)
                                             .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                                            .background(MaterialTheme.colorScheme.surfaceContainer),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Lock,
                                             contentDescription = "App icon locked to mood",
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
@@ -722,7 +680,7 @@ private fun WelcomeStep(
                                         color = if (isSelected) {
                                             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.76f)
                                         } else {
-                                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.75f)
+                                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.78f)
                                         },
                                         border = BorderStroke(
                                             width = if (isSelected) 1.5.dp else 1.dp,
@@ -785,70 +743,7 @@ private fun WelcomeStep(
             }
         }
 
-        // Compact App-Wide Currency Pill + Bold Primary CTA
-        Surface(
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onChooseCurrency()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = cardBorder
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = MoneyFormatter.symbol(currencyCode),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Currency · $currencyCode",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = MoneyFormatter.displayName(currencyCode),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.5.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.Default.ExpandMore,
-                    contentDescription = "Change currency",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         PrimaryOnboardingButton(
             text = "Build your stack →",
@@ -862,90 +757,84 @@ private fun WelcomeStep(
     }
 }
 
-private data class WelcomeBrandTile(
-    val monogram: String,
-    val fillColor: Color,
-    val shapeSeed: Int
-)
-
 @Composable
-private fun BrandVaultMosaic(
+private fun WelcomeRhythmWave(
+    waveColor: Color,
+    breakColor: Color,
+    animate: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val haptic = LocalHapticFeedback.current
-    val reducedMotion = rememberReducedMotionEnabled()
-    val tiles = remember {
-        listOf(
-            WelcomeBrandTile("NF", Color(0xFFD61922), 0),
-            WelcomeBrandTile("D+", Color(0xFF1944D6), 1),
-            WelcomeBrandTile("SP", Color(0xFF148A3E), 2),
-            WelcomeBrandTile("AI", Color(0xFF11826A), 3),
-            WelcomeBrandTile("YT", Color(0xFFC81E2B), 4),
-            WelcomeBrandTile("CL", Color(0xFFC45B38), 5),
-            WelcomeBrandTile("PV", Color(0xFF0C78B0), 6),
-            WelcomeBrandTile("MX", Color(0xFF4B3CE0), 7)
-        )
-    }
-    var bloomed by remember { mutableStateOf(reducedMotion) }
-    LaunchedEffect(reducedMotion) {
-        if (reducedMotion) {
-            bloomed = true
-        } else {
-            delay(220L)
-            bloomed = true
-        }
-    }
+    val infiniteTransition = rememberInfiniteTransition(label = "welcomeWave")
+    val phaseShift by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2.0 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2600, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "welcomeWavePhase"
+    )
+    val phase = if (animate) phaseShift else 0f
+    val path = remember { Path() }
 
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(28.dp)
     ) {
-        tiles.chunked(4).forEach { row ->
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                row.forEach { tile ->
-                    var shapeIdx by remember {
-                        mutableIntStateOf(tile.shapeSeed % ExpressiveMaterialPolygons.mosaicPalette.size)
-                    }
-                    val targetPolygon = if (!bloomed) {
-                        ExpressiveMaterialPolygons.Square
-                    } else {
-                        ExpressiveMaterialPolygons.mosaicPalette[shapeIdx]
-                    }
-                    val shape = rememberMorphingPolygonShape(targetPolygon = targetPolygon)
+        val strokeW = 4.5.dp.toPx()
+        val breakStrokeW = 3.8.dp.toPx()
+        val amplitude = 6.dp.toPx()
+        val wavelength = 28.dp.toPx()
+        val centerY = size.height / 2f
+        val startX = strokeW / 2f
+        val endX = (size.width - strokeW / 2f).coerceAtLeast(startX)
+        val totalSpan = (endX - startX).coerceAtLeast(1f)
 
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .expressivePolygonSurface(
-                                shape = shape,
-                                color = tile.fillColor,
-                                borderColor = Color.White.copy(alpha = 0.28f),
-                                borderWidth = 1.5.dp
-                            )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                shapeIdx = (shapeIdx + 3) % ExpressiveMaterialPolygons.mosaicPalette.size
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = tile.monogram,
-                            fontFamily = DisplayHeroFontFamily,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
-                            letterSpacing = (-0.5).sp,
-                            color = Color.White
-                        )
-                    }
-                }
+        val dotRadius = 5.dp.toPx()
+        val dotGap = 11.dp.toPx()
+        val waveEndX = startX + totalSpan * 0.64f
+        val dotCenterX = waveEndX + dotGap
+        val breakStartX = dotCenterX + dotGap
+
+        path.reset()
+        val stepPx = 3f
+        var x = startX
+        var first = true
+        while (x <= waveEndX) {
+            val angle = ((x - startX) / wavelength) * (2.0 * PI) - phase
+            val y = centerY + (sin(angle) * amplitude).toFloat()
+            if (first) {
+                path.moveTo(x, y)
+                first = false
+            } else {
+                path.lineTo(x, y)
             }
+            x += stepPx
+        }
+        val finalAngle = ((waveEndX - startX) / wavelength) * (2.0 * PI) - phase
+        path.lineTo(waveEndX, centerY + (sin(finalAngle) * amplitude).toFloat())
+
+        drawPath(
+            path = path,
+            color = waveColor,
+            style = Stroke(width = strokeW, cap = StrokeCap.Round)
+        )
+
+        drawCircle(
+            color = waveColor,
+            radius = dotRadius,
+            center = Offset(dotCenterX, centerY)
+        )
+
+        if (endX > breakStartX + 4f) {
+            drawLine(
+                color = breakColor,
+                start = Offset(breakStartX, centerY),
+                end = Offset(endX, centerY),
+                strokeWidth = breakStrokeW,
+                cap = StrokeCap.Round
+            )
         }
     }
 }

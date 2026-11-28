@@ -79,8 +79,9 @@ class WelcomeScreenTest {
             ?: File(context.cacheDir, "welcome_previews")).apply { mkdirs() }
 
         compose.waitForIdle()
-        compose.onNodeWithText("Adapts to subscriptions").assertIsDisplayed()
-        compose.onNodeWithText("App icon matches your stack mood").assertIsDisplayed()
+        compose.onNodeWithText("Matches your subscriptions").assertIsDisplayed()
+        compose.onNodeWithText("App icon follows active mood").assertIsDisplayed()
+        compose.onNodeWithText("30d active").assertIsDisplayed()
         compose.onNodeWithText("Build your stack →").assertIsDisplayed()
         saveCapture(File(previewDir, "welcome_adapt_dark.png"))
 
@@ -101,11 +102,11 @@ class WelcomeScreenTest {
         assertEquals(AppLauncherIcon.OCEAN, state.selectedLauncherIcon)
         saveCapture(File(previewDir, "welcome_custom_ocean_light.png"))
 
-        // Switch back to Adapt -> locks back to adaptive mood
-        compose.onNodeWithText("Adapt").performClick()
+        // Switch back to Auto -> locks back to adaptive mood
+        compose.onNodeWithText("Auto").performClick()
         compose.waitForIdle()
         assertTrue(state.useStackHeroMood)
-        compose.onNodeWithText("Adapts to subscriptions").assertIsDisplayed()
+        compose.onNodeWithText("Matches your subscriptions").assertIsDisplayed()
         saveCapture(File(previewDir, "welcome_adapt_light.png"))
     }
 
