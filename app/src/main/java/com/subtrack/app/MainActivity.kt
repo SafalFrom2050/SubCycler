@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -37,9 +38,11 @@ import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.ui.components.decodeQrFromBitmap
+import com.subtrack.core.ui.theme.BrandColorHarmonizer
 import com.subtrack.core.ui.theme.SubTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -67,15 +70,46 @@ class MainActivity : ComponentActivity() {
             val launcherIcon by appViewModel.launcherIcon.collectAsStateWithLifecycle()
             val dockMood by appViewModel.dockMood.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
+            var isSplashDismissed by remember { mutableStateOf(false) }
+            var hasCompletedInitialWidgetSync by remember { mutableStateOf(false) }
             val useDarkTheme = when (themeMode) {
                 AppThemeMode.SYSTEM -> systemDark
                 AppThemeMode.LIGHT -> false
                 AppThemeMode.DARK -> true
             }
 
-            // Keep all home-screen widgets live-synced whenever theme, icon accent, stack mood, or active stack changes
-            LaunchedEffect(themeMode, launcherIcon, dockMood.useStackHeroMood, dockMood.activeSubscriptions) {
-                if (dockMood.isLoaded) {
+            // When "Adapt to subscriptions" is enabled, automatically keep the home-screen
+            // launcher icon synced to the closest curated icon for the dominant active service.
+            LaunchedEffect(
+                dockMood.isLoaded,
+                dockMood.useStackHeroMood,
+                dockMood.activeSubscriptions,
+                launcherIcon
+            ) {
+                if (dockMood.isLoaded && dockMood.useStackHeroMood) {
+                    val targetIcon = BrandColorHarmonizer.recommendedLauncherIcon(dockMood.activeSubscriptions)
+                    if (targetIcon != launcherIcon) {
+                        appViewModel.setLauncherIcon(targetIcon)
+                    }
+                    pendingLauncherIcon = targetIcon
+                }
+            }
+
+            // Defer home-screen widget broadcasts until after the launch splash and Home's
+            // initial entrance choreography settle so widget IPC/Canvas work never stutters launch.
+            LaunchedEffect(
+                isSplashDismissed,
+                themeMode,
+                useDarkTheme,
+                launcherIcon,
+                dockMood.useStackHeroMood,
+                dockMood.activeSubscriptions
+            ) {
+                if (dockMood.isLoaded && isSplashDismissed) {
+                    if (!hasCompletedInitialWidgetSync) {
+                        delay(650L)
+                        hasCompletedInitialWidgetSync = true
+                    }
                     SubCyclerWidgets.requestUpdateAll(this@MainActivity)
                 }
             }
@@ -111,9 +145,43 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val effectiveAccentTokens = remember(
+                dockMood.isLoaded,
+                dockMood.activeSubscriptions,
+                dockMood.useStackHeroMood,
+                launcherIcon,
+                useDarkTheme
+            ) {
+                if (dockMood.isLoaded && dockMood.useStackHeroMood && dockMood.activeSubscriptions.isNotEmpty()) {
+                    BrandColorHarmonizer.resolveEffectiveAccentTokens(
+                        activeSubscriptions = dockMood.activeSubscriptions,
+                        useStackMood = true,
+                        isDark = useDarkTheme,
+                        fallbackIcon = launcherIcon
+                    )
+                } else {
+                    null
+                }
+            }
+
+            val effectiveSwirlColors = remember(
+                dockMood.isLoaded,
+                dockMood.activeSubscriptions,
+                dockMood.useStackHeroMood,
+                launcherIcon
+            ) {
+                BrandColorHarmonizer.resolveSwirlPetalColors(
+                    activeSubscriptions = if (dockMood.isLoaded) dockMood.activeSubscriptions else emptyList(),
+                    useStackMood = dockMood.useStackHeroMood,
+                    fallbackIcon = launcherIcon
+                )
+            }
+
             SubTrackTheme(
                 darkTheme = useDarkTheme,
-                accentIcon = launcherIcon
+                accentIcon = launcherIcon,
+                accentTokensOverride = effectiveAccentTokens,
+                swirlColorsOverride = effectiveSwirlColors
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -152,6 +220,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         },
+                        onSplashDismissed = { isSplashDismissed = true },
                         appViewModel = appViewModel
                     )
                 }
@@ -163,7 +232,10 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         pendingLauncherIcon?.let { icon ->
             pendingLauncherIcon = null
-            LauncherIconController.applyLauncherIcon(this, icon)
+            val changed = LauncherIconController.applyLauncherIcon(this, icon)
+            if (changed) {
+                SubCyclerWidgets.schedulePostAliasRefresh(applicationContext)
+            }
         }
     }
 

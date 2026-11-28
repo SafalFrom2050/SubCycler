@@ -1,7 +1,9 @@
 package com.subtrack.core.ui.components
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -60,6 +63,8 @@ import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
@@ -190,6 +195,8 @@ fun SubscriptionGridItem(
     cycleStatus: CycleStatus,
     onClick: () -> Unit,
     onBankBreakClick: (() -> Unit)? = null,
+    isEntranceReady: Boolean = true,
+    entranceIndex: Int = -1,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -202,6 +209,38 @@ fun SubscriptionGridItem(
     val hasUnbankedBreak = !isIncomplete && sub.isRotating && cycleStatus.hasUnbankedCompletedBreak
     val lifecycleState = resolveLifecycleState(cycleStatus)
     val vesselMetrics = remember(cycleStatus) { computeCycleVesselMetrics(cycleStatus) }
+
+    // One-shot staggered entrance & liquid wave sweep for the initial visible grid cards on app open
+    val shouldAnimateEntrance = !reducedMotion && entranceIndex in 0..5
+    val skipEntrance = isEntranceReady || !shouldAnimateEntrance
+    val cardEntrance = remember { Animatable(if (skipEntrance) 1f else 0f) }
+    val vesselSweep = remember { Animatable(if (skipEntrance) 1f else 0f) }
+
+    LaunchedEffect(isEntranceReady, reducedMotion) {
+        if (!isEntranceReady) return@LaunchedEffect
+        if (reducedMotion || !shouldAnimateEntrance) {
+            cardEntrance.snapTo(1f)
+            vesselSweep.snapTo(1f)
+            return@LaunchedEffect
+        }
+        if (cardEntrance.value >= 0.99f && vesselSweep.value >= 0.99f) return@LaunchedEffect
+        val staggerMs = entranceIndex.coerceIn(0, 5) * 45L
+        launch {
+            delay(65L + staggerMs)
+            cardEntrance.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+        }
+        launch {
+            delay(115L + staggerMs)
+            vesselSweep.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = 0.80f,
+                    stiffness = 300f,
+                    visibilityThreshold = 0.001f
+                )
+            )
+        }
+    }
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -244,33 +283,33 @@ fun SubscriptionGridItem(
 
     val activeFillColor = when {
         isIncomplete -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.58f else 0.72f)
-        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.20f else 0.13f)
-        else -> brandPalette.container.copy(alpha = if (isDark) 0.42f else 0.48f)
+        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.24f else 0.16f)
+        else -> brandPalette.accent.copy(alpha = if (isDark) 0.21f else 0.145f)
     }
-    val activeCompletedTint = brandPalette.container.copy(alpha = if (isDark) 0.18f else 0.22f)
+    val activeCompletedTint = brandPalette.accent.copy(alpha = if (isDark) 0.10f else 0.08f)
     val activeSeamColor = when {
-        isIncomplete -> MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.30f else 0.26f)
-        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.38f else 0.28f)
-        else -> brandPalette.accent.copy(alpha = if (isDark) 0.36f else 0.28f)
+        isIncomplete -> MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.36f else 0.32f)
+        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.78f else 0.68f)
+        else -> brandPalette.accent.copy(alpha = if (isDark) 0.84f else 0.72f)
     }
     val breakZoneBaseTint = when {
-        !isActive -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.22f else 0.28f)
-        else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.26f else 0.36f)
+        !isActive -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.28f else 0.34f)
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.30f else 0.42f)
     }
     val breakFillColor = when {
-        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.22f else 0.15f)
-        else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.44f else 0.46f)
+        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.26f else 0.18f)
+        else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.54f else 0.54f)
     }
     val breakSeamColor = when {
-        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.40f else 0.30f)
-        else -> MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.42f else 0.32f)
+        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.78f else 0.68f)
+        else -> MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.72f else 0.62f)
     }
     val breakHatchColor = if (!isActive) {
-        MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = if (isDark) 0.13f else 0.10f)
+        MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = if (isDark) 0.16f else 0.12f)
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.085f else 0.075f)
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.10f else 0.09f)
     }
-    val zoneDividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.36f else 0.46f)
+    val zoneDividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.48f else 0.56f)
 
     val isEndingCancelled = !isIncomplete && isActive && cycleStatus.isAutoRenewCancelledForCurrentCycle
     val pillBg = when {
@@ -328,8 +367,13 @@ fun SubscriptionGridItem(
                 progressBarRangeInfo = ProgressBarRangeInfo(vesselMetrics.overallCycleProgress, 0f..1f)
             }
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
+                val ent = cardEntrance.value
+                val clampedEnt = ExpressiveMotion.clampEffectProgress(ent * 1.45f)
+                val entScale = 0.955f + 0.045f * ent
+                alpha = clampedEnt
+                scaleX = scale * entScale
+                scaleY = scale * entScale
+                translationY = (1f - ent) * 16.dp.toPx()
             },
         shape = RoundedCornerShape(cardCorner),
         color = containerColor,
@@ -345,8 +389,8 @@ fun SubscriptionGridItem(
 
                 val hasBreak = vesselMetrics.hasBreakZone
                 val splitX = if (hasBreak) (w * animatedActiveZone).coerceIn(w * 0.25f, w * 0.85f) else w
-                val baseWaveAmp = 3.dp.toPx()
-                val seamStrokeWidth = 1.15.dp.toPx()
+                val baseWaveAmp = 3.2.dp.toPx()
+                val seamStrokeWidth = 1.65.dp.toPx()
                 val hatchSpacing = 9.dp.toPx()
                 val hatchStroke = 1.dp.toPx()
 
@@ -371,14 +415,17 @@ fun SubscriptionGridItem(
                     }
                 }
 
-                // 2. Liquid Wave Fill (either inside Active/Single zone or advancing across Break zone)
+                // 2. Liquid Wave Fill (sweeps smoothly from 0 -> phaseProgress with subtle wave ripple on launch)
+                val sweepFactor = vesselSweep.value.coerceIn(0f, 1.04f)
+                val ripplePhase = 0.7f + (1f - ExpressiveMotion.clampEffectProgress(sweepFactor)) * 1.5f
                 if (!hasBreak || vesselMetrics.isActivePhase) {
                     val minLeadPx = min(14.dp.toPx(), splitX * 0.35f)
-                    val edgeX = if (animatedPhaseProgress <= 0f) {
+                    val targetEdgeX = if (animatedPhaseProgress <= 0f) {
                         0f
                     } else {
                         (minLeadPx + (splitX - minLeadPx) * animatedPhaseProgress).coerceIn(0f, splitX)
                     }
+                    val edgeX = (targetEdgeX * sweepFactor).coerceIn(0f, splitX)
                     if (edgeX > 1f) {
                         val boundaryDamp = ((splitX - edgeX) / 8.dp.toPx()).coerceIn(0f, 1f)
                         val waveAmp = baseWaveAmp * boundaryDamp
@@ -388,7 +435,8 @@ fun SubscriptionGridItem(
                                     startX = 0f,
                                     edgeX = edgeX,
                                     height = h,
-                                    amplitudePx = waveAmp
+                                    amplitudePx = waveAmp,
+                                    phaseRadians = ripplePhase
                                 ),
                                 color = activeFillColor
                             )
@@ -397,7 +445,8 @@ fun SubscriptionGridItem(
                                     path = buildVerticalWaveSeamPath(
                                         edgeX = edgeX,
                                         height = h,
-                                        amplitudePx = waveAmp
+                                        amplitudePx = waveAmp,
+                                        phaseRadians = ripplePhase
                                     ),
                                     color = activeSeamColor,
                                     style = Stroke(width = seamStrokeWidth, cap = StrokeCap.Round)
@@ -424,18 +473,21 @@ fun SubscriptionGridItem(
                     // Blackout / Break phase: completed Active zone rests in muted brand tint,
                     // while cool-slate liquid wave glides across the right-hand hatched Break zone.
                     drawRect(
-                        color = activeCompletedTint,
+                        color = activeCompletedTint.copy(
+                            alpha = activeCompletedTint.alpha * ExpressiveMotion.clampEffectProgress(sweepFactor)
+                        ),
                         topLeft = Offset.Zero,
                         size = Size(splitX, h)
                     )
                     val breakWidth = (w - splitX).coerceAtLeast(0f)
                     val minBreakLeadPx = min(10.dp.toPx(), breakWidth * 0.30f)
-                    val breakEdgeX = if (animatedPhaseProgress <= 0f) {
+                    val targetBreakEdgeX = if (animatedPhaseProgress <= 0f) {
                         splitX
                     } else {
                         (splitX + minBreakLeadPx + (breakWidth - minBreakLeadPx) * animatedPhaseProgress)
                             .coerceIn(splitX, w)
                     }
+                    val breakEdgeX = (splitX + (targetBreakEdgeX - splitX) * sweepFactor).coerceIn(splitX, w)
                     if (breakEdgeX > splitX + 1f) {
                         val boundaryDamp = ((w - breakEdgeX) / 8.dp.toPx()).coerceIn(0f, 1f)
                         val waveAmp = (2.6.dp.toPx()) * boundaryDamp
@@ -445,7 +497,8 @@ fun SubscriptionGridItem(
                                     startX = splitX,
                                     edgeX = breakEdgeX,
                                     height = h,
-                                    amplitudePx = waveAmp
+                                    amplitudePx = waveAmp,
+                                    phaseRadians = ripplePhase
                                 ),
                                 color = breakFillColor
                             )
@@ -454,7 +507,8 @@ fun SubscriptionGridItem(
                                     path = buildVerticalWaveSeamPath(
                                         edgeX = breakEdgeX,
                                         height = h,
-                                        amplitudePx = waveAmp
+                                        amplitudePx = waveAmp,
+                                        phaseRadians = ripplePhase
                                     ),
                                     color = breakSeamColor,
                                     style = Stroke(width = seamStrokeWidth, cap = StrokeCap.Round)
@@ -497,12 +551,13 @@ fun SubscriptionGridItem(
                     Spacer(modifier = Modifier.width(6.dp))
 
                     if (hasUnbankedBreak) {
+                        val popAccent = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
                         val bankText = "+${MoneyFormatter.format(cycleStatus.perBreakSavings, sub.currency, maximumFractionDigits = 0)}"
                         Box(
                             modifier = Modifier
                                 .graphicsLayer { rotationZ = -4f }
                                 .clip(RoundedCornerShape(999.dp))
-                                .background(MaterialTheme.colorScheme.primary)
+                                .background(popAccent.heroPop)
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     if (onBankBreakClick != null) onBankBreakClick() else onClick()
@@ -512,7 +567,7 @@ fun SubscriptionGridItem(
                         ) {
                             Text(
                                 text = "$bankText · Bank",
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = popAccent.onHeroPop,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.ExtraBold,

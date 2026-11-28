@@ -79,7 +79,7 @@ fun CurrencyPickerDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Used across the entire app. SubCycler does not convert exchange rates — prices stay exact as entered.",
+                    text = "Offline only · prices are not auto-converted.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

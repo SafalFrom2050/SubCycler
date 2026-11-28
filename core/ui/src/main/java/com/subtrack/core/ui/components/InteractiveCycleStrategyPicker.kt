@@ -1,7 +1,6 @@
 package com.subtrack.core.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -14,21 +13,18 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.Layout
@@ -51,9 +47,10 @@ private data class RhythmSegment(
 )
 
 /**
- * Interactive, visual Cycle Strategy studio.
- * Replaces static jargon cards with a live 90-day animated rhythm preview,
- * instant savings calculator, and a tactile Break Length slider.
+ * Minimal, neutral-first Cycle Strategy picker:
+ * - Calm monochrome segmented controls (`Always`, `Smart`, `Swap`, `Custom`)
+ * - Clean proportional rhythm bar without media play/pause icons or legend clutter
+ * - Break slider & active-window stepper stay tucked away until `Custom` is selected
  */
 @Composable
 fun InteractiveCycleStrategyPicker(
@@ -66,7 +63,17 @@ fun InteractiveCycleStrategyPicker(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val isDark = LocalSubCyclerDarkTheme.current
     val cardBorder = expressiveCardBorder()
+
+    val neutralSelectedBg = if (isDark) Color(0xFF34393E) else Color(0xFFFFFFFF)
+    val neutralSelectedFg = MaterialTheme.colorScheme.onSurface
+    val neutralSelectedBorder = BorderStroke(
+        width = 1.dp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.24f else 0.16f)
+    )
+    val activeBarBg = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.88f else 0.84f)
+    val activeBarFg = MaterialTheme.colorScheme.surface
 
     val effectiveActive = when (strategy) {
         RotationStrategy.CUSTOM -> activeDays.coerceIn(7, 90)
@@ -86,7 +93,7 @@ fun InteractiveCycleStrategyPicker(
     val estimatedAnnualSavings = monthlyCost?.takeIf { it > 0.0 }?.let { (it * 12.0) * savingsRatio }
 
     val sliderMax = max(45, effectiveBreak).toFloat()
-    var lastHapticDay by remember { mutableIntStateOf(effectiveBreak) }
+    var lastHapticDay by remember(strategy) { mutableIntStateOf(effectiveBreak) }
     var ribbonBounceTick by remember { mutableIntStateOf(0) }
 
     val ribbonScale by animateFloatAsState(
@@ -118,22 +125,8 @@ fun InteractiveCycleStrategyPicker(
         }
     }
 
-    val applyBreakDays: (Int) -> Unit = { newBreak ->
-        val safeBreak = newBreak.coerceAtLeast(0)
-        if (effectiveActive == 30) {
-            when (safeBreak) {
-                0 -> onStrategyChanged(RotationStrategy.CONTINUOUS, 30, 0)
-                15 -> onStrategyChanged(RotationStrategy.ROTATION_45_DAYS, 30, 15)
-                30 -> onStrategyChanged(RotationStrategy.ROTATION_60_DAYS, 30, 30)
-                else -> onStrategyChanged(RotationStrategy.CUSTOM, 30, safeBreak)
-            }
-        } else {
-            onStrategyChanged(RotationStrategy.CUSTOM, effectiveActive, safeBreak)
-        }
-    }
-
     Column(modifier = modifier) {
-        ExpressiveEyebrow(text = "CYCLE STRATEGY")
+        ExpressiveEyebrow(text = "CYCLE")
         Spacer(modifier = Modifier.height(8.dp))
 
         Surface(
@@ -148,7 +141,7 @@ fun InteractiveCycleStrategyPicker(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // 1. Connected Material 3 Expressive Segmented Mode Group (Always · Smart · Swap · Custom)
+                // 1. Calm Neutral Segmented Mode Group (Always · Smart · Swap · Custom)
                 val presetOptions = remember {
                     listOf(
                         ExpressiveSegmentOption(RotationStrategy.CONTINUOUS, "Always"),
@@ -176,10 +169,13 @@ fun InteractiveCycleStrategyPicker(
                         }
                     },
                     height = 40.dp,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    selectedContainerColor = neutralSelectedBg,
+                    selectedContentColor = neutralSelectedFg,
+                    selectedBorder = neutralSelectedBorder
                 )
 
-                // 2. Plain-English Rhythm Summary + Live Savings Badge
+                // 2. Concise Rhythm Summary + Savings Highlight (only when rotating)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -188,13 +184,13 @@ fun InteractiveCycleStrategyPicker(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (isRotating) {
-                                "${effectiveActive}d on · ${effectiveBreak}d break"
+                                "${effectiveActive}d on · ${effectiveBreak}d off"
                             } else {
-                                "Always active"
+                                "Always on"
                             },
                             fontFamily = DisplayFontFamily,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp,
+                            fontSize = 15.5.sp,
                             letterSpacing = (-0.3).sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -202,9 +198,9 @@ fun InteractiveCycleStrategyPicker(
                         val billsLabel = if (isRotating) {
                             val formattedBills = String.format(Locale.US, "%.1f", billsPerYear)
                                 .removeSuffix(".0")
-                            "~$formattedBills bills/yr instead of 12"
+                            "~$formattedBills bills/yr"
                         } else {
-                            "Billed every month · 12 bills/yr"
+                            "12 bills/yr"
                         }
                         Text(
                             text = billsLabel,
@@ -214,61 +210,45 @@ fun InteractiveCycleStrategyPicker(
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    val badgeText = when {
-                        !isRotating -> "0% saved"
-                        estimatedAnnualSavings != null && estimatedAnnualSavings >= 1.0 ->
+                    if (isRotating) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        val badgeText = if (estimatedAnnualSavings != null && estimatedAnnualSavings >= 1.0) {
                             "Save ${MoneyFormatter.format(estimatedAnnualSavings, currencyCode, maximumFractionDigits = 0)}/yr"
-                        else -> "-$savingsPct%/yr"
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = if (isRotating) {
-                            MaterialTheme.colorScheme.primaryContainer
                         } else {
-                            MaterialTheme.colorScheme.surfaceContainerHigh
+                            "-$savingsPct%/yr"
                         }
-                    ) {
-                        Text(
-                            text = badgeText,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (isRotating) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
+                        ) {
+                            Text(
+                                text = badgeText,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp)
+                            )
+                        }
                     }
                 }
 
-                // 3. Playful Interactive 90-Day Proportional Rhythm Ribbon (tap to cycle presets!)
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                // 3. Minimal Proportional 90-Day Ribbon (shown only when rotating, zero play/pause icons or legend!)
+                AnimatedVisibility(
+                    visible = isRotating,
+                    enter = expandVertically(tween(180)) + fadeIn(tween(150)),
+                    exit = shrinkVertically(tween(140)) + fadeOut(tween(110))
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(42.dp)
+                            .height(38.dp)
                             .graphicsLayer {
                                 scaleX = ribbonScale
                                 scaleY = ribbonScale
                             }
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                ribbonBounceTick++
-                                when (strategy) {
-                                    RotationStrategy.CONTINUOUS ->
-                                        onStrategyChanged(RotationStrategy.ROTATION_45_DAYS, 30, 15)
-                                    RotationStrategy.ROTATION_45_DAYS ->
-                                        onStrategyChanged(RotationStrategy.ROTATION_60_DAYS, 30, 30)
-                                    else ->
-                                        onStrategyChanged(RotationStrategy.CONTINUOUS, 30, 0)
-                                }
-                            },
+                            .clip(RoundedCornerShape(12.dp)),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -281,18 +261,18 @@ fun InteractiveCycleStrategyPicker(
                                 ),
                                 label = "segmentWeight"
                             )
-                            val showLabel = segment.days >= 14
-                            val showIconOnly = segment.days in 7..13
-
+                            val showFullLabel = segment.days >= 24
+                            val showCompactLabel = segment.days in 12..23
                             val hatchColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.14f)
+
                             Box(
                                 modifier = Modifier
                                     .weight(animatedWeight)
                                     .fillMaxHeight()
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(
                                         if (segment.isActive) {
-                                            MaterialTheme.colorScheme.primary
+                                            activeBarBg
                                         } else {
                                             MaterialTheme.colorScheme.surfaceContainerHigh
                                         }
@@ -303,8 +283,8 @@ fun InteractiveCycleStrategyPicker(
                                                 .diagonalHatchPattern(color = hatchColor, spacing = 7.dp, strokeWidth = 1.dp)
                                                 .border(
                                                     1.dp,
-                                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
-                                                    RoundedCornerShape(12.dp)
+                                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                                                    RoundedCornerShape(10.dp)
                                                 )
                                         } else {
                                             Modifier
@@ -312,210 +292,151 @@ fun InteractiveCycleStrategyPicker(
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                when {
-                                    showLabel -> Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center,
-                                        modifier = Modifier.padding(horizontal = 4.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (segment.isActive) Icons.Default.PlayArrow else Icons.Default.Pause,
-                                            contentDescription = null,
-                                            tint = if (segment.isActive) {
-                                                MaterialTheme.colorScheme.onPrimary
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            },
-                                            modifier = Modifier.size(13.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text(
-                                            text = if (isRotating) "${segment.days}d" else "Always on",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = if (segment.isActive) {
-                                                MaterialTheme.colorScheme.onPrimary
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            },
-                                            maxLines = 1
-                                        )
-                                    }
-                                    showIconOnly -> Icon(
-                                        imageVector = if (segment.isActive) Icons.Default.PlayArrow else Icons.Default.Pause,
-                                        contentDescription = null,
-                                        tint = if (segment.isActive) {
-                                            MaterialTheme.colorScheme.onPrimary
+                                val labelText = when {
+                                    showFullLabel && segment.isActive -> "${segment.days}d on"
+                                    showFullLabel && !segment.isActive -> "${segment.days}d off"
+                                    showCompactLabel -> "${segment.days}d"
+                                    else -> null
+                                }
+                                if (labelText != null) {
+                                    Text(
+                                        text = labelText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (segment.isActive) {
+                                            activeBarFg
                                         } else {
                                             MaterialTheme.colorScheme.onSurfaceVariant
                                         },
-                                        modifier = Modifier.size(13.dp)
+                                        maxLines = 1
                                     )
                                 }
                             }
                         }
                     }
-
-                    // Minimal Legend + 90-day scale caption
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            LegendDot(
-                                color = MaterialTheme.colorScheme.primary,
-                                label = "Active"
-                            )
-                            LegendDot(
-                                color = MaterialTheme.colorScheme.outlineVariant,
-                                label = "Break (not billed)"
-                            )
-                        }
-                        Text(
-                            text = "90-day preview",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
 
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                )
-
-                // 4. Tactile Break Length Slider (drag to watch the rhythm & savings morph live!)
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Break between bills",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (effectiveBreak == 0) "No break" else "$effectiveBreak days",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (effectiveBreak > 0) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                    }
-
-                    Slider(
-                        value = effectiveBreak.toFloat(),
-                        onValueChange = { raw ->
-                            val snapped = raw.roundToInt()
-                            if (snapped != lastHapticDay) {
-                                lastHapticDay = snapped
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                applyBreakDays(snapped)
-                            }
-                        },
-                        valueRange = 0f..sliderMax,
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                        )
-                    )
-
-                    // Mathematically aligned scale marks matching exact thumb positions on the slider track
-                    val marks = listOf(
-                        0 to "0d",
-                        15 to "15d Smart",
-                        30 to "30d Swap",
-                        sliderMax.toInt() to "${sliderMax.toInt()}d"
-                    )
-                    Layout(
-                        modifier = Modifier.fillMaxWidth(),
-                        content = {
-                            marks.forEach { (days, text) ->
-                                val isHit = effectiveBreak == days
-                                Text(
-                                    text = text,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isHit) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isHit) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            lastHapticDay = days
-                                            applyBreakDays(days)
-                                        }
-                                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    ) { measurables, constraints ->
-                        val loose = constraints.copy(minWidth = 0)
-                        val placeables = measurables.map { it.measure(loose) }
-                        val height = placeables.maxOfOrNull { it.height } ?: 0
-                        val totalW = constraints.maxWidth
-                        val thumbInset = 10.dp.roundToPx()
-                        val trackW = (totalW - 2 * thumbInset).coerceAtLeast(1)
-
-                        layout(totalW, height) {
-                            placeables.forEachIndexed { idx, placeable ->
-                                val days = marks[idx].first
-                                val frac = (days / sliderMax).coerceIn(0f, 1f)
-                                val idealX = when (idx) {
-                                    0 -> 0
-                                    marks.lastIndex -> totalW - placeable.width
-                                    else -> (thumbInset + (trackW * frac) - placeable.width / 2f).roundToInt()
-                                }
-                                val clampedX = idealX.coerceIn(0, (totalW - placeable.width).coerceAtLeast(0))
-                                placeable.placeRelative(clampedX, (height - placeable.height) / 2)
-                            }
-                        }
-                    }
-                }
-
-                // 5. Optional Active Window Stepper (cleanly tucked away until Custom is selected!)
+                // 4. Custom Controls (Break Slider + Active Window Stepper — revealed ONLY when Custom is selected!)
                 AnimatedVisibility(
                     visible = strategy == RotationStrategy.CUSTOM,
                     enter = expandVertically(tween(180)) + fadeIn(tween(160)),
                     exit = shrinkVertically(tween(140)) + fadeOut(tween(120))
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         HorizontalDivider(
                             thickness = 1.dp,
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
+
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = "Active window",
+                                    text = "Break length",
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Usually 30 days for monthly plans",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = if (effectiveBreak == 0) "None" else "${effectiveBreak}d",
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
+
+                            Slider(
+                                value = effectiveBreak.toFloat(),
+                                onValueChange = { raw ->
+                                    val snapped = raw.roundToInt().coerceAtLeast(0)
+                                    if (snapped != lastHapticDay) {
+                                        lastHapticDay = snapped
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onStrategyChanged(RotationStrategy.CUSTOM, effectiveActive, snapped)
+                                    }
+                                },
+                                valueRange = 0f..sliderMax,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.onSurface,
+                                    activeTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                )
+                            )
+
+                            val marks = listOf(
+                                0 to "0d",
+                                15 to "15d",
+                                30 to "30d",
+                                sliderMax.toInt() to "${sliderMax.toInt()}d"
+                            )
+                            Layout(
+                                modifier = Modifier.fillMaxWidth(),
+                                content = {
+                                    marks.forEach { (days, text) ->
+                                        val isHit = effectiveBreak == days
+                                        Text(
+                                            text = text,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isHit) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isHit) {
+                                                MaterialTheme.colorScheme.onSurface
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    lastHapticDay = days
+                                                    onStrategyChanged(RotationStrategy.CUSTOM, effectiveActive, days)
+                                                }
+                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            ) { measurables, constraints ->
+                                val loose = constraints.copy(minWidth = 0)
+                                val placeables = measurables.map { it.measure(loose) }
+                                val height = placeables.maxOfOrNull { it.height } ?: 0
+                                val totalW = constraints.maxWidth
+                                val thumbInset = 10.dp.roundToPx()
+                                val trackW = (totalW - 2 * thumbInset).coerceAtLeast(1)
+
+                                layout(totalW, height) {
+                                    placeables.forEachIndexed { idx, placeable ->
+                                        val days = marks[idx].first
+                                        val frac = (days / sliderMax).coerceIn(0f, 1f)
+                                        val idealX = when (idx) {
+                                            0 -> 0
+                                            marks.lastIndex -> totalW - placeable.width
+                                            else -> (thumbInset + (trackW * frac) - placeable.width / 2f).roundToInt()
+                                        }
+                                        val clampedX = idealX.coerceIn(0, (totalW - placeable.width).coerceAtLeast(0))
+                                        placeable.placeRelative(clampedX, (height - placeable.height) / 2)
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Active window",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -529,14 +450,14 @@ fun InteractiveCycleStrategyPicker(
                                     },
                                     shape = CircleShape,
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(34.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = Icons.Default.Remove,
                                             contentDescription = "Decrease active days",
                                             tint = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.size(16.dp)
+                                            modifier = Modifier.size(15.dp)
                                         )
                                     }
                                 }
@@ -557,14 +478,14 @@ fun InteractiveCycleStrategyPicker(
                                     },
                                     shape = CircleShape,
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(34.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = Icons.Default.Add,
                                             contentDescription = "Increase active days",
                                             tint = MaterialTheme.colorScheme.onSurface,
-                                            modifier = Modifier.size(16.dp)
+                                            modifier = Modifier.size(15.dp)
                                         )
                                     }
                                 }
@@ -574,26 +495,5 @@ fun InteractiveCycleStrategyPicker(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun LegendDot(
-    color: androidx.compose.ui.graphics.Color,
-    label: String
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(7.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Spacer(modifier = Modifier.width(5.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }

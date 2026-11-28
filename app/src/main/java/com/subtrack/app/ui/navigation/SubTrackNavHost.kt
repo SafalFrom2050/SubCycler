@@ -3,6 +3,9 @@ package com.subtrack.app.ui.navigation
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -11,11 +14,13 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,20 +29,26 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.invisibleToUser
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -53,6 +64,7 @@ import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.components.RoundedPolygonShape
 import com.subtrack.core.ui.components.SubCyclerSwirlLogo
 import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.rememberMorphingPolygonShape
@@ -60,6 +72,7 @@ import com.subtrack.core.ui.theme.BodyFontFamily
 import com.subtrack.core.ui.theme.BrandColorHarmonizer
 import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.launcherAccentTokensFor
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import com.subtrack.feature.analytics.AnalyticsRoute
@@ -68,6 +81,7 @@ import com.subtrack.feature.onboarding.OnboardingRoute
 import com.subtrack.feature.planner.PlannerRoute
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -80,12 +94,15 @@ fun SubTrackApp(
     onTransferPayloadConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    onSplashDismissed: () -> Unit = {},
     appViewModel: AppViewModel = hiltViewModel()
 ) {
     val launchState by appViewModel.launchState.collectAsStateWithLifecycle()
     val dockMood by appViewModel.dockMood.collectAsStateWithLifecycle()
     var isDashboardHydrated by remember { mutableStateOf(false) }
+    var splashRevealStarted by remember { mutableStateOf(false) }
     var splashDismissed by remember { mutableStateOf(false) }
+    var isPreviewingWelcome by remember { mutableStateOf(false) }
 
     LaunchedEffect(launchState, pendingTransferPayload) {
         if (launchState == AppLaunchState.ONBOARDING && !pendingTransferPayload.isNullOrBlank()) {
@@ -111,12 +128,19 @@ fun SubTrackApp(
             }
             AppLaunchState.ONBOARDING -> {
                 OnboardingRoute(
+                    isPreviewMode = isPreviewingWelcome,
+                    onExitPreview = {
+                        isPreviewingWelcome = false
+                        appViewModel.onOnboardingFinished()
+                    },
                     onFinished = { requestNotificationPermission ->
+                        isPreviewingWelcome = false
                         appViewModel.onOnboardingFinished()
                         if (requestNotificationPermission) {
                             onRequestNotificationPermission()
                         }
-                    }
+                    },
+                    onApplyLauncherIcon = onApplyLauncherIcon
                 )
             }
             AppLaunchState.MAIN_CONTENT -> SubTrackMainNavigation(
@@ -126,8 +150,13 @@ fun SubTrackApp(
                 onTransferPayloadConsumed = onTransferPayloadConsumed,
                 onApplyLauncherIcon = onApplyLauncherIcon,
                 onPreviewNotifications = onPreviewNotifications,
+                onPreviewWelcome = {
+                    isPreviewingWelcome = true
+                    appViewModel.openOnboarding()
+                },
                 dockMood = dockMood,
                 isSplashDismissed = splashDismissed,
+                isEntranceReady = splashRevealStarted,
                 onDashboardFirstDataReady = { isDashboardHydrated = true }
             )
         }
@@ -136,34 +165,54 @@ fun SubTrackApp(
             SubCyclerExpressiveSplashOverlay(
                 dockMood = dockMood,
                 isContentReady = isUnderlyingContentReady,
-                onSplashFinished = { splashDismissed = true }
+                onSplashExitStart = { splashRevealStarted = true },
+                onSplashFinished = {
+                    splashRevealStarted = true
+                    splashDismissed = true
+                    onSplashDismissed()
+                }
             )
         }
     }
 }
 
 /**
- * Branded Material 3 Expressive Launch Splash:
- * 1. Spins the user's selected launcher swirl icon smoothly while Room + DataStore hydrate underneath.
- * 2. Once hydrated, decelerates cleanly to upright and morphs the 3 petals into the live Stack Mood
- *    swirl colorway with a spring bloom + wordmark reveal.
- * 3. Fades straight into the already-populated Home screen—eliminating any flash of empty state.
+ * Bold Color-Block Material 3 Expressive Launch Splash:
+ * 1. Holds the plain canvas until DataStore hydrates `dockMood`, then renders the larger
+ *    Color-Block `Cookie12` medallion and swirl emblem cleanly while the underlying screen
+ *    finishes its first composition/layout pass so zero main-thread spikes contend with animation.
+ * 2. Performs one uninterrupted, GPU-only 360° expressive spin + spring bloom + minimal
+ *    `SubCycler` wordmark reveal (zero per-frame recompositions, cached vector paths).
+ * 3. Lifts and dissolves smoothly straight into Home's unfurling launch choreography.
  */
 @Composable
 private fun SubCyclerExpressiveSplashOverlay(
     dockMood: DockMoodState,
     isContentReady: Boolean,
+    onSplashExitStart: () -> Unit = {},
     onSplashFinished: () -> Unit
 ) {
+    // Hold the plain canvas until DataStore hydrates dockMood so stageColor and swirl petals
+    // initialize directly to the user's selected theme/icon with zero default-green color flash.
+    if (!dockMood.isLoaded) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        )
+        return
+    }
+
     val reducedMotion = rememberReducedMotionEnabled()
     val isDark = LocalSubCyclerDarkTheme.current
     val currentReady by rememberUpdatedState(isContentReady)
-    val currentDockLoaded by rememberUpdatedState(dockMood.isLoaded)
+    val currentOnExitStart by rememberUpdatedState(onSplashExitStart)
     val currentOnFinished by rememberUpdatedState(onSplashFinished)
 
     val rotation = remember { Animatable(0f) }
-    val logoScale = remember { Animatable(if (reducedMotion) 1f else 0.86f) }
-    val wordmarkAlpha = remember { Animatable(0f) }
+    val logoScale = remember { Animatable(if (reducedMotion) 1f else 0.88f) }
+    val medallionScale = remember { Animatable(if (reducedMotion) 1f else 0.82f) }
+    val wordmarkProgress = remember { Animatable(0f) }
     val overlayAlpha = remember { Animatable(1f) }
     val overlayScale = remember { Animatable(1f) }
     var morphedToStackMood by remember { mutableStateOf(false) }
@@ -178,89 +227,106 @@ private fun SubCyclerExpressiveSplashOverlay(
             fallbackIcon = dockMood.launcherIcon
         )
     }
+    val launcherAccent = remember(dockMood.launcherIcon, isDark) {
+        launcherAccentTokensFor(dockMood.launcherIcon, isDark)
+    }
+    val heroMood = remember(dockMood.activeSubscriptions, dockMood.useStackHeroMood, dockMood.launcherIcon, isDark) {
+        BrandColorHarmonizer.resolveHeroMoodPalette(
+            activeSubscriptions = dockMood.activeSubscriptions,
+            useStackMood = dockMood.useStackHeroMood,
+            isDark = isDark,
+            fallbackIcon = dockMood.launcherIcon
+        )
+    }
     val activeSwirlColors = if (morphedToStackMood) stackMoodSwirl else launcherSwirl
-    val auraColor by animateColorAsState(
-        targetValue = activeSwirlColors.midPetal.copy(alpha = if (isDark) 0.24f else 0.28f),
+    // Keep as State<Color> and read exclusively in draw phase so color morphs trigger 0 recompositions.
+    val stageColorState = animateColorAsState(
+        targetValue = if (morphedToStackMood) heroMood.baseColor else launcherAccent.heroBase,
         animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
-        label = "splashAuraColor"
+        label = "splashStageColor"
     )
+    val stagePopColorState = animateColorAsState(
+        targetValue = if (morphedToStackMood) heroMood.sealColor else launcherAccent.heroPop,
+        animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
+        label = "splashStagePopColor"
+    )
+    val cookieStageShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Cookie12) }
+    val cornerCloverShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Clover8) }
+    val cornerPebbleShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Pebble) }
+    val cloverAlpha = if (isDark) 0.24f else 0.13f
+    val pebbleAlpha = if (isDark) 0.14f else 0.22f
 
     LaunchedEffect(reducedMotion) {
-        while (!currentDockLoaded) {
-            delay(16L)
-        }
         if (reducedMotion) {
             while (!currentReady) {
                 delay(24L)
             }
             morphedToStackMood = true
+            wordmarkProgress.snapTo(1f)
+            currentOnExitStart()
             currentOnFinished()
             return@LaunchedEffect
         }
 
-        // Phase 1: Spring pop-in + crisp 360° material icon rotation while data loads
-        val popJob = launch {
-            logoScale.animateTo(
-                targetValue = 1f,
-                animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
-            )
-        }
-        rotation.animateTo(
-            targetValue = 360f,
-            animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing)
-        )
-        popJob.join()
-
-        // If Room/DataStore is still hydrating on a cold boot, continue smooth steady spin
-        while (!currentReady) {
-            rotation.animateTo(
-                targetValue = rotation.value + 120f,
-                animationSpec = tween(durationMillis = 220, easing = LinearEasing)
-            )
-        }
-
-        // Phase 2: Settle upright to nearest 360° multiple & morph into live Stack Mood swirl!
-        val nextUpright = ((rotation.value / 360f).toInt() + if (rotation.value % 360f > 5f) 1 else 0) * 360f
-        morphedToStackMood = true
-        val settleSpin = launch {
-            if (nextUpright > rotation.value) {
-                rotation.animateTo(
-                    targetValue = nextUpright,
-                    animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
-                )
+        // Let the underlying Dashboard/Onboarding finish its heavy first composition & layout pass
+        // before starting the animation clock, then drain 2 clean VSync frames for locked 90/120Hz.
+        withTimeoutOrNull(450L) {
+            while (!currentReady) {
+                delay(16L)
             }
         }
-        val bloomPulse = launch {
-            logoScale.animateTo(
-                targetValue = 1.09f,
-                animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
-            )
-            logoScale.animateTo(
-                targetValue = 1.0f,
+        withFrameNanos { }
+        withFrameNanos { }
+
+        // Phase 1: Single uninterrupted expressive bloom + silky 360° settle + wordmark slide-up
+        val spinEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+        val medallionJob = launch {
+            medallionScale.animateTo(
+                targetValue = 1f,
                 animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
             )
         }
-        val revealWordmark = launch {
-            wordmarkAlpha.animateTo(
+        val logoJob = launch {
+            logoScale.animateTo(
                 targetValue = 1f,
-                animationSpec = ExpressiveMotion.effectsFast()
+                animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
             )
         }
-        settleSpin.join()
-        bloomPulse.join()
-        revealWordmark.join()
-        delay(220L)
+        val spinJob = launch {
+            rotation.animateTo(
+                targetValue = 360f,
+                animationSpec = tween(durationMillis = 440, easing = spinEasing)
+            )
+        }
+        val moodAndWordmarkJob = launch {
+            delay(130L)
+            morphedToStackMood = true
+            wordmarkProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
+            )
+        }
+        medallionJob.join()
+        logoJob.join()
+        spinJob.join()
+        moodAndWordmarkJob.join()
 
-        // Phase 3: Clean lift & dissolve straight into hydrated Home
+        while (!currentReady) {
+            delay(16L)
+        }
+        delay(150L)
+
+        // Phase 2: Crisp lift & dissolve straight into hydrated Home — fire entrance handoff now
+        currentOnExitStart()
         val liftJob = launch {
             overlayScale.animateTo(
-                targetValue = 1.05f,
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                targetValue = 1.045f,
+                animationSpec = tween(durationMillis = 185, easing = FastOutSlowInEasing)
             )
         }
         overlayAlpha.animateTo(
             targetValue = 0f,
-            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = 185, easing = FastOutSlowInEasing)
         )
         liftJob.join()
         currentOnFinished()
@@ -277,52 +343,102 @@ private fun SubCyclerExpressiveSplashOverlay(
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        ExpressiveScreenBackdrop {
+        // Graphic off-corner Bold Color-Block silhouettes (zero blurry gradient fog)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 84.dp, y = (-68).dp)
+                .size(236.dp)
+                .graphicsLayer {
+                    rotationZ = rotation.value * 0.08f
+                    scaleX = medallionScale.value
+                    scaleY = medallionScale.value
+                }
+                .expressivePolygonSurface(
+                    shape = cornerCloverShape,
+                    color = { stageColorState.value.copy(alpha = cloverAlpha) }
+                )
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .offset(x = (-76).dp, y = 78.dp)
+                .size(214.dp)
+                .graphicsLayer {
+                    rotationZ = 24f - rotation.value * 0.06f
+                    scaleX = medallionScale.value
+                    scaleY = medallionScale.value
+                }
+                .expressivePolygonSurface(
+                    shape = cornerPebbleShape,
+                    color = { stagePopColorState.value.copy(alpha = pebbleAlpha) }
+                )
+        )
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.size(206.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (dockMood.isLoaded) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(164.dp)
-                                .drawBehind {
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(auraColor, Color.Transparent),
-                                            center = center,
-                                            radius = size.minDimension * 0.52f
-                                        )
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            SubCyclerSwirlLogo(
-                                colors = activeSwirlColors,
-                                size = 96.dp,
-                                cornerRadius = 28.dp,
-                                rotationDegrees = rotation.value,
-                                contentDescriptionText = "SubCycler loading",
-                                modifier = Modifier.graphicsLayer {
-                                    scaleX = logoScale.value
-                                    scaleY = logoScale.value
-                                }
+                // Larger Flat Color-Block Cookie12 stage medallion + cached Triadic dashed halo
+                Box(
+                    modifier = Modifier
+                        .size(192.dp)
+                        .graphicsLayer {
+                            scaleX = medallionScale.value
+                            scaleY = medallionScale.value
+                            rotationZ = -rotation.value * 0.14f
+                        }
+                        .expressivePolygonSurface(
+                            shape = cookieStageShape,
+                            color = { stageColorState.value }
+                        )
+                        .drawWithCache {
+                            val inset = 14.dp.toPx()
+                            val ringRadius = (size.minDimension / 2f) - inset
+                            val dashStroke = Stroke(
+                                width = 1.8.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(
+                                    floatArrayOf(7.dp.toPx(), 7.dp.toPx()),
+                                    0f
+                                )
                             )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Box(
-                            modifier = Modifier.graphicsLayer {
-                                alpha = wordmarkAlpha.value
+                            onDrawBehind {
+                                drawCircle(
+                                    color = stagePopColorState.value.copy(alpha = 0.80f),
+                                    radius = ringRadius,
+                                    style = dashStroke
+                                )
                             }
-                        ) {
-                            ExpressiveBrandWordmark(fontSize = 30.sp)
                         }
+                )
+
+                SubCyclerSwirlLogo(
+                    colors = activeSwirlColors,
+                    size = 118.dp,
+                    cornerRadius = 33.dp,
+                    rotationDegreesProvider = { rotation.value },
+                    contentDescriptionText = "SubCycler loading",
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = logoScale.value
+                        scaleY = logoScale.value
                     }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(22.dp))
+
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    val p = wordmarkProgress.value.coerceIn(0f, 1f)
+                    alpha = p
+                    translationY = (1f - p) * 12.dp.toPx()
                 }
+            ) {
+                ExpressiveBrandWordmark(fontSize = 34.sp)
             }
         }
     }
@@ -336,67 +452,140 @@ private fun SubTrackMainNavigation(
     onTransferPayloadConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    onPreviewWelcome: () -> Unit = {},
     dockMood: DockMoodState = DockMoodState(),
     isSplashDismissed: Boolean = true,
+    isEntranceReady: Boolean = true,
     onDashboardFirstDataReady: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     val reducedMotion = rememberReducedMotionEnabled()
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    var outgoingTabIndex by remember { mutableIntStateOf(-1) }
-    var transitionDirection by remember { mutableIntStateOf(1) }
-    val transitionProgress = remember { Animatable(1f) }
-    var isPlannerMounted by remember { mutableStateOf(false) }
-    var isAnalyticsMounted by remember { mutableStateOf(false) }
+    var tabTransition by remember {
+        mutableStateOf(TabTransitionState(activeIndex = selectedTabIndex))
+    }
+    var isPlannerMounted by remember { mutableStateOf(selectedTabIndex == 1) }
+    var isAnalyticsMounted by remember { mutableStateOf(selectedTabIndex == 2) }
+    var hasVisitedPlanner by rememberSaveable { mutableStateOf(selectedTabIndex == 1) }
+    var hasVisitedSavings by rememberSaveable { mutableStateOf(selectedTabIndex == 2) }
+
+    // One-shot launch choreography for the floating dock and detached '+' Cookie12 FAB
+    val skipChromeEntrance = isEntranceReady || reducedMotion
+    val dockReveal = remember { Animatable(if (skipChromeEntrance) 1f else 0f) }
+    val fabReveal = remember { Animatable(if (skipChromeEntrance) 1f else 0f) }
+
+    LaunchedEffect(isEntranceReady, reducedMotion) {
+        if (!isEntranceReady) return@LaunchedEffect
+        if (reducedMotion) {
+            dockReveal.snapTo(1f)
+            fabReveal.snapTo(1f)
+            return@LaunchedEffect
+        }
+        if (dockReveal.value >= 0.99f && fabReveal.value >= 0.99f) return@LaunchedEffect
+        launch {
+            delay(45L)
+            dockReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+        }
+        launch {
+            delay(90L)
+            fabReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialFastFloat())
+        }
+    }
 
     val isOnDashboard = selectedTabIndex == 0
     var pendingAddSubscription by remember { mutableStateOf(false) }
+    var pendingOpenSettings by remember { mutableStateOf(false) }
     var pendingOpenPairedSwap by remember { mutableStateOf(false) }
     var internalOpenSubId by remember { mutableStateOf<Long?>(null) }
     val effectiveOpenSubId = openSubscriptionId ?: internalOpenSubId
     val isDark = LocalSubCyclerDarkTheme.current
+    val latestReducedMotion by rememberUpdatedState(reducedMotion)
 
-    fun selectTabIndex(targetIndex: Int) {
-        val clamped = targetIndex.coerceIn(0, NavigationItems.items.lastIndex)
-        if (clamped == 1) isPlannerMounted = true
-        if (clamped == 2) isAnalyticsMounted = true
-        if (clamped == selectedTabIndex) return
-        outgoingTabIndex = selectedTabIndex
-        transitionDirection = if (clamped >= selectedTabIndex) 1 else -1
-        selectedTabIndex = clamped
+    val selectTabIndex: (Int) -> Unit = remember {
+        { targetIndex ->
+            val clamped = targetIndex.coerceIn(0, NavigationItems.items.lastIndex)
+            if (clamped == 1) {
+                isPlannerMounted = true
+                hasVisitedPlanner = true
+            }
+            if (clamped == 2) {
+                isAnalyticsMounted = true
+                hasVisitedSavings = true
+            }
+            val current = selectedTabIndex
+            if (clamped != current) {
+                val priorTransition = tabTransition
+                val outgoingStartAlpha = if (
+                    priorTransition.outgoingIndex >= 0 &&
+                    priorTransition.activeIndex == current
+                ) {
+                    incomingTabAlpha(priorTransition.progress.value)
+                } else {
+                    1f
+                }
+                selectedTabIndex = clamped
+                // Construct the fresh Animatable(0f) synchronously in the same Compose snapshot as
+                // selectedTabIndex so frame 0 never renders with a stale 1f progress value.
+                tabTransition = if (latestReducedMotion) {
+                    TabTransitionState(
+                        activeIndex = clamped,
+                        outgoingIndex = -1,
+                        direction = if (clamped >= current) 1 else -1,
+                        outgoingStartAlpha = 1f,
+                        progress = Animatable(1f)
+                    )
+                } else {
+                    TabTransitionState(
+                        activeIndex = clamped,
+                        outgoingIndex = current,
+                        direction = if (clamped >= current) 1 else -1,
+                        outgoingStartAlpha = outgoingStartAlpha,
+                        progress = Animatable(0f)
+                    )
+                }
+            }
+        }
     }
 
-    // Gently pre-warm secondary tabs after the launch splash clears so even the very first tap
-    // switches immediately via pure GPU layer glide with zero composition stall.
+    // Gently pre-warm secondary tabs after the launch splash and Home's initial entrance springs
+    // settle so even the very first tap switches immediately via pure GPU layer glide with zero hitch.
     LaunchedEffect(isSplashDismissed) {
         if (!isSplashDismissed) return@LaunchedEffect
         if (!isPlannerMounted) {
-            delay(180L)
+            delay(520L)
             isPlannerMounted = true
         }
         if (!isAnalyticsMounted) {
-            delay(180L)
+            delay(220L)
             isAnalyticsMounted = true
         }
     }
 
-    LaunchedEffect(selectedTabIndex, reducedMotion) {
-        if (outgoingTabIndex < 0 || outgoingTabIndex == selectedTabIndex) {
-            transitionProgress.snapTo(1f)
-            outgoingTabIndex = -1
+    LaunchedEffect(tabTransition, reducedMotion) {
+        val transition = tabTransition
+        if (transition.outgoingIndex < 0 || transition.outgoingIndex == transition.activeIndex) {
+            if (transition.progress.value < 1f) {
+                transition.progress.snapTo(1f)
+            }
             return@LaunchedEffect
         }
         if (reducedMotion) {
-            transitionProgress.snapTo(1f)
-            outgoingTabIndex = -1
+            transition.progress.snapTo(1f)
+            if (tabTransition === transition) {
+                tabTransition = transition.copy(outgoingIndex = -1)
+            }
             return@LaunchedEffect
         }
-        transitionProgress.snapTo(0f)
-        transitionProgress.animateTo(
+        transition.progress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 155, easing = FastOutSlowInEasing)
+            animationSpec = tween(
+                durationMillis = TAB_TRANSITION_DURATION_MS,
+                easing = LinearEasing
+            )
         )
-        outgoingTabIndex = -1
+        if (tabTransition === transition) {
+            tabTransition = transition.copy(outgoingIndex = -1)
+        }
     }
 
     BackHandler(enabled = selectedTabIndex != 0) {
@@ -410,111 +599,78 @@ private fun SubTrackMainNavigation(
         }
     }
 
-    // Subtle Living Stack Mood harmonizing for the active dock indicator pill when enabled
-    val useLivingMoodTint = dockMood.useStackHeroMood && dockMood.activeSubscriptions.isNotEmpty()
-    val heroMoodPalette = remember(dockMood.activeSubscriptions, dockMood.useStackHeroMood, dockMood.launcherIcon, isDark) {
-        if (useLivingMoodTint) {
-            BrandColorHarmonizer.resolveHeroMoodPalette(
-                activeSubscriptions = dockMood.activeSubscriptions,
-                useStackMood = true,
-                isDark = isDark,
-                fallbackIcon = dockMood.launcherIcon
-            )
-        } else {
-            null
-        }
-    }
-
-    val targetIndicatorBg = if (heroMoodPalette != null) {
-        lerp(MaterialTheme.colorScheme.primaryContainer, heroMoodPalette.gradientStart, 0.78f)
-    } else {
-        MaterialTheme.colorScheme.primaryContainer
-    }
-    val targetIndicatorInk = heroMoodPalette?.contentColor ?: MaterialTheme.colorScheme.onPrimaryContainer
-
+    // Active dock indicator reads directly from app-wide MaterialTheme (which already reflects
+    // Living Stack Mood when enabled or the selected launcher theme when off).
     val animatedIndicatorBg by animateColorAsState(
-        targetValue = targetIndicatorBg,
+        targetValue = MaterialTheme.colorScheme.primary,
         animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
         label = "dockIndicatorBg"
     )
     val animatedIndicatorInk by animateColorAsState(
-        targetValue = targetIndicatorInk,
+        targetValue = MaterialTheme.colorScheme.onPrimary,
         animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
         label = "dockIndicatorInk"
     )
 
-    val isTransitioning = outgoingTabIndex >= 0
+    val transitionStateProvider: () -> TabTransitionState = remember { { tabTransition } }
+    val latestOnOpenSubscriptionConsumed by rememberUpdatedState(onOpenSubscriptionConsumed)
+    val latestOpenSubscriptionId by rememberUpdatedState(openSubscriptionId)
+    val handleOpenSubscriptionConsumed: () -> Unit = remember {
+        {
+            if (latestOpenSubscriptionId != null) {
+                latestOnOpenSubscriptionConsumed()
+            }
+            internalOpenSubId = null
+        }
+    }
+    val handleAddSubscriptionConsumed: () -> Unit = remember { { pendingAddSubscription = false } }
+    val handleOpenSettings: () -> Unit = remember { { pendingOpenSettings = true } }
+    val handleOpenSettingsConsumed: () -> Unit = remember { { pendingOpenSettings = false } }
+    val handleOpenPairedSwapConsumed: () -> Unit = remember { { pendingOpenPairedSwap = false } }
+    val handleNavigateToSavings: () -> Unit = remember { { selectTabIndex(2) } }
+    val handleOpenPairedSwap: () -> Unit = remember {
+        {
+            pendingOpenPairedSwap = true
+            selectTabIndex(1)
+        }
+    }
+    val handleOpenSubscriptionFromPlanner: (Long) -> Unit = remember {
+        { subId ->
+            internalOpenSubId = subId
+            selectTabIndex(0)
+        }
+    }
 
     ExpressiveScreenBackdrop {
         // True edge-to-edge scroll-under: warm-mounted GPU tab slots keep scroll & ViewModels live
-        // inside an isolated stage Box so their z-ordering never competes with the floating dock.
+        // inside an isolated stage composable so switching tabs never recomposes or re-measures tabs.
         Box(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                WarmTabSlot(
-                    tabIndex = 0,
-                    selectedTabIndex = selectedTabIndex,
-                    outgoingTabIndex = outgoingTabIndex,
-                    isTransitioning = isTransitioning,
-                    transitionDirection = transitionDirection,
-                    transitionProgressProvider = { transitionProgress.value }
-                ) {
-                    DashboardRoute(
-                        openSubscriptionId = effectiveOpenSubId,
-                        onOpenSubscriptionConsumed = {
-                            if (openSubscriptionId != null) {
-                                onOpenSubscriptionConsumed()
-                            }
-                            internalOpenSubId = null
-                        },
-                        pendingTransferPayload = pendingTransferPayload,
-                        onTransferPayloadConsumed = onTransferPayloadConsumed,
-                        pendingAddSubscription = pendingAddSubscription,
-                        onAddSubscriptionConsumed = { pendingAddSubscription = false },
-                        onNavigateToSavings = { selectTabIndex(2) },
-                        onApplyLauncherIcon = onApplyLauncherIcon,
-                        onPreviewNotifications = onPreviewNotifications,
-                        onFirstDataReady = onDashboardFirstDataReady
-                    )
-                }
-
-                if (isPlannerMounted) {
-                    WarmTabSlot(
-                        tabIndex = 1,
-                        selectedTabIndex = selectedTabIndex,
-                        outgoingTabIndex = outgoingTabIndex,
-                        isTransitioning = isTransitioning,
-                        transitionDirection = transitionDirection,
-                        transitionProgressProvider = { transitionProgress.value }
-                    ) {
-                        PlannerRoute(
-                            pendingOpenPairedSwap = pendingOpenPairedSwap,
-                            onOpenPairedSwapConsumed = { pendingOpenPairedSwap = false },
-                            onOpenSubscription = { subId ->
-                                internalOpenSubId = subId
-                                selectTabIndex(0)
-                            }
-                        )
-                    }
-                }
-
-                if (isAnalyticsMounted) {
-                    WarmTabSlot(
-                        tabIndex = 2,
-                        selectedTabIndex = selectedTabIndex,
-                        outgoingTabIndex = outgoingTabIndex,
-                        isTransitioning = isTransitioning,
-                        transitionDirection = transitionDirection,
-                        transitionProgressProvider = { transitionProgress.value }
-                    ) {
-                        AnalyticsRoute(
-                            onOpenPairedSwap = {
-                                pendingOpenPairedSwap = true
-                                selectTabIndex(1)
-                            }
-                        )
-                    }
-                }
-            }
+            SubTrackTabStage(
+                transitionStateProvider = transitionStateProvider,
+                isPlannerMounted = isPlannerMounted,
+                isAnalyticsMounted = isAnalyticsMounted,
+                hasVisitedPlanner = hasVisitedPlanner,
+                hasVisitedSavings = hasVisitedSavings,
+                effectiveOpenSubId = effectiveOpenSubId,
+                onOpenSubscriptionConsumed = handleOpenSubscriptionConsumed,
+                pendingTransferPayload = pendingTransferPayload,
+                onTransferPayloadConsumed = onTransferPayloadConsumed,
+                pendingAddSubscription = pendingAddSubscription,
+                onAddSubscriptionConsumed = handleAddSubscriptionConsumed,
+                pendingOpenSettings = pendingOpenSettings,
+                onOpenSettings = handleOpenSettings,
+                onOpenSettingsConsumed = handleOpenSettingsConsumed,
+                pendingOpenPairedSwap = pendingOpenPairedSwap,
+                onOpenPairedSwapConsumed = handleOpenPairedSwapConsumed,
+                onNavigateToSavings = handleNavigateToSavings,
+                onOpenPairedSwap = handleOpenPairedSwap,
+                onOpenSubscriptionFromPlanner = handleOpenSubscriptionFromPlanner,
+                onApplyLauncherIcon = onApplyLauncherIcon,
+                onPreviewNotifications = onPreviewNotifications,
+                onPreviewWelcome = onPreviewWelcome,
+                isEntranceReady = isEntranceReady,
+                onDashboardFirstDataReady = onDashboardFirstDataReady
+            )
 
             // Smooth 4-stop bottom fade scrim so scrolling cards glide cleanly behind the floating dock
             Box(
@@ -556,7 +712,13 @@ private fun SubTrackMainNavigation(
                         isDark = isDark,
                         reducedMotion = reducedMotion,
                         onSelectTab = { index -> selectTabIndex(index) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .graphicsLayer {
+                                val d = dockReveal.value
+                                alpha = ExpressiveMotion.clampEffectProgress(d * 1.5f)
+                                translationY = (1f - d) * 26.dp.toPx()
+                            }
                     )
 
                     // Detached 12-Petal Scalloped '+' Action Button with anticipatory press-preview morph (Cookie12 -> Sunny!)
@@ -582,9 +744,12 @@ private fun SubTrackMainNavigation(
                             .orSnapIfReduced(reducedMotion),
                         label = "detachedFabRot"
                     )
+                    val accentTokens = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
+                    val fabPopBg = accentTokens.heroPop
+                    val fabPopInk = accentTokens.onHeroPop
                     val fabBgColor by animateColorAsState(
                         targetValue = if (isOnDashboard) {
-                            MaterialTheme.colorScheme.primary
+                            fabPopBg
                         } else {
                             MaterialTheme.colorScheme.primaryContainer
                         },
@@ -594,7 +759,7 @@ private fun SubTrackMainNavigation(
                     )
                     val fabIconColor by animateColorAsState(
                         targetValue = if (isOnDashboard) {
-                            MaterialTheme.colorScheme.onPrimary
+                            fabPopInk
                         } else {
                             MaterialTheme.colorScheme.onPrimaryContainer
                         },
@@ -627,9 +792,12 @@ private fun SubTrackMainNavigation(
                                 )
                             }
                             .graphicsLayer {
-                                scaleX = fabScale
-                                scaleY = fabScale
-                                rotationZ = fabCookieRotation
+                                val f = fabReveal.value
+                                val revealScale = 0.72f + 0.28f * f
+                                alpha = ExpressiveMotion.clampEffectProgress(f * 1.45f)
+                                scaleX = fabScale * revealScale
+                                scaleY = fabScale * revealScale
+                                rotationZ = fabCookieRotation - (1f - ExpressiveMotion.clampEffectProgress(f)) * 20f
                             }
                             .expressivePolygonSurface(
                                 shape = fabShape,
@@ -667,52 +835,188 @@ private fun SubTrackMainNavigation(
     }
 }
 
+private val TabExitEasing = FastOutLinearInEasing
+private val TabEnterAlphaEasing = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1.0f)
+private val TabEnterSpatialEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+
+internal const val TAB_TRANSITION_DURATION_MS = 220
+private const val TAB_OUTGOING_END_PROGRESS = 0.34f
+private const val TAB_INCOMING_START_PROGRESS = 0.24f
+
+internal fun outgoingTabAlpha(progress: Float): Float {
+    val t = progress.coerceIn(0f, 1f)
+    val outT = (t / TAB_OUTGOING_END_PROGRESS).coerceIn(0f, 1f)
+    return (1f - TabExitEasing.transform(outT)).coerceIn(0f, 1f)
+}
+
+internal fun incomingTabAlpha(progress: Float): Float {
+    val t = progress.coerceIn(0f, 1f)
+    if (t <= TAB_INCOMING_START_PROGRESS) return 0f
+    val inT = ((t - TAB_INCOMING_START_PROGRESS) / (1f - TAB_INCOMING_START_PROGRESS)).coerceIn(0f, 1f)
+    return TabEnterAlphaEasing.transform(inT).coerceIn(0f, 1f)
+}
+
+internal fun incomingTabSpatial(progress: Float): Float {
+    val t = progress.coerceIn(0f, 1f)
+    if (t <= TAB_INCOMING_START_PROGRESS) return 0f
+    val inT = ((t - TAB_INCOMING_START_PROGRESS) / (1f - TAB_INCOMING_START_PROGRESS)).coerceIn(0f, 1f)
+    return TabEnterSpatialEasing.transform(inT).coerceIn(0f, 1f)
+}
+
+private data class TabTransitionState(
+    val activeIndex: Int,
+    val outgoingIndex: Int = -1,
+    val direction: Int = 1,
+    val outgoingStartAlpha: Float = 1f,
+    val progress: Animatable<Float, AnimationVector1D> = Animatable(1f)
+)
+
+@Composable
+private fun SubTrackTabStage(
+    transitionStateProvider: () -> TabTransitionState,
+    isPlannerMounted: Boolean,
+    isAnalyticsMounted: Boolean,
+    hasVisitedPlanner: Boolean,
+    hasVisitedSavings: Boolean,
+    effectiveOpenSubId: Long?,
+    onOpenSubscriptionConsumed: () -> Unit,
+    pendingTransferPayload: String?,
+    onTransferPayloadConsumed: () -> Unit,
+    pendingAddSubscription: Boolean,
+    onAddSubscriptionConsumed: () -> Unit,
+    pendingOpenSettings: Boolean,
+    onOpenSettings: () -> Unit,
+    onOpenSettingsConsumed: () -> Unit,
+    pendingOpenPairedSwap: Boolean,
+    onOpenPairedSwapConsumed: () -> Unit,
+    onNavigateToSavings: () -> Unit,
+    onOpenPairedSwap: () -> Unit,
+    onOpenSubscriptionFromPlanner: (Long) -> Unit,
+    onApplyLauncherIcon: (AppLauncherIcon) -> Unit,
+    onPreviewNotifications: () -> Unit,
+    onPreviewWelcome: () -> Unit,
+    isEntranceReady: Boolean,
+    onDashboardFirstDataReady: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        WarmTabSlot(
+            tabIndex = 0,
+            transitionStateProvider = transitionStateProvider
+        ) {
+            DashboardRoute(
+                openSubscriptionId = effectiveOpenSubId,
+                onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
+                pendingTransferPayload = pendingTransferPayload,
+                onTransferPayloadConsumed = onTransferPayloadConsumed,
+                pendingAddSubscription = pendingAddSubscription,
+                onAddSubscriptionConsumed = onAddSubscriptionConsumed,
+                pendingOpenSettings = pendingOpenSettings,
+                onOpenSettingsConsumed = onOpenSettingsConsumed,
+                onNavigateToSavings = onNavigateToSavings,
+                onApplyLauncherIcon = onApplyLauncherIcon,
+                onPreviewNotifications = onPreviewNotifications,
+                onPreviewWelcome = onPreviewWelcome,
+                isEntranceReady = isEntranceReady,
+                onFirstDataReady = onDashboardFirstDataReady
+            )
+        }
+
+        if (isPlannerMounted) {
+            WarmTabSlot(
+                tabIndex = 1,
+                transitionStateProvider = transitionStateProvider
+            ) {
+                PlannerRoute(
+                    pendingOpenPairedSwap = pendingOpenPairedSwap,
+                    onOpenPairedSwapConsumed = onOpenPairedSwapConsumed,
+                    isEntranceReady = hasVisitedPlanner,
+                    onOpenSettings = onOpenSettings,
+                    onOpenSubscription = onOpenSubscriptionFromPlanner
+                )
+            }
+        }
+
+        if (isAnalyticsMounted) {
+            WarmTabSlot(
+                tabIndex = 2,
+                transitionStateProvider = transitionStateProvider
+            ) {
+                AnalyticsRoute(
+                    isEntranceReady = hasVisitedSavings,
+                    onOpenSettings = onOpenSettings,
+                    onOpenPairedSwap = onOpenPairedSwap
+                )
+            }
+        }
+    }
+}
+
 /**
- * Zero-teardown GPU tab slot: keeps mounted tabs warm (preserving scroll state, ViewModels, and
- * Compose slot tables) while omitting placement when inactive (0 overdraw, 0 hit-testing) and
- * reading [transitionProgressProvider] strictly inside `placeWithLayer` for zero-recomposition slides.
+ * Zero-teardown GPU tab slot: keeps mounted tabs warm AND continuously placed in a persistent
+ * hardware layer so HWUI never discards or re-records a screen's DisplayList on tab switches.
+ * Inactive tabs stay at `alpha = 0f` (skipped by HWUI with 0 GPU overdraw), blocked at
+ * [PointerEventPass.Initial] (0 touch leakage), and hidden from accessibility.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun WarmTabSlot(
     tabIndex: Int,
-    selectedTabIndex: Int,
-    outgoingTabIndex: Int,
-    isTransitioning: Boolean,
-    transitionDirection: Int,
-    transitionProgressProvider: () -> Float,
+    transitionStateProvider: () -> TabTransitionState,
     content: @Composable () -> Unit
 ) {
-    val isSelected = tabIndex == selectedTabIndex
-    val isOutgoing = tabIndex == outgoingTabIndex && isTransitioning
-    val shouldPlace = isSelected || isOutgoing
-
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .semantics {
+                if (transitionStateProvider().activeIndex != tabIndex) {
+                    invisibleToUser()
+                }
+            }
+            .pointerInput(tabIndex) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (transitionStateProvider().activeIndex != tabIndex) {
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
             .layout { measurable, constraints ->
                 val placeable = measurable.measure(constraints)
                 layout(placeable.width, placeable.height) {
-                    if (shouldPlace) {
-                        if (!isTransitioning && isSelected) {
-                            placeable.place(x = 0, y = 0, zIndex = 1f)
-                        } else {
-                            val slidePx = 22.dp.toPx()
-                            placeable.placeWithLayer(
-                                x = 0,
-                                y = 0,
-                                zIndex = if (isSelected) 1f else 0f
-                            ) {
-                                val progress = transitionProgressProvider().coerceIn(0f, 1f)
-                                alpha = if (isSelected) {
-                                    (0.28f + 0.72f * progress).coerceIn(0f, 1f)
-                                } else {
-                                    (1f - progress).coerceIn(0f, 1f)
-                                }
-                                translationX = if (isSelected) {
-                                    transitionDirection * slidePx * (1f - progress)
-                                } else {
-                                    -transitionDirection * slidePx * 0.6f * progress
-                                }
+                    val transition = transitionStateProvider()
+                    val isSelected = tabIndex == transition.activeIndex
+                    val isOutgoing = tabIndex == transition.outgoingIndex &&
+                        transition.outgoingIndex != transition.activeIndex
+                    val slidePx = 10.dp.toPx()
+                    placeable.placeWithLayer(
+                        x = 0,
+                        y = 0,
+                        zIndex = when {
+                            isSelected -> 1f
+                            isOutgoing -> 0f
+                            else -> -1f
+                        }
+                    ) {
+                        when {
+                            !isSelected && !isOutgoing -> {
+                                alpha = 0f
+                                translationX = 0f
+                            }
+                            transition.outgoingIndex < 0 -> {
+                                alpha = if (isSelected) 1f else 0f
+                                translationX = 0f
+                            }
+                            isSelected -> {
+                                val t = transition.progress.value.coerceIn(0f, 1f)
+                                alpha = incomingTabAlpha(t)
+                                translationX = transition.direction * slidePx * (1f - incomingTabSpatial(t))
+                            }
+                            else -> {
+                                val t = transition.progress.value.coerceIn(0f, 1f)
+                                alpha = (transition.outgoingStartAlpha * outgoingTabAlpha(t)).coerceIn(0f, 1f)
+                                translationX = 0f
                             }
                         }
                     }
@@ -916,7 +1220,15 @@ private fun GlidingLiquidNavDock(
                     val isVisuallyActive = if (isDragging) index == dragHoverIndex else isSelected
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
-                    var tapTrigger by remember { mutableIntStateOf(0) }
+                    var selectTrigger by remember { mutableIntStateOf(0) }
+                    var wasVisuallyActive by remember { mutableStateOf(isVisuallyActive) }
+
+                    LaunchedEffect(isVisuallyActive) {
+                        if (isVisuallyActive && !wasVisuallyActive) {
+                            selectTrigger++
+                        }
+                        wasVisuallyActive = isVisuallyActive
+                    }
 
                     LaunchedEffect(isPressed) {
                         if (isPressed) {
@@ -964,7 +1276,9 @@ private fun GlidingLiquidNavDock(
                                 interactionSource = interactionSource,
                                 indication = null
                             ) {
-                                tapTrigger++
+                                if (isSelected) {
+                                    selectTrigger++
+                                }
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onSelectTab(index)
                             },
@@ -981,7 +1295,7 @@ private fun GlidingLiquidNavDock(
                                 size = 20.dp,
                                 motion = iconMotion,
                                 isPressed = isPressed,
-                                triggerKey = Pair(isVisuallyActive, tapTrigger)
+                                triggerKey = selectTrigger
                             )
                             Spacer(modifier = Modifier.height(1.dp))
                             Text(

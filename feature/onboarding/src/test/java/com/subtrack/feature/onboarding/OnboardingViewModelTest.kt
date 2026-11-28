@@ -1,6 +1,7 @@
 package com.subtrack.feature.onboarding
 
 import com.subtrack.core.common.time.FakeTimeProvider
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.SubscriptionCategory
 import com.subtrack.core.domain.testing.FakeSubscriptionRepository
@@ -173,5 +174,46 @@ class OnboardingViewModelTest {
         assertTrue(viewModel.uiState.value.isCompleted)
         assertFalse(viewModel.uiState.value.shouldRequestNotificationPermission)
         assertTrue(subscriptionRepository.getAllSubscriptionsList().isEmpty())
+    }
+
+    @Test
+    fun defaultsToAdaptiveMoodAndPersistsCustomThemeAndIconSelection() = runTest(dispatcher) {
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.useStackHeroMood)
+        assertEquals(AppLauncherIcon.BOTANICAL, viewModel.uiState.value.selectedLauncherIcon)
+
+        viewModel.onAction(OnboardingAction.SetUseStackHeroMood(false))
+        viewModel.onAction(OnboardingAction.SetLauncherIcon(AppLauncherIcon.AURORA))
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.useStackHeroMood)
+        assertEquals(AppLauncherIcon.AURORA, viewModel.uiState.value.selectedLauncherIcon)
+        val savedCustom = preferencesRepository.userPreferences.first()
+        assertFalse(savedCustom.useStackHeroMood)
+        assertEquals(AppLauncherIcon.AURORA, savedCustom.launcherIcon)
+
+        viewModel.onAction(OnboardingAction.SetUseStackHeroMood(true))
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.useStackHeroMood)
+        assertEquals(AppLauncherIcon.BOTANICAL, viewModel.uiState.value.selectedLauncherIcon)
+        val savedAdaptive = preferencesRepository.userPreferences.first()
+        assertTrue(savedAdaptive.useStackHeroMood)
+        assertEquals(AppLauncherIcon.BOTANICAL, savedAdaptive.launcherIcon)
+    }
+
+    @Test
+    fun resetForWelcomeRestoresWelcomeStepAndClearsCompletionFlag() = runTest(dispatcher) {
+        viewModel.onAction(OnboardingAction.BeginSelection)
+        viewModel.onAction(OnboardingAction.SkipOnboarding)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isCompleted)
+
+        viewModel.resetForWelcome()
+        advanceUntilIdle()
+
+        assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
+        assertFalse(viewModel.uiState.value.isCompleted)
     }
 }

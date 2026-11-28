@@ -10,7 +10,10 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,9 +34,11 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.subtrack.core.ui.theme.BodyFontFamily
+import com.subtrack.core.ui.theme.DisplayExpandedFontFamily
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
 import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 
 internal data class ParsedMoneyParts(
@@ -112,7 +117,7 @@ fun ExpressiveMoneyText(
     val symbolSize = (heroValue * 0.58f).coerceAtLeast(12f).sp
     val fractionSize = (heroValue * 0.54f).coerceAtLeast(12f).sp
     val suffixSize = (heroValue * 0.36f).coerceAtLeast(11f).sp
-    val heroTracking = (-heroValue * 0.036f).sp
+    val heroTracking = (-heroValue * 0.022f).sp
 
     val styledText = buildAnnotatedString {
         if (parts.prefix.isNotEmpty()) {
@@ -215,9 +220,9 @@ fun ExpressiveBrandWordmark(
             withStyle(
                 SpanStyle(
                     fontFamily = DisplayHeroFontFamily,
-                    fontWeight = FontWeight.Black,
+                    fontWeight = FontWeight.ExtraBold,
                     fontSize = fontSize,
-                    letterSpacing = (-sizeValue * 0.036f).sp,
+                    letterSpacing = (-sizeValue * 0.016f).sp,
                     color = MaterialTheme.colorScheme.onBackground
                 )
             ) {
@@ -228,7 +233,7 @@ fun ExpressiveBrandWordmark(
                     fontFamily = DisplayFontFamily,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = fontSize,
-                    letterSpacing = (-sizeValue * 0.026f).sp,
+                    letterSpacing = (-sizeValue * 0.012f).sp,
                     color = MaterialTheme.colorScheme.primary
                 )
             ) {
@@ -275,7 +280,7 @@ fun ExpressiveKineticBrandHeader(
             colors = swirlColors,
             size = 34.dp,
             cornerRadius = 10.dp,
-            rotationDegrees = spinAngle.value,
+            rotationDegreesProvider = { spinAngle.value },
             contentDescriptionText = "SubCycler logo"
         )
         Spacer(modifier = Modifier.width(10.dp))
@@ -313,23 +318,100 @@ fun ExpressiveKineticBrandHeader(
 }
 
 /**
- * Sculptural Material 3 Expressive screen title for secondary tabs (Planner, Savings).
+ * Sculptural Material 3 Expressive screen title for secondary tabs (Planner, Savings),
+ * anchored with SubCycler's live mood-harmonized swirl emblem so the top bar stays visually
+ * unified across every tab.
  */
 @Composable
 fun ExpressiveScreenTitle(
     text: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBrandIcon: Boolean = true
 ) {
+    val swirlColors = com.subtrack.core.ui.theme.LocalSubCyclerSwirlColors.current
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (showBrandIcon) {
+            SubCyclerSwirlLogo(
+                colors = swirlColors,
+                size = 34.dp,
+                cornerRadius = 10.dp,
+                contentDescriptionText = "SubCycler logo"
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.headlineLarge,
+            fontFamily = DisplayExpandedFontFamily,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 25.sp,
+            lineHeight = 29.sp,
+            letterSpacing = 0.3.sp,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * Wide, softly faded Material 3 Expressive section title (`Google Sans Flex Expanded`)
+ * anchoring primary lists across Home (`Your stack`), Planner (`Cycles`), and Savings (`Breakdown`).
+ */
+@Composable
+fun ExpressiveSectionTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    fontSize: TextUnit = 21.sp,
+    color: Color? = null
+) {
+    val isDark = LocalSubCyclerDarkTheme.current
+    val resolvedColor = color ?: MaterialTheme.colorScheme.onBackground.copy(
+        alpha = if (isDark) 0.78f else 0.72f
+    )
     Text(
         text = text,
         modifier = modifier,
-        style = MaterialTheme.typography.headlineLarge,
-        fontFamily = DisplayHeroFontFamily,
-        fontWeight = FontWeight.Black,
-        fontSize = 28.sp,
-        letterSpacing = (-0.65).sp,
-        color = MaterialTheme.colorScheme.onBackground,
-        maxLines = 1
+        fontFamily = DisplayExpandedFontFamily,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = fontSize,
+        lineHeight = (fontSize.value * 1.2f).sp,
+        letterSpacing = if (fontSize.value >= 24f) 0.6.sp else 0.45.sp,
+        color = resolvedColor,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+/**
+ * Shared sculptural `Cookie12` Settings action button matching Home's top bar across every main tab.
+ */
+@Composable
+fun ExpressiveSettingsActionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isActive: Boolean = false
+) {
+    val isDark = com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme.current
+    ExpressiveReactiveIconButton(
+        imageVector = Icons.Default.Settings,
+        contentDescription = "Settings",
+        onClick = onClick,
+        modifier = modifier.padding(end = 12.dp),
+        shape = ExpressiveCookie12Shape,
+        containerColor = if (isDark) {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.42f else 0.58f),
+        iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+        buttonSize = 44.dp,
+        iconSize = 20.dp,
+        motion = ReactiveMotionType.GEAR_SPIN,
+        externalTrigger = if (isActive) 1 else 0
     )
 }
 

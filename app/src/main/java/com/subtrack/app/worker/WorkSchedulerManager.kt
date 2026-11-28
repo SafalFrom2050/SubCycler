@@ -71,4 +71,15 @@ object WorkSchedulerManager {
         WorkManager.getInstance(context).cancelUniqueWork(CalendarReconciliationWorker.UNIQUE_PERIODIC_WORK_NAME)
         WorkManager.getInstance(context).cancelUniqueWork(CalendarReconciliationWorker.UNIQUE_IMMEDIATE_WORK_NAME)
     }
+
+    fun scheduleDelayedWidgetRefresh(context: Context, delayMs: Long = 1_500L) {
+        val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>()
+            .setInitialDelay(delayMs.coerceAtLeast(250L), TimeUnit.MILLISECONDS)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            WidgetRefreshWorker.UNIQUE_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
+    }
 }

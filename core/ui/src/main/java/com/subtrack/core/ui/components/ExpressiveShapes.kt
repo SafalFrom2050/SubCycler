@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -359,15 +361,51 @@ fun Modifier.expressivePolygonSurface(
     color: Color,
     borderColor: Color? = null,
     borderWidth: Dp = 1.dp
-): Modifier = drawBehind {
+): Modifier = drawWithCache {
     val outline = shape.createOutline(size, layoutDirection, this)
-    drawOutline(outline = outline, color = color)
-    if (borderColor != null && borderWidth > 0.dp) {
-        drawOutline(
-            outline = outline,
-            color = borderColor,
-            style = Stroke(width = borderWidth.toPx())
-        )
+    val borderStroke = if (borderColor != null && borderWidth > 0.dp) {
+        Stroke(width = borderWidth.toPx())
+    } else {
+        null
+    }
+    onDrawBehind {
+        drawOutline(outline = outline, color = color)
+        if (borderColor != null && borderStroke != null) {
+            drawOutline(
+                outline = outline,
+                color = borderColor,
+                style = borderStroke
+            )
+        }
+    }
+}
+
+/**
+ * Draw-phase lambda overload of [expressivePolygonSurface] that caches the polygon [Outline]
+ * across animated color frames so color transitions trigger zero recompositions and zero
+ * `RoundedPolygon.toPath()` allocations.
+ */
+fun Modifier.expressivePolygonSurface(
+    shape: Shape,
+    color: () -> Color,
+    borderColor: (() -> Color)? = null,
+    borderWidth: Dp = 1.dp
+): Modifier = drawWithCache {
+    val outline = shape.createOutline(size, layoutDirection, this)
+    val borderStroke = if (borderColor != null && borderWidth > 0.dp) {
+        Stroke(width = borderWidth.toPx())
+    } else {
+        null
+    }
+    onDrawBehind {
+        drawOutline(outline = outline, color = color())
+        if (borderColor != null && borderStroke != null) {
+            drawOutline(
+                outline = outline,
+                color = borderColor(),
+                style = borderStroke
+            )
+        }
     }
 }
 
@@ -716,7 +754,8 @@ fun ExpressiveStepDots(
 data class ExpressiveSegmentOption<T>(
     val value: T,
     val label: String,
-    val icon: ImageVector? = null
+    val icon: ImageVector? = null,
+    val iconMotion: ReactiveMotionType = ReactiveMotionType.POP_BOUNCE
 )
 
 @Composable
@@ -726,7 +765,11 @@ fun <T> ExpressiveSegmentedGroup(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     height: Dp = 42.dp,
-    fontSize: TextUnit = 12.5.sp
+    fontSize: TextUnit = 12.5.sp,
+    selectedContainerColor: Color = MaterialTheme.colorScheme.primary,
+    selectedContentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    unselectedContainerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    selectedBorder: BorderStroke? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val isDark = LocalSubCyclerDarkTheme.current
@@ -746,6 +789,7 @@ fun <T> ExpressiveSegmentedGroup(
 
             val interactionSource = remember { MutableInteractionSource() }
             val isPressed by interactionSource.collectIsPressedAsState()
+            var iconTriggerCount by remember { mutableIntStateOf(0) }
 
             val targetStartRadius = when {
                 isSelected -> outerRadius
@@ -777,16 +821,16 @@ fun <T> ExpressiveSegmentedGroup(
             )
             val containerColor by animateColorAsState(
                 targetValue = if (isSelected) {
-                    MaterialTheme.colorScheme.primaryContainer
+                    selectedContainerColor
                 } else {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
+                    unselectedContainerColor
                 },
                 animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
                 label = "segBg"
             )
             val contentColor by animateColorAsState(
                 targetValue = if (isSelected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
+                    selectedContentColor
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
@@ -801,13 +845,14 @@ fun <T> ExpressiveSegmentedGroup(
                 bottomEnd = endRadius
             )
             val border = when {
-                isSelected && isDark -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
-                !isSelected && !isDark -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                isSelected -> selectedBorder
+                !isDark -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
                 else -> null
             }
 
             Surface(
                 onClick = {
+                    iconTriggerCount++
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onSelect(option.value)
                 },
@@ -829,11 +874,14 @@ fun <T> ExpressiveSegmentedGroup(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (option.icon != null) {
-                        Icon(
+                        ReactiveIcon(
                             imageVector = option.icon,
                             contentDescription = null,
                             tint = contentColor,
-                            modifier = Modifier.size(15.dp)
+                            size = 16.dp,
+                            motion = option.iconMotion,
+                            isPressed = isPressed,
+                            triggerKey = iconTriggerCount
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                     }
@@ -1233,12 +1281,8 @@ fun ExpressiveServiceBadge(
             badgeBorderWidth = 0.dp
         }
         isSelected -> {
-            badgeBorderColor = effectivePalette.accent.copy(alpha = 0.55f)
+            badgeBorderColor = effectivePalette.content.copy(alpha = 0.55f)
             badgeBorderWidth = 1.5.dp
-        }
-        !isDark -> {
-            badgeBorderColor = effectivePalette.border.copy(alpha = 0.35f)
-            badgeBorderWidth = 1.dp
         }
         else -> {
             badgeBorderColor = null

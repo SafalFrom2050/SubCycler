@@ -4,9 +4,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -16,6 +21,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,12 +55,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
@@ -91,9 +100,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -110,6 +123,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.domain.model.ServicePlanTier
@@ -120,26 +134,35 @@ import com.subtrack.core.ui.components.ExpressiveClover4Shape
 import com.subtrack.core.ui.components.ExpressiveCookie12Shape
 import com.subtrack.core.ui.components.ExpressiveCookie8Shape
 import com.subtrack.core.ui.components.ExpressiveEyebrow
+import com.subtrack.core.ui.components.ExpressiveHeroCardBackdrop
 import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressiveMoneyText
 import com.subtrack.core.ui.components.ExpressivePalettes
 import com.subtrack.core.ui.components.ExpressiveReactiveIconButton
 import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
-import com.subtrack.core.ui.components.ExpressiveSectionRow
-import com.subtrack.core.ui.components.ExpressiveSectionStack
+import com.subtrack.core.ui.components.ExpressiveSegmentOption
+import com.subtrack.core.ui.components.ExpressiveSegmentedGroup
 import com.subtrack.core.ui.components.ExpressiveServiceBadge
 import com.subtrack.core.ui.components.ExpressiveStepDots
-import com.subtrack.core.ui.components.ExpressiveTonalPalette
 import com.subtrack.core.ui.components.FannedBadgeStack
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
 import com.subtrack.core.ui.components.ShapeBloomBackdrop
+import com.subtrack.core.ui.components.SubCyclerSwirlLogo
+import com.subtrack.core.ui.components.expressiveCardBorder
 import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.rememberMorphingPolygonShape
+import com.subtrack.core.ui.theme.BrandColorHarmonizer
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.LocalSubCyclerSwirlColors
+import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+import kotlin.math.PI
+import kotlin.math.sin
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -149,10 +172,19 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun OnboardingRoute(
     onFinished: (requestNotificationPermission: Boolean) -> Unit,
+    isPreviewMode: Boolean = false,
+    onExitPreview: () -> Unit = {},
+    onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(isPreviewMode) {
+        if (isPreviewMode) {
+            viewModel.resetForWelcome()
+        }
+    }
 
     LaunchedEffect(uiState.isCompleted) {
         if (uiState.isCompleted) {
@@ -162,7 +194,18 @@ fun OnboardingRoute(
 
     OnboardingScreen(
         uiState = uiState,
-        onAction = viewModel::onAction,
+        isPreviewMode = isPreviewMode,
+        onExitPreview = onExitPreview,
+        onAction = { action ->
+            if (isPreviewMode && action is OnboardingAction.SkipOnboarding) {
+                onExitPreview()
+                return@OnboardingScreen
+            }
+            viewModel.onAction(action)
+            if (action is OnboardingAction.SetLauncherIcon) {
+                onApplyLauncherIcon(action.icon)
+            }
+        },
         modifier = modifier
     )
 }
@@ -171,6 +214,8 @@ fun OnboardingRoute(
 fun OnboardingScreen(
     uiState: OnboardingUiState,
     onAction: (OnboardingAction) -> Unit,
+    isPreviewMode: Boolean = false,
+    onExitPreview: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var serviceRequestingDate by remember { mutableStateOf<String?>(null) }
@@ -179,15 +224,21 @@ fun OnboardingScreen(
     var customServiceSeed by rememberSaveable { mutableStateOf("") }
     var customServiceCategory by rememberSaveable { mutableStateOf(SubscriptionCategory.OTHER) }
 
-    BackHandler(enabled = uiState.step != OnboardingStep.WELCOME) {
-        onAction(OnboardingAction.Back)
+    BackHandler(enabled = uiState.step != OnboardingStep.WELCOME || isPreviewMode) {
+        if (uiState.step == OnboardingStep.WELCOME && isPreviewMode) {
+            onExitPreview()
+        } else {
+            onAction(OnboardingAction.Back)
+        }
     }
 
     ExpressiveScreenBackdrop(
         modifier = modifier,
-        emphasized = uiState.step == OnboardingStep.WELCOME || uiState.step == OnboardingStep.STARTER_PLAN
+        emphasized = uiState.step == OnboardingStep.STARTER_PLAN
     ) {
-        ShapeBloomBackdrop()
+        if (uiState.step != OnboardingStep.WELCOME) {
+            ShapeBloomBackdrop()
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -230,10 +281,21 @@ fun OnboardingScreen(
                 when (step) {
                     OnboardingStep.WELCOME -> WelcomeStep(
                         currencyCode = uiState.currencyCode,
+                        useStackHeroMood = uiState.useStackHeroMood,
+                        selectedLauncherIcon = uiState.selectedLauncherIcon,
                         isSaving = uiState.isSaving,
+                        isPreviewMode = isPreviewMode,
+                        onUseStackHeroMoodChanged = {
+                            onAction(OnboardingAction.SetUseStackHeroMood(it))
+                        },
+                        onLauncherIconSelected = {
+                            onAction(OnboardingAction.SetLauncherIcon(it))
+                        },
                         onChooseCurrency = { showCurrencyDialog = true },
                         onGetStarted = { onAction(OnboardingAction.BeginSelection) },
-                        onSkip = { onAction(OnboardingAction.SkipOnboarding) }
+                        onSkip = {
+                            if (isPreviewMode) onExitPreview() else onAction(OnboardingAction.SkipOnboarding)
+                        }
                     )
                     OnboardingStep.SELECT_SERVICES -> ServiceSelectionStep(
                         uiState = uiState,
@@ -329,207 +391,444 @@ private fun OnboardingProgress(step: OnboardingStep) {
 @Composable
 private fun WelcomeStep(
     currencyCode: String,
+    useStackHeroMood: Boolean,
+    selectedLauncherIcon: AppLauncherIcon,
     isSaving: Boolean,
+    isPreviewMode: Boolean = false,
+    onUseStackHeroMoodChanged: (Boolean) -> Unit,
+    onLauncherIconSelected: (AppLauncherIcon) -> Unit,
     onChooseCurrency: () -> Unit,
     onGetStarted: () -> Unit,
     onSkip: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
     val isDark = LocalSubCyclerDarkTheme.current
-    val boldPalette = ExpressivePalettes.boldPrimary()
-    val oceanPalette = ExpressivePalettes.softOcean()
-    val slatePalette = ExpressivePalettes.softLavender()
-    val lightCardBorder = if (isDark) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+    val reducedMotion = rememberReducedMotionEnabled()
+    val accentTokens = LocalSubCyclerAccentTokens.current
+    val liveSwirl = LocalSubCyclerSwirlColors.current
+    val cardBorder = expressiveCardBorder()
+    val heroInk = accentTokens.heroContent
+    val themeModeFadeSpec = remember(reducedMotion) {
+        ExpressiveMotion.effectsFast<Float>().orSnapIfReduced(reducedMotion)
+    }
+    var brandSpinCount by remember { mutableIntStateOf(0) }
+    val brandSwirlSpin = remember { Animatable(0f) }
+    LaunchedEffect(useStackHeroMood, selectedLauncherIcon, brandSpinCount, reducedMotion) {
+        if (reducedMotion) return@LaunchedEffect
+        if (brandSpinCount == 0 && useStackHeroMood && selectedLauncherIcon == AppLauncherIcon.BOTANICAL) {
+            return@LaunchedEffect
+        }
+        brandSwirlSpin.animateTo(
+            targetValue = brandSwirlSpin.value + 360f,
+            animationSpec = spring(
+                dampingRatio = 0.58f,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // 1. Minimal Top Bar: Unified Brand Mark + Compact Currency Pill + Skip/Close
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            Surface(
-                onClick = onSkip,
-                enabled = !isSaving,
-                shape = RoundedCornerShape(999.dp),
-                color = if (isDark) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
-                border = lightCardBorder
-            ) {
-                Box(
-                    modifier = Modifier
-                        .heightIn(min = 44.dp)
-                        .padding(horizontal = 18.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Skip",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Interactive "Vault Mosaic" Wall (BunPod ChannelWall inspiration!):
-            // Starts as a gapless 4x2 grid of monogram squares, holds 280ms, then blooms into
-            // 8 distinct M3 Expressive silhouettes — tap any tile to morph it into a fresh polygon!
-            BotanicalVaultMosaic(
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            ExpressiveBrandWordmark(
-                fontSize = 38.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = buildAnnotatedString {
-                    withStyle(
-                        SpanStyle(
-                            fontFamily = DisplayFontFamily,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.2).sp
-                        )
-                    ) {
-                        append("Pause. ")
-                    }
-                    withStyle(
-                        SpanStyle(
-                            fontFamily = DisplayHeroFontFamily,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = (-0.3).sp
-                        )
-                    ) {
-                        append("Binge. ")
-                    }
-                    withStyle(
-                        SpanStyle(
-                            fontFamily = DisplayHeroFontFamily,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.3).sp
-                        )
-                    ) {
-                        append("Save.")
-                    }
-                },
-                fontSize = 18.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            ExpressiveSectionStack {
-                WelcomeFeatureRow(
-                    index = 0,
-                    count = 3,
-                    shape = ExpressiveCookie8Shape,
-                    palette = ExpressivePalettes.softSky(),
-                    icon = Icons.Default.Autorenew,
-                    title = "30 days on, 15 days off · save ~32% yearly"
-                )
-                WelcomeFeatureRow(
-                    index = 1,
-                    count = 3,
-                    shape = CircleShape,
-                    palette = oceanPalette,
-                    icon = Icons.Default.Shield,
-                    title = "100% offline · zero internet permission"
-                )
-                WelcomeFeatureRow(
-                    index = 2,
-                    count = 3,
-                    shape = ExpressiveClover4Shape,
-                    palette = slatePalette,
-                    icon = Icons.Default.NotificationsNone,
-                    title = "Quiet local reminders before renewal dates"
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // First-launch single app-wide currency selector
-        Surface(
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onChooseCurrency()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = lightCardBorder
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        brandSpinCount++
+                    },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                SubCyclerSwirlLogo(
+                    colors = liveSwirl,
+                    size = 32.dp,
+                    cornerRadius = 10.dp,
+                    rotationDegreesProvider = { brandSwirlSpin.value },
+                    contentDescriptionText = "SubCycler logo"
+                )
+                ExpressiveBrandWordmark(fontSize = 20.sp)
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CurrencyPillButton(
+                    currencyCode = currencyCode,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onChooseCurrency()
+                    }
+                )
+                Surface(
+                    onClick = onSkip,
+                    enabled = !isSaving,
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (isDark) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+                    border = cardBorder
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                            .heightIn(min = 44.dp)
+                            .padding(horizontal = 15.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = MoneyFormatter.symbol(currencyCode),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "App currency · $currencyCode",
+                            text = if (isPreviewMode) "Close" else "Skip",
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${MoneyFormatter.displayName(currencyCode)} · used across all services",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 11.5.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.Default.ExpandMore,
-                    contentDescription = "Change currency",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 2. Option B Abstract Rhythm Wave Hero + Theme Selector anchored cleanly above CTA
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .heightIn(min = 230.dp),
+                shape = RoundedCornerShape(30.dp),
+                color = Color.Transparent
+            ) {
+                ExpressiveHeroCardBackdrop(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(30.dp))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp, vertical = 28.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = buildAnnotatedString {
+                                withStyle(
+                                    SpanStyle(
+                                        fontFamily = DisplayHeroFontFamily,
+                                        color = heroInk.copy(alpha = 0.86f),
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = (-1.1).sp
+                                    )
+                                ) {
+                                    append("Pause.\n")
+                                }
+                                withStyle(
+                                    SpanStyle(
+                                        fontFamily = DisplayHeroFontFamily,
+                                        color = heroInk,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = (-1.1).sp
+                                    )
+                                ) {
+                                    append("Binge.\n")
+                                }
+                                withStyle(
+                                    SpanStyle(
+                                        fontFamily = DisplayHeroFontFamily,
+                                        color = accentTokens.heroPop,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = (-1.1).sp
+                                    )
+                                ) {
+                                    append("Save.")
+                                }
+                            },
+                            fontSize = 42.sp,
+                            lineHeight = 45.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(26.dp))
+
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            WelcomeRhythmWave(
+                                waveColor = accentTokens.heroPop,
+                                breakColor = heroInk.copy(alpha = 0.34f),
+                                animate = !reducedMotion
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "30d active",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.2.sp,
+                                    color = heroInk.copy(alpha = 0.78f)
+                                )
+                                Text(
+                                    text = "15d break",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.2.sp,
+                                    color = heroInk.copy(alpha = 0.78f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. De-duplicated Theme & Icon Card (Auto locked to mood vs Custom 6 themes)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(26.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = cardBorder
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ExpressiveEyebrow(
+                        text = "THEME & ICON",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    val themeStyleOptions = remember {
+                        listOf(
+                            ExpressiveSegmentOption(
+                                value = true,
+                                label = "Auto",
+                                icon = Icons.Default.Autorenew,
+                                iconMotion = ReactiveMotionType.CYCLE_SPIN
+                            ),
+                            ExpressiveSegmentOption(
+                                value = false,
+                                label = "Custom",
+                                icon = Icons.Default.Palette,
+                                iconMotion = ReactiveMotionType.PALETTE_WIGGLE
+                            )
+                        )
+                    }
+                    ExpressiveSegmentedGroup(
+                        options = themeStyleOptions,
+                        selectedValue = useStackHeroMood,
+                        onSelect = { adaptive ->
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onUseStackHeroMoodChanged(adaptive)
+                        },
+                        height = 42.dp,
+                        fontSize = 12.5.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    AnimatedContent(
+                        targetState = useStackHeroMood,
+                        transitionSpec = {
+                            fadeIn(themeModeFadeSpec).togetherWith(fadeOut(themeModeFadeSpec))
+                        },
+                        label = "welcomeThemeSelectionBody"
+                    ) { adaptiveOn ->
+                        if (adaptiveOn) {
+                            val autoSwirlSpin = remember { Animatable(0f) }
+                            LaunchedEffect(reducedMotion) {
+                                if (!reducedMotion) {
+                                    autoSwirlSpin.animateTo(
+                                        targetValue = 360f,
+                                        animationSpec = spring(
+                                            dampingRatio = 0.58f,
+                                            stiffness = Spring.StiffnessMediumLow
+                                        )
+                                    )
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                shape = RoundedCornerShape(18.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = cardBorder
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    SubCyclerSwirlLogo(
+                                        colors = liveSwirl,
+                                        size = 38.dp,
+                                        cornerRadius = 11.dp,
+                                        rotationDegreesProvider = { autoSwirlSpin.value },
+                                        contentDescriptionText = "Adaptive mood icon"
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Matches your subscriptions",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "App icon follows active mood",
+                                            fontSize = 11.5.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        ReactiveIcon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = "App icon locked to mood",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            size = 14.dp,
+                                            motion = ReactiveMotionType.POP_BOUNCE,
+                                            triggerKey = adaptiveOn,
+                                            animateOnFirstComposition = true
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(9.dp)
+                            ) {
+                                items(AppLauncherIcon.entries, key = { it.name }) { iconOption ->
+                                    val isSelected = iconOption == selectedLauncherIcon
+                                    val swirlPreview = remember(iconOption) {
+                                        BrandColorHarmonizer.swirlColorsForLauncherIcon(iconOption)
+                                    }
+                                    val swatchInteraction = remember { MutableInteractionSource() }
+                                    val swatchPressed by swatchInteraction.collectIsPressedAsState()
+                                    val swatchScale by animateFloatAsState(
+                                        targetValue = if (swatchPressed) 0.93f else 1f,
+                                        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
+                                            .orSnapIfReduced(reducedMotion),
+                                        label = "welcomeSwatchScale"
+                                    )
+                                    var swatchSpinTick by remember { mutableIntStateOf(0) }
+                                    val swatchSwirlRotation = remember { Animatable(0f) }
+                                    LaunchedEffect(swatchSpinTick, reducedMotion) {
+                                        if (swatchSpinTick > 0 && !reducedMotion) {
+                                            swatchSwirlRotation.animateTo(
+                                                targetValue = swatchSwirlRotation.value + 360f,
+                                                animationSpec = spring(
+                                                    dampingRatio = 0.56f,
+                                                    stiffness = Spring.StiffnessMediumLow
+                                                )
+                                            )
+                                        }
+                                    }
+                                    Surface(
+                                        onClick = {
+                                            swatchSpinTick++
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onLauncherIconSelected(iconOption)
+                                        },
+                                        interactionSource = swatchInteraction,
+                                        modifier = Modifier.graphicsLayer {
+                                            scaleX = swatchScale
+                                            scaleY = swatchScale
+                                        },
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.76f)
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.78f)
+                                        },
+                                        border = BorderStroke(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                                            }
+                                        )
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .width(78.dp)
+                                                .padding(horizontal = 6.dp, vertical = 9.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.BottomEnd) {
+                                                SubCyclerSwirlLogo(
+                                                    colors = swirlPreview,
+                                                    size = 42.dp,
+                                                    cornerRadius = 13.dp,
+                                                    rotationDegreesProvider = { swatchSwirlRotation.value },
+                                                    contentDescriptionText = "${iconOption.displayName} theme and icon"
+                                                )
+                                                if (isSelected) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(17.dp)
+                                                            .clip(CircleShape)
+                                                            .background(MaterialTheme.colorScheme.primary),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        ReactiveIcon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = "Selected",
+                                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                                            size = 10.dp,
+                                                            motion = ReactiveMotionType.POP_BOUNCE,
+                                                            triggerKey = isSelected,
+                                                            animateOnFirstComposition = true
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            Text(
+                                                text = iconOption.displayName,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                                color = if (isSelected) {
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                },
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         PrimaryOnboardingButton(
-            text = "Let's build your stack →",
+            text = "Build your stack →",
             enabled = !isSaving,
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -541,137 +840,82 @@ private fun WelcomeStep(
 }
 
 @Composable
-private fun BotanicalVaultMosaic(
+private fun WelcomeRhythmWave(
+    waveColor: Color,
+    breakColor: Color,
+    animate: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val haptic = LocalHapticFeedback.current
-    val reducedMotion = rememberReducedMotionEnabled()
-    val tiles = remember {
-        listOf(
-            "NF" to 0,
-            "D+" to 1,
-            "SP" to 2,
-            "AI" to 3,
-            "YT" to 4,
-            "CL" to 5,
-            "PV" to 6,
-            "XB" to 7
-        )
-    }
-    val palettes = listOf(
-        ExpressivePalettes.boldPrimary(),
-        ExpressivePalettes.softStone(),
-        ExpressivePalettes.softSky(),
-        ExpressivePalettes.softOcean(),
-        ExpressivePalettes.softLavender(),
-        ExpressivePalettes.softStone(),
-        ExpressivePalettes.softOcean(),
-        ExpressivePalettes.softSky()
+    val infiniteTransition = rememberInfiniteTransition(label = "welcomeWave")
+    val phaseShift by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2.0 * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2600, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "welcomeWavePhase"
     )
-    var bloomed by remember { mutableStateOf(reducedMotion) }
-    LaunchedEffect(reducedMotion) {
-        if (reducedMotion) {
-            bloomed = true
-        } else {
-            delay(280L)
-            bloomed = true
-        }
-    }
+    val phase = if (animate) phaseShift else 0f
+    val path = remember { Path() }
 
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(28.dp)
     ) {
-        tiles.chunked(4).forEachIndexed { rowIdx, row ->
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                row.forEachIndexed { colIdx, (monogram, seedIdx) ->
-                    val palette = palettes[(rowIdx * 4 + colIdx) % palettes.size]
-                    var shapeIdx by remember { mutableIntStateOf(seedIdx % ExpressiveMaterialPolygons.mosaicPalette.size) }
-                    val targetPolygon = if (!bloomed) {
-                        ExpressiveMaterialPolygons.Square
-                    } else {
-                        ExpressiveMaterialPolygons.mosaicPalette[shapeIdx]
-                    }
-                    val shape = rememberMorphingPolygonShape(targetPolygon = targetPolygon)
+        val strokeW = 4.5.dp.toPx()
+        val breakStrokeW = 3.8.dp.toPx()
+        val amplitude = 6.dp.toPx()
+        val wavelength = 28.dp.toPx()
+        val centerY = size.height / 2f
+        val startX = strokeW / 2f
+        val endX = (size.width - strokeW / 2f).coerceAtLeast(startX)
+        val totalSpan = (endX - startX).coerceAtLeast(1f)
 
-                    Box(
-                        modifier = Modifier
-                            .size(58.dp)
-                            .expressivePolygonSurface(
-                                shape = shape,
-                                color = palette.container
-                            )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                shapeIdx = (shapeIdx + 3) % ExpressiveMaterialPolygons.mosaicPalette.size
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = monogram,
-                            fontFamily = DisplayHeroFontFamily,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            letterSpacing = (-0.5).sp,
-                            color = palette.content
-                        )
-                    }
-                }
+        val dotRadius = 5.dp.toPx()
+        val dotGap = 11.dp.toPx()
+        val waveEndX = startX + totalSpan * 0.64f
+        val dotCenterX = waveEndX + dotGap
+        val breakStartX = dotCenterX + dotGap
+
+        path.reset()
+        val stepPx = 3f
+        var x = startX
+        var first = true
+        while (x <= waveEndX) {
+            val angle = ((x - startX) / wavelength) * (2.0 * PI) - phase
+            val y = centerY + (sin(angle) * amplitude).toFloat()
+            if (first) {
+                path.moveTo(x, y)
+                first = false
+            } else {
+                path.lineTo(x, y)
             }
+            x += stepPx
         }
-    }
-}
+        val finalAngle = ((waveEndX - startX) / wavelength) * (2.0 * PI) - phase
+        path.lineTo(waveEndX, centerY + (sin(finalAngle) * amplitude).toFloat())
 
-@Composable
-private fun WelcomeFeatureRow(
-    index: Int,
-    count: Int,
-    shape: Shape,
-    palette: ExpressiveTonalPalette,
-    icon: ImageVector,
-    title: String
-) {
-    ExpressiveSectionRow(
-        index = index,
-        count = count,
-        outerRadius = 24.dp,
-        innerRadius = 4.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .expressivePolygonSurface(
-                        shape = shape,
-                        color = palette.container
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = palette.content,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
+        drawPath(
+            path = path,
+            color = waveColor,
+            style = Stroke(width = strokeW, cap = StrokeCap.Round)
+        )
+
+        drawCircle(
+            color = waveColor,
+            radius = dotRadius,
+            center = Offset(dotCenterX, centerY)
+        )
+
+        if (endX > breakStartX + 4f) {
+            drawLine(
+                color = breakColor,
+                start = Offset(breakStartX, centerY),
+                end = Offset(endX, centerY),
+                strokeWidth = breakStrokeW,
+                cap = StrokeCap.Round
             )
         }
     }
@@ -1265,6 +1509,7 @@ private fun ServiceTile(
                 ExpressiveServiceBadge(
                     serviceName = service.preset.name,
                     initials = service.initials,
+                    colorHex = service.preset.colorHex,
                     size = 46.dp,
                     fontSize = 14.sp,
                     isSelected = service.isSelected,
@@ -1330,9 +1575,9 @@ private fun ServiceReviewStep(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = if (hasRegionalEstimates) {
-                "Estimated ${uiState.currencyCode} plans pre-filled — tap a tier, cycle pill, or edit anytime."
+                "Estimated ${uiState.currencyCode} plans pre-filled."
             } else {
-                "Enter what you pay in ${uiState.currencyCode}. Dates are optional."
+                "Enter your ${uiState.currencyCode} prices."
             },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.5.sp
@@ -1429,6 +1674,7 @@ private fun ReviewServiceCard(
                     ExpressiveServiceBadge(
                         serviceName = service.preset.name,
                         initials = service.initials,
+                        colorHex = service.preset.colorHex,
                         size = 42.dp,
                         fontSize = 13.sp
                     )
@@ -1460,7 +1706,7 @@ private fun ReviewServiceCard(
                                 }
                             ) {
                                 Text(
-                                    text = if (isRotating) "45-day cycle · tap to switch" else "Continuous · tap to rotate",
+                                    text = if (isRotating) "45-day cycle" else "Always on",
                                     color = if (isRotating) {
                                         MaterialTheme.colorScheme.onPrimaryContainer
                                     } else {
@@ -1701,9 +1947,9 @@ private fun StarterPlanStep(
             )
             Text(
                 text = if (rotatableCount == 0) {
-                    "All selected services start as continuous plans."
+                    "All plans set to always on."
                 } else {
-                    "$rotatableCount service${if (rotatableCount == 1) "" else "s"} set to smart 45-day cycles. Editable anytime."
+                    "$rotatableCount on smart 45-day cycles"
                 },
                 modifier = Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1785,7 +2031,7 @@ private fun StarterPlanStep(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "1 local alert 3 days before a billing date · 100% on-device",
+                            text = "Local alert 3d before renewal",
                             fontSize = 11.5.sp,
                             lineHeight = 15.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant

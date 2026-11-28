@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Palette
@@ -79,6 +81,7 @@ import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.DeviceCalendar
 import com.subtrack.core.ui.theme.BrandColorHarmonizer
 import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.LocalSubCyclerSwirlColors
 import com.subtrack.core.ui.theme.SwirlLogoColors
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
@@ -120,6 +123,7 @@ fun CalendarSettingsSheet(
     onLauncherIconSelected: ((AppLauncherIcon) -> Unit)? = null,
     onOpenNotificationSettings: (() -> Unit)? = null,
     onPreviewNotifications: (() -> Unit)? = null,
+    onPreviewWelcome: (() -> Unit)? = null,
     onShareStack: (() -> Unit)? = null,
     onImportStack: (() -> Unit)? = null,
     backupMessage: String? = null
@@ -137,7 +141,8 @@ fun CalendarSettingsSheet(
 
     val hasAppearanceSection = onThemeModeSelected != null ||
         onUseStackHeroMoodChanged != null ||
-        onLauncherIconSelected != null
+        onLauncherIconSelected != null ||
+        onPreviewWelcome != null
     val hasTransferSection = onShareStack != null || onImportStack != null
 
     val pageSlideSpec = remember(reducedMotion) {
@@ -229,8 +234,11 @@ fun CalendarSettingsSheet(
                                     personalizeRows.forEachIndexed { idx, key ->
                                         when (key) {
                                             "appearance" -> {
-                                                val moodText = if (useStackHeroMood) "Living mood on" else "Static accent"
-                                                val summary = "${themeMode.displayName} · ${selectedLauncherIcon.displayName} · $moodText"
+                                                val summary = if (useStackHeroMood) {
+                                                    "${themeMode.displayName} · Auto mood"
+                                                } else {
+                                                    "${themeMode.displayName} · ${selectedLauncherIcon.displayName}"
+                                                }
                                                 SettingsVaultActionRow(
                                                     index = idx,
                                                     count = personalizeRows.size,
@@ -364,10 +372,11 @@ fun CalendarSettingsSheet(
                         }
 
                         SettingsPage.APPEARANCE -> {
+                            val hasThemeStyleSection = onUseStackHeroMoodChanged != null || onLauncherIconSelected != null
                             val appearanceRows = buildList {
                                 if (onThemeModeSelected != null) add("theme")
-                                if (onLauncherIconSelected != null) add("app_icon")
-                                if (onUseStackHeroMoodChanged != null) add("hero_mood")
+                                if (hasThemeStyleSection) add("theme_style")
+                                if (onPreviewWelcome != null) add("preview_welcome")
                             }
                             if (appearanceRows.isNotEmpty()) {
                                 ExpressiveSectionStack(eyebrow = "THEME & ACCENT") {
@@ -388,9 +397,24 @@ fun CalendarSettingsSheet(
                                                     )
                                                     val themeOptions = remember {
                                                         listOf(
-                                                            ExpressiveSegmentOption(AppThemeMode.SYSTEM, AppThemeMode.SYSTEM.displayName, Icons.Default.BrightnessAuto),
-                                                            ExpressiveSegmentOption(AppThemeMode.LIGHT, AppThemeMode.LIGHT.displayName, Icons.Default.LightMode),
-                                                            ExpressiveSegmentOption(AppThemeMode.DARK, AppThemeMode.DARK.displayName, Icons.Default.DarkMode)
+                                                            ExpressiveSegmentOption(
+                                                                AppThemeMode.SYSTEM,
+                                                                AppThemeMode.SYSTEM.displayName,
+                                                                Icons.Default.BrightnessAuto,
+                                                                ReactiveMotionType.POP_BOUNCE
+                                                            ),
+                                                            ExpressiveSegmentOption(
+                                                                AppThemeMode.LIGHT,
+                                                                AppThemeMode.LIGHT.displayName,
+                                                                Icons.Default.LightMode,
+                                                                ReactiveMotionType.CYCLE_SPIN
+                                                            ),
+                                                            ExpressiveSegmentOption(
+                                                                AppThemeMode.DARK,
+                                                                AppThemeMode.DARK.displayName,
+                                                                Icons.Default.DarkMode,
+                                                                ReactiveMotionType.PALETTE_WIGGLE
+                                                            )
                                                         )
                                                     }
                                                     ExpressiveSegmentedGroup(
@@ -403,134 +427,190 @@ fun CalendarSettingsSheet(
                                                 }
                                             }
 
-                                            "app_icon" -> ExpressiveSectionRow(index = index, count = appearanceRows.size) {
+                                            "theme_style" -> ExpressiveSectionRow(index = index, count = appearanceRows.size) {
+                                                val liveSwirl = LocalSubCyclerSwirlColors.current
+                                                val autoMatchedIcon = recommendedLauncherIcon ?: selectedLauncherIcon
                                                 Column(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
-                                                        .padding(vertical = 15.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(11.dp)
+                                                        .padding(vertical = 14.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                                 ) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(horizontal = 16.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Column(modifier = Modifier.weight(1f)) {
-                                                            Text(
-                                                                text = "App icon & accent",
-                                                                fontWeight = FontWeight.Bold,
-                                                                fontSize = 14.sp,
-                                                                color = MaterialTheme.colorScheme.onSurface
-                                                            )
-                                                            Text(
-                                                                text = "Sets your home screen icon and app accent color.",
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                            )
-                                                        }
-                                                        if (recommendedLauncherIcon != null && recommendedLauncherIcon != selectedLauncherIcon) {
-                                                            Spacer(Modifier.width(8.dp))
-                                                            Surface(
-                                                                onClick = { onLauncherIconSelected!!(recommendedLauncherIcon) },
-                                                                shape = RoundedCornerShape(999.dp),
-                                                                color = MaterialTheme.colorScheme.primaryContainer
-                                                            ) {
+                                                    if (onUseStackHeroMoodChanged != null) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .padding(horizontal = 16.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Column(modifier = Modifier.weight(1f)) {
                                                                 Text(
-                                                                    text = "Match ${recommendedLauncherIcon.displayName}",
-                                                                    fontSize = 11.sp,
-                                                                    fontWeight = FontWeight.ExtraBold,
-                                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                                                    text = "Adapt to subscriptions",
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 14.sp,
+                                                                    color = MaterialTheme.colorScheme.onSurface
+                                                                )
+                                                                Text(
+                                                                    text = if (useStackHeroMood) {
+                                                                        "Theme & app icon match your stack"
+                                                                    } else {
+                                                                        "Pick a fixed theme & app icon"
+                                                                    },
+                                                                    style = MaterialTheme.typography.bodySmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                                 )
                                                             }
+                                                            Spacer(Modifier.width(12.dp))
+                                                            Switch(
+                                                                checked = useStackHeroMood,
+                                                                onCheckedChange = onUseStackHeroMoodChanged
+                                                            )
                                                         }
                                                     }
 
-                                                    LazyRow(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        contentPadding = PaddingValues(horizontal = 16.dp),
-                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                                    ) {
-                                                        items(AppLauncherIcon.entries, key = { it.name }) { iconOption ->
-                                                            val isSelected = iconOption == selectedLauncherIcon
-                                                            val isStackMatch = iconOption == recommendedLauncherIcon
-                                                            val swirlPreviewColors = remember(iconOption) {
-                                                                BrandColorHarmonizer.swirlColorsForLauncherIcon(iconOption)
-                                                            }
-                                                            Surface(
-                                                                onClick = { onLauncherIconSelected!!(iconOption) },
-                                                                shape = RoundedCornerShape(20.dp),
-                                                                color = if (isSelected) {
-                                                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
-                                                                } else {
-                                                                    MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f)
-                                                                },
-                                                                border = BorderStroke(
-                                                                    width = if (isSelected) 1.5.dp else 1.dp,
-                                                                    color = if (isSelected) {
-                                                                        MaterialTheme.colorScheme.primary
-                                                                    } else {
-                                                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                                                                    }
-                                                                )
-                                                            ) {
-                                                                Column(
+                                                    if (onLauncherIconSelected != null) {
+                                                        AnimatedContent(
+                                                            targetState = useStackHeroMood,
+                                                            transitionSpec = {
+                                                                fadeIn(pageFadeSpec).togetherWith(fadeOut(pageFadeSpec))
+                                                            },
+                                                            label = "settingsThemeIconMode"
+                                                        ) { adaptiveOn ->
+                                                            if (adaptiveOn) {
+                                                                Surface(
                                                                     modifier = Modifier
-                                                                        .width(84.dp)
-                                                                        .padding(horizontal = 6.dp, vertical = 10.dp),
-                                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                                                                        .fillMaxWidth()
+                                                                        .padding(horizontal = 16.dp),
+                                                                    shape = RoundedCornerShape(18.dp),
+                                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                                                                    border = BorderStroke(
+                                                                        1.dp,
+                                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                                                                    )
                                                                 ) {
-                                                                    Box(contentAlignment = Alignment.BottomEnd) {
+                                                                    Row(
+                                                                        modifier = Modifier
+                                                                            .fillMaxWidth()
+                                                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                                        verticalAlignment = Alignment.CenterVertically,
+                                                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                                    ) {
                                                                         SubCyclerSwirlLogo(
-                                                                            colors = swirlPreviewColors,
-                                                                            size = 44.dp,
-                                                                            cornerRadius = 13.dp,
-                                                                            contentDescriptionText = "${iconOption.displayName} app icon"
+                                                                            colors = liveSwirl,
+                                                                            size = 40.dp,
+                                                                            cornerRadius = 12.dp,
+                                                                            contentDescriptionText = "Auto-matched mood icon"
                                                                         )
-                                                                        if (isSelected) {
-                                                                            Box(
-                                                                                modifier = Modifier
-                                                                                    .size(18.dp)
-                                                                                    .clip(CircleShape)
-                                                                                    .background(MaterialTheme.colorScheme.primary),
-                                                                                contentAlignment = Alignment.Center
+                                                                        Column(modifier = Modifier.weight(1f)) {
+                                                                            Text(
+                                                                                text = "App icon · ${autoMatchedIcon.displayName}",
+                                                                                fontSize = 13.sp,
+                                                                                fontWeight = FontWeight.Bold,
+                                                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                                            )
+                                                                            Text(
+                                                                                text = "Auto-matches active mood",
+                                                                                fontSize = 11.5.sp,
+                                                                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+                                                                            )
+                                                                        }
+                                                                        Surface(
+                                                                            shape = RoundedCornerShape(999.dp),
+                                                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                                                        ) {
+                                                                            Row(
+                                                                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                                                                verticalAlignment = Alignment.CenterVertically,
+                                                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                                             ) {
                                                                                 Icon(
-                                                                                    imageVector = Icons.Default.Check,
-                                                                                    contentDescription = "Selected",
-                                                                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                                                                    modifier = Modifier.size(11.dp)
+                                                                                    imageVector = Icons.Default.Lock,
+                                                                                    contentDescription = "Locked to mood",
+                                                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                                                    modifier = Modifier.size(12.dp)
+                                                                                )
+                                                                                Text(
+                                                                                    text = "Auto",
+                                                                                    fontSize = 10.5.sp,
+                                                                                    fontWeight = FontWeight.ExtraBold,
+                                                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                                                                 )
                                                                             }
                                                                         }
                                                                     }
-                                                                    Text(
-                                                                        text = iconOption.displayName,
-                                                                        fontSize = 11.sp,
-                                                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                                                        color = if (isSelected) {
-                                                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                                                        } else {
-                                                                            MaterialTheme.colorScheme.onSurface
-                                                                        },
-                                                                        maxLines = 1
-                                                                    )
-                                                                    Box(
-                                                                        modifier = Modifier.height(18.dp),
-                                                                        contentAlignment = Alignment.Center
-                                                                    ) {
-                                                                        if (isStackMatch) {
-                                                                            Text(
-                                                                                text = "Stack fit",
-                                                                                fontSize = 9.5.sp,
-                                                                                lineHeight = 12.sp,
-                                                                                fontWeight = FontWeight.Bold,
-                                                                                color = MaterialTheme.colorScheme.primary,
-                                                                                maxLines = 1
+                                                                }
+                                                            } else {
+                                                                LazyRow(
+                                                                    modifier = Modifier.fillMaxWidth(),
+                                                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                                ) {
+                                                                    items(AppLauncherIcon.entries, key = { it.name }) { iconOption ->
+                                                                        val isSelected = iconOption == selectedLauncherIcon
+                                                                        val swirlPreviewColors = remember(iconOption) {
+                                                                            BrandColorHarmonizer.swirlColorsForLauncherIcon(iconOption)
+                                                                        }
+                                                                        Surface(
+                                                                            onClick = { onLauncherIconSelected(iconOption) },
+                                                                            shape = RoundedCornerShape(20.dp),
+                                                                            color = if (isSelected) {
+                                                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f)
+                                                                            } else {
+                                                                                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f)
+                                                                            },
+                                                                            border = BorderStroke(
+                                                                                width = if (isSelected) 1.5.dp else 1.dp,
+                                                                                color = if (isSelected) {
+                                                                                    MaterialTheme.colorScheme.primary
+                                                                                } else {
+                                                                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                                                                                }
                                                                             )
+                                                                        ) {
+                                                                            Column(
+                                                                                modifier = Modifier
+                                                                                    .width(82.dp)
+                                                                                    .padding(horizontal = 6.dp, vertical = 10.dp),
+                                                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                                            ) {
+                                                                                Box(contentAlignment = Alignment.BottomEnd) {
+                                                                                    SubCyclerSwirlLogo(
+                                                                                        colors = swirlPreviewColors,
+                                                                                        size = 44.dp,
+                                                                                        cornerRadius = 13.dp,
+                                                                                        contentDescriptionText = "${iconOption.displayName} app icon"
+                                                                                    )
+                                                                                    if (isSelected) {
+                                                                                        Box(
+                                                                                            modifier = Modifier
+                                                                                                .size(18.dp)
+                                                                                                .clip(CircleShape)
+                                                                                                .background(MaterialTheme.colorScheme.primary),
+                                                                                            contentAlignment = Alignment.Center
+                                                                                        ) {
+                                                                                            Icon(
+                                                                                                imageVector = Icons.Default.Check,
+                                                                                                contentDescription = "Selected",
+                                                                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                                                                modifier = Modifier.size(11.dp)
+                                                                                            )
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                                Text(
+                                                                                    text = iconOption.displayName,
+                                                                                    fontSize = 11.sp,
+                                                                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                                                                    color = if (isSelected) {
+                                                                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                                                                    } else {
+                                                                                        MaterialTheme.colorScheme.onSurface
+                                                                                    },
+                                                                                    maxLines = 1
+                                                                                )
+                                                                            }
                                                                         }
                                                                     }
                                                                 }
@@ -540,34 +620,19 @@ fun CalendarSettingsSheet(
                                                 }
                                             }
 
-                                            "hero_mood" -> ExpressiveSectionRow(index = index, count = appearanceRows.size) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 16.dp, vertical = 13.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Text(
-                                                            text = "Living stack mood",
-                                                            fontWeight = FontWeight.Bold,
-                                                            fontSize = 14.sp,
-                                                            color = MaterialTheme.colorScheme.onSurface
-                                                        )
-                                                        Text(
-                                                            text = "Softly tint the hero card, swirl logo & active dock pill from your active subscriptions.",
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                    }
-                                                    Spacer(Modifier.width(12.dp))
-                                                    Switch(
-                                                        checked = useStackHeroMood,
-                                                        onCheckedChange = onUseStackHeroMoodChanged!!
-                                                    )
+                                            "preview_welcome" -> SettingsVaultActionRow(
+                                                index = index,
+                                                count = appearanceRows.size,
+                                                title = "Preview welcome",
+                                                subtitle = "Open first-launch screen",
+                                                icon = Icons.Default.AutoAwesome,
+                                                badgeShape = ExpressiveClover4Shape,
+                                                palette = oceanPalette,
+                                                onClick = {
+                                                    onDismiss()
+                                                    onPreviewWelcome!!()
                                                 }
-                                            }
+                                            )
                                         }
                                     }
                                 }
@@ -655,8 +720,8 @@ fun CalendarSettingsSheet(
                                             "preview_notif" -> SettingsVaultActionRow(
                                                 index = idx,
                                                 count = reminderRows.size,
-                                                title = "Preview expressive alerts",
-                                                subtitle = "Send a sample Cycle Rhythm card & 2-step progress alert",
+                                                title = "Preview alerts",
+                                                subtitle = "Send sample alerts",
                                                 icon = Icons.Default.NotificationsActive,
                                                 badgeShape = ExpressiveCookie8Shape,
                                                 palette = skyPalette,
@@ -702,7 +767,7 @@ fun CalendarSettingsSheet(
                                             )
                                             Spacer(Modifier.height(2.dp))
                                             Text(
-                                                "Use selected device calendars for timely subscription suggestions.",
+                                                "Local device calendar suggestions",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -807,7 +872,7 @@ fun CalendarSettingsSheet(
                                 )
                             }
                             Text(
-                                text = "100% offline — SubCycler never uses internet permission or cloud accounts.",
+                                text = "100% offline · no internet permission",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 6.dp)
@@ -989,7 +1054,7 @@ fun CalendarSelectionSheet(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                "Only events from calendars you select here are checked. Android's permission itself covers device calendars broadly.",
+                "Only selected calendars are read locally.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

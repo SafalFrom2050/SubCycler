@@ -94,6 +94,12 @@ class AppViewModel @Inject constructor(
         _launchState.value = AppLaunchState.ONBOARDING
     }
 
+    fun setLauncherIcon(icon: AppLauncherIcon) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLauncherIcon(icon)
+        }
+    }
+
     private fun resolveLaunchState() {
         if (appLaunchConfig.forceOnboardingOnEveryLaunch) {
             _launchState.value = AppLaunchState.ONBOARDING

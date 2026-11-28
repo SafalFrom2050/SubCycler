@@ -19,11 +19,20 @@ import com.subtrack.core.domain.model.AppLauncherIcon
 
 val LocalSubCyclerDarkTheme = staticCompositionLocalOf { false }
 val LocalSubCyclerAccentIcon = staticCompositionLocalOf { AppLauncherIcon.BOTANICAL }
+val LocalSubCyclerAccentTokens = staticCompositionLocalOf {
+    launcherAccentTokensFor(AppLauncherIcon.BOTANICAL, isDark = false)
+}
+val LocalSubCyclerSwirlColors = staticCompositionLocalOf {
+    BrandColorHarmonizer.DefaultBotanicalSwirl
+}
 
 /**
- * Curated Light/Dark focal accent bundle matching each [AppLauncherIcon].
- * Keeps SubCycler's 70% architectural neutral surfaces untouched while swapping
- * every 30% brand focal accent (FAB, wordmark, savings stamp, sliders, chips, waves).
+ * Curated Bold Color-Block Material 3 Expressive focal accent bundle matching each [AppLauncherIcon].
+ *
+ * Keeps SubCycler's crisp neutral canvas untouched while driving:
+ * - Bold saturated `primary` & rich jewel `primaryContainer` across tabs, chips, waves, and widgets
+ * - Pure flat single-hue color-block `heroBase` + crisp `heroContent` ink (zero multi-hue rainbow)
+ * - Contrasting triadic `heroPop` / `onHeroPop` accents for the `SAVE` cookie seal, active chip, and `+` FAB
  */
 data class LauncherAccentTokens(
     val primary: Color,
@@ -35,9 +44,12 @@ data class LauncherAccentTokens(
     val secondaryContainer: Color,
     val onSecondaryContainer: Color,
     val heroBase: Color,
-    val heroGradientStart: Color,
-    val heroGradientMid: Color,
-    val heroGradientEnd: Color
+    val heroGradientStart: Color = heroBase,
+    val heroGradientMid: Color = heroBase,
+    val heroGradientEnd: Color = heroBase,
+    val heroContent: Color = Color.White,
+    val heroPop: Color = BrandTriadicLime,
+    val onHeroPop: Color = BrandOnTriadicLime
 )
 
 fun launcherAccentTokensFor(
@@ -55,9 +67,9 @@ fun launcherAccentTokensFor(
             secondaryContainer = BrandLightSecondaryContainer,
             onSecondaryContainer = BrandLightOnSecondaryContainer,
             heroBase = BrandLightHeroContainer,
-            heroGradientStart = Color(0xFFC8F1DF),
-            heroGradientMid = Color(0xFFD7F5E8),
-            heroGradientEnd = Color(0xFFE2F7EE)
+            heroContent = Color(0xFFFFFFFF),
+            heroPop = BrandTriadicLime,
+            onHeroPop = BrandOnTriadicLime
         )
     } else {
         LauncherAccentTokens(
@@ -70,178 +82,179 @@ fun launcherAccentTokensFor(
             secondaryContainer = BrandDarkSecondaryContainer,
             onSecondaryContainer = BrandDarkOnSecondaryContainer,
             heroBase = BrandDarkHeroContainer,
-            heroGradientStart = Color(0xFF154536),
-            heroGradientMid = Color(0xFF12392D),
-            heroGradientEnd = Color(0xFF102E25)
+            heroContent = Color(0xFFF2FFF9),
+            heroPop = BrandTriadicLime,
+            onHeroPop = BrandOnTriadicLime
         )
     }
 
     AppLauncherIcon.CINEMA -> if (!isDark) {
         LauncherAccentTokens(
-            primary = Color(0xFFB8253A),
+            primary = Color(0xFFC4123B),
             onPrimary = Color(0xFFFFFFFF),
-            primaryContainer = Color(0xFFFFD9DE),
-            onPrimaryContainer = Color(0xFF41000E),
-            secondary = Color(0xFF963B4D),
+            primaryContainer = Color(0xFFFFCDD7),
+            onPrimaryContainer = Color(0xFF470011),
+            secondary = Color(0xFFA61E4D),
             onSecondary = Color(0xFFFFFFFF),
-            secondaryContainer = Color(0xFFFBDCE2),
-            onSecondaryContainer = Color(0xFF3D0E18),
-            heroBase = Color(0xFFFCD8DE),
-            heroGradientStart = Color(0xFFFBD1D8),
-            heroGradientMid = Color(0xFFFCE0E5),
-            heroGradientEnd = Color(0xFFFDECEF)
+            secondaryContainer = Color(0xFFFFD1E1),
+            onSecondaryContainer = Color(0xFF42041B),
+            heroBase = Color(0xFFBA1138),
+            heroContent = Color(0xFFFFFFFF),
+            heroPop = BrandTriadicGold,
+            onHeroPop = BrandOnTriadicGold
         )
     } else {
         LauncherAccentTokens(
-            primary = Color(0xFFFF9AA8),
-            onPrimary = Color(0xFF4D0614),
-            primaryContainer = Color(0xFF5A1B27),
-            onPrimaryContainer = Color(0xFFFFDCE1),
-            secondary = Color(0xFFF2A8B4),
-            onSecondary = Color(0xFF430C18),
-            secondaryContainer = Color(0xFF4B1D26),
-            onSecondaryContainer = Color(0xFFFBDDE2),
-            heroBase = Color(0xFF3B151D),
-            heroGradientStart = Color(0xFF491923),
-            heroGradientMid = Color(0xFF3A141C),
-            heroGradientEnd = Color(0xFF2D1016)
+            primary = Color(0xFFFF6B86),
+            onPrimary = Color(0xFF4A0012),
+            primaryContainer = Color(0xFF7D112C),
+            onPrimaryContainer = Color(0xFFFFE3E8),
+            secondary = Color(0xFFFF7AA8),
+            onSecondary = Color(0xFF45031B),
+            secondaryContainer = Color(0xFF6B1435),
+            onSecondaryContainer = Color(0xFFFFE3EE),
+            heroBase = Color(0xFF941233),
+            heroContent = Color(0xFFFFF5F7),
+            heroPop = BrandTriadicGold,
+            onHeroPop = BrandOnTriadicGold
         )
     }
 
     AppLauncherIcon.OCEAN -> if (!isDark) {
         LauncherAccentTokens(
-            primary = Color(0xFF1F54C4),
+            primary = Color(0xFF1D4ED8),
             onPrimary = Color(0xFFFFFFFF),
-            primaryContainer = Color(0xFFD6E4FF),
-            onPrimaryContainer = Color(0xFF06215C),
-            secondary = Color(0xFF2B6299),
+            primaryContainer = Color(0xFFC8DCFF),
+            onPrimaryContainer = Color(0xFF041C5C),
+            secondary = Color(0xFF026AA2),
             onSecondary = Color(0xFFFFFFFF),
-            secondaryContainer = Color(0xFFD6E8FA),
-            onSecondaryContainer = Color(0xFF0A2847),
-            heroBase = Color(0xFFD2E2FF),
-            heroGradientStart = Color(0xFFCBDDFF),
-            heroGradientMid = Color(0xFFDCE8FF),
-            heroGradientEnd = Color(0xFFE7F0FF)
+            secondaryContainer = Color(0xFFC3E8FF),
+            onSecondaryContainer = Color(0xFF03253D),
+            heroBase = Color(0xFF1A47C7),
+            heroContent = Color(0xFFFFFFFF),
+            heroPop = BrandTriadicLime,
+            onHeroPop = BrandOnTriadicLime
         )
     } else {
         LauncherAccentTokens(
-            primary = Color(0xFF9BC2FF),
-            onPrimary = Color(0xFF072257),
-            primaryContainer = Color(0xFF19376D),
-            onPrimaryContainer = Color(0xFFD8E6FF),
-            secondary = Color(0xFF94C7F5),
-            onSecondary = Color(0xFF082644),
-            secondaryContainer = Color(0xFF1A3A59),
-            onSecondaryContainer = Color(0xFFD5EAFC),
-            heroBase = Color(0xFF142B52),
-            heroGradientStart = Color(0xFF183463),
-            heroGradientMid = Color(0xFF132A4F),
-            heroGradientEnd = Color(0xFF10213F)
+            primary = Color(0xFF6EA8FF),
+            onPrimary = Color(0xFF041C54),
+            primaryContainer = Color(0xFF143C8A),
+            onPrimaryContainer = Color(0xFFE0ECFF),
+            secondary = Color(0xFF56CCF2),
+            onSecondary = Color(0xFF032436),
+            secondaryContainer = Color(0xFF0E4769),
+            onSecondaryContainer = Color(0xFFD9F3FF),
+            heroBase = Color(0xFF163B9E),
+            heroContent = Color(0xFFF2F7FF),
+            heroPop = BrandTriadicLime,
+            onHeroPop = BrandOnTriadicLime
         )
     }
 
     AppLauncherIcon.TERRACOTTA -> if (!isDark) {
         LauncherAccentTokens(
-            primary = Color(0xFFB55424),
+            primary = Color(0xFFB83E0A),
             onPrimary = Color(0xFFFFFFFF),
-            primaryContainer = Color(0xFFFFE0CE),
-            onPrimaryContainer = Color(0xFF421704),
-            secondary = Color(0xFF995C32),
+            primaryContainer = Color(0xFFFFD6BF),
+            onPrimaryContainer = Color(0xFF421200),
+            secondary = Color(0xFF9E4B0A),
             onSecondary = Color(0xFFFFFFFF),
-            secondaryContainer = Color(0xFFFAE2D2),
-            onSecondaryContainer = Color(0xFF3B1C08),
-            heroBase = Color(0xFFFDE0CF),
-            heroGradientStart = Color(0xFFFCD8C3),
-            heroGradientMid = Color(0xFFFDE4D5),
-            heroGradientEnd = Color(0xFFFEEFE6)
+            secondaryContainer = Color(0xFFFFDFC2),
+            onSecondaryContainer = Color(0xFF3A1800),
+            heroBase = Color(0xFFB03808),
+            heroContent = Color(0xFFFFFFFF),
+            heroPop = BrandTriadicMint,
+            onHeroPop = BrandOnTriadicMint
         )
     } else {
         LauncherAccentTokens(
-            primary = Color(0xFFFFB58A),
-            onPrimary = Color(0xFF4B1D05),
-            primaryContainer = Color(0xFF5B2B13),
-            onPrimaryContainer = Color(0xFFFFE2D1),
-            secondary = Color(0xFFF0BA95),
-            onSecondary = Color(0xFF40200B),
-            secondaryContainer = Color(0xFF4D2C18),
-            onSecondaryContainer = Color(0xFFFCE4D4),
-            heroBase = Color(0xFF3D1F10),
-            heroGradientStart = Color(0xFF4A2513),
-            heroGradientMid = Color(0xFF3B1E10),
-            heroGradientEnd = Color(0xFF2E170D)
+            primary = Color(0xFFFF965A),
+            onPrimary = Color(0xFF421400),
+            primaryContainer = Color(0xFF7A2B0A),
+            onPrimaryContainer = Color(0xFFFFE5D6),
+            secondary = Color(0xFFFFB266),
+            onSecondary = Color(0xFF3D1A00),
+            secondaryContainer = Color(0xFF69330A),
+            onSecondaryContainer = Color(0xFFFFE9D4),
+            heroBase = Color(0xFF8F2E08),
+            heroContent = Color(0xFFFFF6F2),
+            heroPop = BrandTriadicMint,
+            onHeroPop = BrandOnTriadicMint
         )
     }
 
     AppLauncherIcon.AURORA -> if (!isDark) {
         LauncherAccentTokens(
-            primary = Color(0xFF5846D6),
+            primary = Color(0xFF5B21B6),
             onPrimary = Color(0xFFFFFFFF),
-            primaryContainer = Color(0xFFE4DFFF),
-            onPrimaryContainer = Color(0xFF1B0D66),
-            secondary = Color(0xFF6E52A8),
+            primaryContainer = Color(0xFFDFD1FF),
+            onPrimaryContainer = Color(0xFF1F0654),
+            secondary = Color(0xFF7E22CE),
             onSecondary = Color(0xFFFFFFFF),
-            secondaryContainer = Color(0xFFEAE1FA),
-            onSecondaryContainer = Color(0xFF27134D),
-            heroBase = Color(0xFFE1DBFF),
-            heroGradientStart = Color(0xFFDAD2FF),
-            heroGradientMid = Color(0xFFE6E0FF),
-            heroGradientEnd = Color(0xFFEFEBFF)
+            secondaryContainer = Color(0xFFEBD2FF),
+            onSecondaryContainer = Color(0xFF2E0554),
+            heroBase = Color(0xFF551EB0),
+            heroContent = Color(0xFFFFFFFF),
+            heroPop = BrandTriadicLime,
+            onHeroPop = BrandOnTriadicLime
         )
     } else {
         LauncherAccentTokens(
-            primary = Color(0xFFC3B8FF),
-            onPrimary = Color(0xFF200F6E),
-            primaryContainer = Color(0xFF34277A),
-            onPrimaryContainer = Color(0xFFE6E1FF),
-            secondary = Color(0xFFC9B5F5),
-            onSecondary = Color(0xFF2A1454),
-            secondaryContainer = Color(0xFF38285E),
-            onSecondaryContainer = Color(0xFFECE3FC),
-            heroBase = Color(0xFF251C54),
-            heroGradientStart = Color(0xFF2E2269),
-            heroGradientMid = Color(0xFF241B52),
-            heroGradientEnd = Color(0xFF1C1540)
+            primary = Color(0xFFB69EFF),
+            onPrimary = Color(0xFF21075E),
+            primaryContainer = Color(0xFF3E1D8A),
+            onPrimaryContainer = Color(0xFFEDE6FF),
+            secondary = Color(0xFFD09EFF),
+            onSecondary = Color(0xFF2D0554),
+            secondaryContainer = Color(0xFF4F1A80),
+            onSecondaryContainer = Color(0xFFF3E6FF),
+            heroBase = Color(0xFF461A8C),
+            heroContent = Color(0xFFF6F2FF),
+            heroPop = BrandTriadicLime,
+            onHeroPop = BrandOnTriadicLime
         )
     }
 
     AppLauncherIcon.OBSIDIAN -> if (!isDark) {
         LauncherAccentTokens(
-            primary = Color(0xFF47545E),
+            primary = Color(0xFF243038),
             onPrimary = Color(0xFFFFFFFF),
-            primaryContainer = Color(0xFFDDE4E9),
-            onPrimaryContainer = Color(0xFF172128),
-            secondary = Color(0xFF54616B),
+            primaryContainer = Color(0xFFD5DFE6),
+            onPrimaryContainer = Color(0xFF10181E),
+            secondary = Color(0xFF3A4954),
             onSecondary = Color(0xFFFFFFFF),
-            secondaryContainer = Color(0xFFE1E7EC),
-            onSecondaryContainer = Color(0xFF1D262D),
-            heroBase = Color(0xFFDCE2E7),
-            heroGradientStart = Color(0xFFD4DCE2),
-            heroGradientMid = Color(0xFFE1E7EC),
-            heroGradientEnd = Color(0xFFEAEFF2)
+            secondaryContainer = Color(0xFFDCE4EA),
+            onSecondaryContainer = Color(0xFF162027),
+            heroBase = Color(0xFF1F2930),
+            heroContent = Color(0xFFFFFFFF),
+            heroPop = BrandTriadicLime,
+            onHeroPop = BrandOnTriadicLime
         )
     } else {
         LauncherAccentTokens(
-            primary = Color(0xFFC2CFD8),
-            onPrimary = Color(0xFF162027),
-            primaryContainer = Color(0xFF2D3840),
-            onPrimaryContainer = Color(0xFFE2E9EE),
-            secondary = Color(0xFFB8C5CE),
-            onSecondary = Color(0xFF1B242B),
-            secondaryContainer = Color(0xFF2C353C),
-            onSecondaryContainer = Color(0xFFDFE6EB),
-            heroBase = Color(0xFF212A30),
-            heroGradientStart = Color(0xFF29343C),
-            heroGradientMid = Color(0xFF212A30),
-            heroGradientEnd = Color(0xFF192025)
+            primary = Color(0xFFD0DEE8),
+            onPrimary = Color(0xFF101920),
+            primaryContainer = Color(0xFF2F3D47),
+            onPrimaryContainer = Color(0xFFEAF1F6),
+            secondary = Color(0xFFBACAD6),
+            onSecondary = Color(0xFF152028),
+            secondaryContainer = Color(0xFF2A3640),
+            onSecondaryContainer = Color(0xFFE4ECF2),
+            heroBase = Color(0xFF232D35),
+            heroContent = Color(0xFFF2F6F9),
+            heroPop = BrandTriadicLime,
+            onHeroPop = BrandOnTriadicLime
         )
     }
 }
 
 fun buildSubCyclerColorScheme(
     darkTheme: Boolean,
-    accentIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL
+    accentIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
+    accentTokensOverride: LauncherAccentTokens? = null
 ): ColorScheme {
-    val accent = launcherAccentTokensFor(accentIcon, darkTheme)
+    val accent = accentTokensOverride ?: launcherAccentTokensFor(accentIcon, darkTheme)
     return if (darkTheme) {
         darkColorScheme(
             primary = accent.primary,
@@ -313,11 +326,19 @@ fun buildSubCyclerColorScheme(
 fun SubTrackTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     accentIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
+    accentTokensOverride: LauncherAccentTokens? = null,
+    swirlColorsOverride: SwirlLogoColors? = null,
     content: @Composable () -> Unit
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
     val colorSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion)
-    val baseScheme = buildSubCyclerColorScheme(darkTheme = darkTheme, accentIcon = accentIcon)
+    val baseAccent = accentTokensOverride ?: launcherAccentTokensFor(accentIcon, darkTheme)
+    val effectiveSwirl = swirlColorsOverride ?: BrandColorHarmonizer.swirlColorsForLauncherIcon(accentIcon)
+    val baseScheme = buildSubCyclerColorScheme(
+        darkTheme = darkTheme,
+        accentIcon = accentIcon,
+        accentTokensOverride = accentTokensOverride
+    )
 
     val primary by animateColorAsState(baseScheme.primary, colorSpec, label = "themePrimary")
     val onPrimary by animateColorAsState(baseScheme.onPrimary, colorSpec, label = "themeOnPrimary")
@@ -327,6 +348,28 @@ fun SubTrackTheme(
     val onSecondary by animateColorAsState(baseScheme.onSecondary, colorSpec, label = "themeOnSecondary")
     val secondaryContainer by animateColorAsState(baseScheme.secondaryContainer, colorSpec, label = "themeSecondaryContainer")
     val onSecondaryContainer by animateColorAsState(baseScheme.onSecondaryContainer, colorSpec, label = "themeOnSecondaryContainer")
+    val heroBase by animateColorAsState(baseAccent.heroBase, colorSpec, label = "themeHeroBase")
+    val heroContent by animateColorAsState(baseAccent.heroContent, colorSpec, label = "themeHeroContent")
+    val heroPop by animateColorAsState(baseAccent.heroPop, colorSpec, label = "themeHeroPop")
+    val onHeroPop by animateColorAsState(baseAccent.onHeroPop, colorSpec, label = "themeOnHeroPop")
+
+    val animatedAccentTokens = baseAccent.copy(
+        primary = primary,
+        onPrimary = onPrimary,
+        primaryContainer = primaryContainer,
+        onPrimaryContainer = onPrimaryContainer,
+        secondary = secondary,
+        onSecondary = onSecondary,
+        secondaryContainer = secondaryContainer,
+        onSecondaryContainer = onSecondaryContainer,
+        heroBase = heroBase,
+        heroGradientStart = heroBase,
+        heroGradientMid = heroBase,
+        heroGradientEnd = heroBase,
+        heroContent = heroContent,
+        heroPop = heroPop,
+        onHeroPop = onHeroPop
+    )
 
     val colorScheme = baseScheme.copy(
         primary = primary,
@@ -352,7 +395,9 @@ fun SubTrackTheme(
 
     CompositionLocalProvider(
         LocalSubCyclerDarkTheme provides darkTheme,
-        LocalSubCyclerAccentIcon provides accentIcon
+        LocalSubCyclerAccentIcon provides accentIcon,
+        LocalSubCyclerAccentTokens provides animatedAccentTokens,
+        LocalSubCyclerSwirlColors provides effectiveSwirl
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

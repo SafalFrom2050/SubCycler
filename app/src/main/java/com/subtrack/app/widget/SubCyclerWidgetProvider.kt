@@ -6,6 +6,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
@@ -67,13 +69,14 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        val appContext = context.applicationContext
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                val subs = AppDatabase.getDatabase(context).subscriptionDao().getAllSubscriptionsList().toDomain()
+                val subs = AppDatabase.getDatabase(appContext).subscriptionDao().getAllSubscriptionsList().toDomain()
                 val prefs = runCatching {
                     UserPreferencesRepositoryImpl(
-                        dataStore = context.userDataStore,
+                        dataStore = appContext.userDataStore,
                         defaultCurrencyCode = MoneyFormatter.currencyCodeForLocale()
                     ).userPreferences.first()
                 }.getOrNull()
@@ -82,7 +85,7 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                 val launcherIcon = prefs?.launcherIcon ?: AppLauncherIcon.BOTANICAL
                 val useStackMood = prefs?.useStackHeroMood ?: true
                 val themeMode = prefs?.themeMode ?: AppThemeMode.SYSTEM
-                val isDark = ExpressiveNotificationArt.resolveDarkTheme(context, themeMode)
+                val isDark = ExpressiveNotificationArt.resolveDarkTheme(appContext, themeMode)
 
                 val today = LocalDate.now()
                 val statuses = subs.map { RotationEngine.calculateCycleStatus(it, today) }
@@ -164,12 +167,19 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
         )
 
         val inkPrimary = ExpressiveNotificationArt.toArgb(heroMood.contentColor)
-        val inkSecondary = ExpressiveNotificationArt.toArgb(heroMood.contentColor, 192)
+        val inkSecondary = ExpressiveNotificationArt.toArgb(heroMood.contentColor, 208)
         val accentPrimary = ExpressiveNotificationArt.toArgb(accent.primary)
-        val accentOnPrimary = ExpressiveNotificationArt.toArgb(accent.onPrimary)
+        val sealPrimary = ExpressiveNotificationArt.toArgb(heroMood.sealColor)
+        val sealOnPrimary = ExpressiveNotificationArt.toArgb(heroMood.onSealColor)
 
         val hasSavings = summary.totalAnnualSavings > 0.5
-        val savingsAmount = MoneyFormatter.format(summary.totalAnnualSavings, currencyCode, maximumFractionDigits = 0)
+        val showSeal = hasSavings || (summary.totalSubscriptions > 0 && summary.totalMonthlyOptimizedCost > 0.5)
+        val sealTopLabel = if (hasSavings) "SAVE" else "YEARLY"
+        val savingsAmount = MoneyFormatter.format(
+            if (hasSavings) summary.totalAnnualSavings else summary.totalMonthlyOptimizedCost * 12.0,
+            currencyCode,
+            maximumFractionDigits = 0
+        )
         val monthlyFormatted = if (summary.totalSubscriptions == 0) {
             "Add stack"
         } else {
@@ -207,9 +217,8 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                     summary.blackoutCount > 0 -> "${summary.activeCount} on · ${summary.blackoutCount} off"
                     else -> "${summary.activeCount} active"
                 }
-                val pillRgb = if (isDark) 0xFF101417.toInt() else 0xFFFFFFFF.toInt()
-                setInt(R.id.widget_status_pill_bg, "setColorFilter", pillRgb)
-                setInt(R.id.widget_status_pill_bg, "setImageAlpha", if (isDark) 172 else 224)
+                val pillRgb = if (isDark) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+                setMaskTint(R.id.widget_status_pill_bg, pillRgb, if (isDark) 76 else 58)
                 setTextViewText(R.id.widget_status_pill_text, pillText)
                 setTextColor(R.id.widget_status_pill_text, inkPrimary)
 
@@ -234,8 +243,8 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                 if (soonest != null) {
                     val strip = ExpressiveWidgetArt.renderMiniRhythmStripBitmap(
                         status = soonest,
-                        accentArgb = accentPrimary,
-                        isDark = isDark
+                        accentArgb = sealPrimary,
+                        isDark = true
                     )
                     setViewVisibility(R.id.widget_rhythm_strip, View.VISIBLE)
                     setImageViewBitmap(R.id.widget_rhythm_strip, strip)
@@ -245,10 +254,11 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
 
                 bindSavingsSeal(
                     views = this,
-                    hasSavings = hasSavings,
+                    showSeal = showSeal,
+                    sealTopLabel = sealTopLabel,
                     savingsAmount = savingsAmount,
-                    accentPrimary = accentPrimary,
-                    accentOnPrimary = accentOnPrimary,
+                    accentPrimary = sealPrimary,
+                    accentOnPrimary = sealOnPrimary,
                     compact = true
                 )
             }
@@ -266,20 +276,20 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                     hasSavings = hasSavings,
                     inkPrimary = inkPrimary,
                     inkSecondary = inkSecondary,
-                    accentPrimary = accentPrimary
+                    accentPrimary = sealPrimary
                 )
                 bindSavingsSeal(
                     views = this,
-                    hasSavings = hasSavings,
+                    showSeal = showSeal,
+                    sealTopLabel = sealTopLabel,
                     savingsAmount = savingsAmount,
-                    accentPrimary = accentPrimary,
-                    accentOnPrimary = accentOnPrimary,
+                    accentPrimary = sealPrimary,
+                    accentOnPrimary = sealOnPrimary,
                     compact = false
                 )
 
                 val cardBgRgb = if (isDark) 0xFF14181A.toInt() else 0xFFFFFFFF.toInt()
-                setInt(R.id.widget_next_card_bg, "setColorFilter", cardBgRgb)
-                setInt(R.id.widget_next_card_bg, "setImageAlpha", if (isDark) 196 else 228)
+                setMaskTint(R.id.widget_next_card_bg, cardBgRgb, if (isDark) 196 else 228)
 
                 val rowPrimary = if (isDark) 0xFFECEFEE.toInt() else 0xFF151918.toInt()
                 val rowSecondary = if (isDark) 0xFF9AA4A0.toInt() else 0xFF5A6360.toInt()
@@ -345,8 +355,7 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
 
             LivingWidgetSizeTier.TALL_4X3 -> RemoteViews(context.packageName, R.layout.widget_living_tall).apply {
                 val outerSurface = if (isDark) 0xFF121618.toInt() else 0xFFF3F5F4.toInt()
-                setInt(R.id.widget_surface_bg, "setColorFilter", outerSurface)
-                setInt(R.id.widget_surface_bg, "setImageAlpha", 255)
+                setMaskTint(R.id.widget_surface_bg, outerSurface, 255)
 
                 setImageViewBitmap(R.id.widget_hero_backdrop, heroBackdrop)
                 setImageViewBitmap(R.id.widget_swirl, swirlBmp)
@@ -360,14 +369,15 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                     hasSavings = hasSavings,
                     inkPrimary = inkPrimary,
                     inkSecondary = inkSecondary,
-                    accentPrimary = accentPrimary
+                    accentPrimary = sealPrimary
                 )
                 bindSavingsSeal(
                     views = this,
-                    hasSavings = hasSavings,
+                    showSeal = showSeal,
+                    sealTopLabel = sealTopLabel,
                     savingsAmount = savingsAmount,
-                    accentPrimary = accentPrimary,
-                    accentOnPrimary = accentOnPrimary,
+                    accentPrimary = sealPrimary,
+                    accentOnPrimary = sealOnPrimary,
                     compact = false
                 )
 
@@ -426,8 +436,7 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                                 else -> R.drawable.bg_widget_row_mid
                             }
                             setImageViewResource(ids.bg, maskDrawable)
-                            setInt(ids.bg, "setColorFilter", rowCardRgb)
-                            setInt(ids.bg, "setImageAlpha", 255)
+                            setMaskTint(ids.bg, rowCardRgb, 255)
 
                             val sub = status.subscription
                             val palette = BrandColorHarmonizer.harmonizedTonalPalette(sub.name, sub.colorHex, isDark)
@@ -456,8 +465,7 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                                 status.daysRemainingInPhase <= 0 -> "Due today"
                                 else -> "${status.daysRemainingInPhase}d left"
                             }
-                            setInt(ids.pillBg, "setColorFilter", ExpressiveNotificationArt.toArgb(palette.container))
-                            setInt(ids.pillBg, "setImageAlpha", if (isDark) 225 else 242)
+                            setMaskTint(ids.pillBg, ExpressiveNotificationArt.toArgb(palette.container), if (isDark) 225 else 242)
                             setTextViewText(ids.pillText, pillText)
                             setTextColor(ids.pillText, ExpressiveNotificationArt.toArgb(palette.content))
 
@@ -504,12 +512,19 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_savings_subtitle, subLine)
         views.setTextColor(R.id.widget_savings_subtitle, inkSecondary)
 
-        if (hasSavings && summary.totalMonthlyStandardCost > summary.totalMonthlyOptimizedCost) {
-            val spendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost).toFloat()
+        val hasSpendWave = summary.totalSubscriptions > 0 && summary.totalMonthlyOptimizedCost > 0.5
+        val hasSavingsSplit = hasSavings && summary.totalMonthlyStandardCost > summary.totalMonthlyOptimizedCost
+        if (hasSpendWave) {
+            val spendFraction = if (hasSavingsSplit) {
+                (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost).toFloat()
+            } else {
+                1f
+            }
             val waveStrip = ExpressiveWidgetArt.renderWavyEfficiencyStripBitmap(
                 spendFraction = spendFraction,
                 waveArgb = (inkPrimary and 0x00FFFFFF) or (0xD6 shl 24),
-                savedArgb = accentPrimary
+                savedArgb = accentPrimary,
+                showSavedPill = hasSavingsSplit
             )
             views.setViewVisibility(R.id.widget_efficiency_wave, View.VISIBLE)
             views.setImageViewBitmap(R.id.widget_efficiency_wave, waveStrip)
@@ -520,19 +535,20 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
 
     private fun bindSavingsSeal(
         views: RemoteViews,
-        hasSavings: Boolean,
+        showSeal: Boolean,
+        sealTopLabel: String,
         savingsAmount: String,
         accentPrimary: Int,
         accentOnPrimary: Int,
         compact: Boolean
     ) {
-        if (!hasSavings) {
+        if (!showSeal) {
             views.setViewVisibility(R.id.widget_seal_box, View.GONE)
             return
         }
         views.setViewVisibility(R.id.widget_seal_box, View.VISIBLE)
-        views.setInt(R.id.widget_seal_bg, "setColorFilter", accentPrimary)
-        views.setInt(R.id.widget_seal_bg, "setImageAlpha", 255)
+        views.setMaskTint(R.id.widget_seal_bg, accentPrimary, 255)
+        views.setTextViewText(R.id.widget_seal_top, sealTopLabel)
         views.setTextColor(R.id.widget_seal_top, (accentOnPrimary and 0x00FFFFFF) or (0xC8 shl 24))
         views.setTextViewText(R.id.widget_seal_amount, savingsAmount)
         views.setTextColor(R.id.widget_seal_amount, accentOnPrimary)
@@ -544,6 +560,19 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
         }
         views.setTextViewTextSize(R.id.widget_seal_amount, TypedValue.COMPLEX_UNIT_SP, amountSizeSp)
         views.setTextColor(R.id.widget_seal_sub, (accentOnPrimary and 0x00FFFFFF) or (0xC8 shl 24))
+    }
+
+    /**
+     * Applies an exact solid RGB tint + alpha to mask ImageViews in a way that survives
+     * Android 12+ `AppWidgetHostView.reapply()` across Dark/Light and package-change reloads.
+     */
+    private fun RemoteViews.setMaskTint(viewId: Int, argb: Int, alpha: Int = 255) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            setColorStateList(viewId, "setImageTintList", ColorStateList.valueOf(argb))
+        } else {
+            setInt(viewId, "setColorFilter", argb)
+        }
+        setInt(viewId, "setImageAlpha", alpha)
     }
 
     private fun buildOpenIntent(

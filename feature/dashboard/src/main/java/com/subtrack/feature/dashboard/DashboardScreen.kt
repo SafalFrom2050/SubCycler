@@ -78,6 +78,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -139,6 +140,7 @@ import com.subtrack.core.ui.components.ExpressiveKineticBrandHeader
 import com.subtrack.core.ui.components.ExpressivePalettes
 import com.subtrack.core.ui.components.ExpressiveReactiveIconButton
 import com.subtrack.core.ui.components.ExpressiveRemovalCollapse
+import com.subtrack.core.ui.components.ExpressiveSectionTitle
 import com.subtrack.core.ui.components.ExpressiveSnackHost
 import com.subtrack.core.ui.components.FannedBadgeStack
 import com.subtrack.core.ui.components.FinancialEfficiencyHud
@@ -184,9 +186,13 @@ fun DashboardRoute(
     onTransferPayloadConsumed: () -> Unit = {},
     pendingAddSubscription: Boolean = false,
     onAddSubscriptionConsumed: () -> Unit = {},
+    pendingOpenSettings: Boolean = false,
+    onOpenSettingsConsumed: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    onPreviewWelcome: (() -> Unit)? = null,
+    isEntranceReady: Boolean = true,
     onFirstDataReady: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -429,8 +435,12 @@ fun DashboardRoute(
         onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
         pendingAddSubscription = pendingAddSubscription,
         onAddSubscriptionConsumed = onAddSubscriptionConsumed,
+        pendingOpenSettings = pendingOpenSettings,
+        onOpenSettingsConsumed = onOpenSettingsConsumed,
         onApplyLauncherIcon = onApplyLauncherIcon,
         onPreviewNotifications = onPreviewNotifications,
+        onPreviewWelcome = onPreviewWelcome,
+        isEntranceReady = isEntranceReady,
         modifier = modifier
     )
 }
@@ -462,8 +472,12 @@ fun DashboardScreen(
     onOpenSubscriptionConsumed: () -> Unit = {},
     pendingAddSubscription: Boolean = false,
     onAddSubscriptionConsumed: () -> Unit = {},
+    pendingOpenSettings: Boolean = false,
+    onOpenSettingsConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    onPreviewWelcome: (() -> Unit)? = null,
+    isEntranceReady: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -478,6 +492,14 @@ fun DashboardScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(pendingOpenSettings) {
+        if (pendingOpenSettings) {
+            onAction(DashboardAction.SetBackupFeedback(null))
+            showSettings = true
+            onOpenSettingsConsumed()
+        }
+    }
     var showShareSheet by rememberSaveable { mutableStateOf(false) }
     var showImportSheet by rememberSaveable { mutableStateOf(false) }
     var subscriptionToEdit by remember { mutableStateOf<Subscription?>(null) }
@@ -760,6 +782,7 @@ fun DashboardScreen(
                         incompleteCount = uiState.incompleteCount,
                         scrollProgress = heroCollapseProgress,
                         heroMood = heroMood,
+                        isEntranceReady = isEntranceReady,
                         onSavingsClick = onNavigateToSavings,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
@@ -835,25 +858,54 @@ fun DashboardScreen(
                     }
                 }
 
-                // 4. Comfort-Band Morphing Filter Strip (synchronized live with HorizontalPager swipes!)
-                if (showFilterBar) {
-                    item(key = "filter_row", contentType = "filters") {
+                // 4. Expressive Section Title + Comfort-Band Morphing Filter Strip (synchronized live with HorizontalPager swipes!)
+                if (uiState.totalSubscriptionCount > 0 || showFilterBar) {
+                    item(key = "stack_header", contentType = "filters") {
                         val visualSelectedFilter = filters[filterPagerState.currentPage]
-                        LazyRow(
-                            state = filterRowState,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            modifier = Modifier.fillMaxWidth()
+                        val skipChipEntrance = isEntranceReady || reducedMotion
+                        val chipStripReveal = remember {
+                            androidx.compose.animation.core.Animatable(if (skipChipEntrance) 1f else 0f)
+                        }
+                        LaunchedEffect(isEntranceReady, reducedMotion) {
+                            if (!isEntranceReady) return@LaunchedEffect
+                            if (reducedMotion) {
+                                chipStripReveal.snapTo(1f)
+                            } else if (chipStripReveal.value < 0.99f) {
+                                kotlinx.coroutines.delay(50L)
+                                chipStripReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+                            }
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    val r = chipStripReveal.value
+                                    alpha = ExpressiveMotion.clampEffectProgress(r * 1.45f)
+                                    translationY = (1f - r) * 10.dp.toPx()
+                                },
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            ExpressiveSectionTitle(
+                                text = "Your stack",
+                                fontSize = 25.sp,
+                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp)
+                            )
+                            if (showFilterBar) {
+                                LazyRow(
+                                    state = filterRowState,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                             items(filters, key = { it.name }) { filter ->
                                 val isSelected = filter == visualSelectedFilter
                                 val count = filterCounts[filter] ?: 0
                                 val chipInteraction = remember { MutableInteractionSource() }
                                 val chipPressed by chipInteraction.collectIsPressedAsState()
                                 var chipAnimNonce by remember { mutableIntStateOf(0) }
-                                LaunchedEffect(isSelected) {
-                                    if (isSelected) chipAnimNonce++
+                                LaunchedEffect(isSelected, isEntranceReady) {
+                                    if (isSelected && isEntranceReady) chipAnimNonce++
                                 }
                                 val filterIcon = when (filter) {
                                     SubscriptionFilter.ALL -> if (isSelected) Icons.Rounded.GridView else Icons.Outlined.GridView
@@ -877,21 +929,23 @@ fun DashboardScreen(
                                         .orSnapIfReduced(reducedMotion),
                                     label = "filterChipCorner"
                                 )
+                                val chipAccentPop = heroMood.sealColor
+                                val chipOnPop = heroMood.onSealColor
                                 val chipBg by animateColorAsState(
-                                    targetValue = if (isSelected) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainer
+                                    targetValue = when {
+                                        isSelected && isDark -> chipAccentPop
+                                        isSelected -> MaterialTheme.colorScheme.onSurface
+                                        else -> MaterialTheme.colorScheme.surfaceContainer
                                     },
                                     animationSpec = ExpressiveMotion.effectsFastColor()
                                         .orSnapIfReduced(reducedMotion),
                                     label = "filterChipBg"
                                 )
                                 val chipFg by animateColorAsState(
-                                    targetValue = if (isSelected) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    targetValue = when {
+                                        isSelected && isDark -> chipOnPop
+                                        isSelected -> chipAccentPop
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                                     },
                                     animationSpec = ExpressiveMotion.effectsFastColor()
                                         .orSnapIfReduced(reducedMotion),
@@ -948,7 +1002,7 @@ fun DashboardScreen(
                                                     .clip(RoundedCornerShape(999.dp))
                                                     .background(
                                                         if (isSelected) {
-                                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                                            chipFg.copy(alpha = 0.16f)
                                                         } else {
                                                             MaterialTheme.colorScheme.surfaceContainerHigh
                                                         }
@@ -1017,6 +1071,8 @@ fun DashboardScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
+                                }
+                            }
                                 }
                             }
                         }
@@ -1141,7 +1197,7 @@ fun DashboardScreen(
                                 }
                             } else {
                                 val rows = pageStatuses.chunked(2)
-                                rows.forEach { rowItems ->
+                                rows.forEachIndexed { rowIdx, rowItems ->
                                     key(rowItems.joinToString("-") { it.subscription.id.toString() }) {
                                         val rowIsFullyRemoving = rowItems.all { it.subscription.id in pendingRemovalIds }
                                         ExpressiveRemovalCollapse(
@@ -1162,8 +1218,9 @@ fun DashboardScreen(
                                                     .height(IntrinsicSize.Min),
                                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                                             ) {
-                                                for (cycleStatus in rowItems) {
+                                                rowItems.forEachIndexed { colIdx, cycleStatus ->
                                                     val isCardRemoving = !rowIsFullyRemoving && cycleStatus.subscription.id in pendingRemovalIds
+                                                    val gridIndex = if (pageIndex == 0) rowIdx * 2 + colIdx else -1
                                                     Box(
                                                         modifier = Modifier
                                                             .weight(1f)
@@ -1181,6 +1238,8 @@ fun DashboardScreen(
                                                         ) {
                                                             SubscriptionGridItem(
                                                                 cycleStatus = cycleStatus,
+                                                                isEntranceReady = isEntranceReady,
+                                                                entranceIndex = gridIndex,
                                                                 onClick = {
                                                                     selectedSubscriptionId = cycleStatus.subscription.id
                                                                 },
@@ -1452,6 +1511,12 @@ fun DashboardScreen(
                     dedupeKey = "preview_notif"
                 )
             },
+            onPreviewWelcome = onPreviewWelcome?.let { openWelcome ->
+                {
+                    showSettings = false
+                    openWelcome()
+                }
+            },
             onShareStack = {
                 showSettings = false
                 showShareSheet = true
@@ -1652,17 +1717,15 @@ private fun DashboardEmptyState(
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = if (isFilteredEmpty) {
-                    "Swipe to another tab or jump back to All."
-                } else {
-                    "Tap a popular service to start tracking in $currencyCode, or add your own."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
+            if (!isFilteredEmpty) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Pick a service or add your own.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -1671,7 +1734,7 @@ private fun DashboardEmptyState(
                     onClick = onClearFilter,
                     shape = RoundedCornerShape(999.dp)
                 ) {
-                    Text("Show all subscriptions", fontWeight = FontWeight.Bold)
+                    Text("Show all", fontWeight = FontWeight.Bold)
                 }
             } else {
                 Row(

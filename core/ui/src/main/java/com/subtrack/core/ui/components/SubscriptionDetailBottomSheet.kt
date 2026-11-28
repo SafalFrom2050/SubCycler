@@ -454,7 +454,7 @@ fun SubscriptionDetailBottomSheet(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Finish these details to unlock countdown scrubbing, savings math, and quiet local reminders.",
+                            text = "Add price, date, and cycle to track.",
                             style = MaterialTheme.typography.bodySmall,
                             fontSize = 12.5.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -596,17 +596,6 @@ fun SubscriptionDetailBottomSheet(
                             )
                         }
 
-                        Text(
-                            text = if (isScrubbing) {
-                                "Release to snap back to today"
-                            } else {
-                                "Drag wave to preview future dates & breaks"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.5.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
-                        )
-
                         if (isDue && scrubPreview == null) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Surface(
@@ -731,12 +720,12 @@ fun SubscriptionDetailBottomSheet(
                 else -> "Manage billing"
             }
             val heroSubtitle = when {
-                isIncomplete -> "Jump to missing step"
+                isIncomplete -> "Missing details"
                 hasUnbankedBreak -> "Restart active cycle"
-                isUrgentCancel -> "Open billing page"
+                isUrgentCancel -> "Billing portal"
                 isPausedForResub -> "Start fresh cycle"
                 isCancelledForCycle && isActive -> "Reminders paused"
-                else -> "Provider billing links"
+                else -> "Billing portal"
             }
             val heroIcon = when {
                 isIncomplete -> Icons.Default.Tune
@@ -947,7 +936,7 @@ fun SubscriptionDetailBottomSheet(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Removes this subscription from tracking and cancels its local reminders. You can still Undo right after.",
+                            text = "Stops tracking and cancels local reminders.",
                             style = MaterialTheme.typography.bodySmall,
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)

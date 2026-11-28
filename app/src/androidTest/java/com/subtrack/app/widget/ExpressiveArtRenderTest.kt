@@ -83,7 +83,8 @@ class ExpressiveArtRenderTest {
             .sortedBy { it.daysRemainingInPhase }
         val summary = RotationEngine.calculatePortfolioSavings(statuses)
 
-        val previewDir = File(context.cacheDir, "expressive_previews").apply { mkdirs() }
+        val previewDir = (context.getExternalFilesDir("expressive_previews")
+            ?: File(context.cacheDir, "expressive_previews")).apply { mkdirs() }
 
         // 1. Verify transparent-background hybrid notification strips (zero opaque card rectangle!)
         val rhythmStrip = ExpressiveNotificationArt.renderTransparentCycleRhythmStripBitmap(
@@ -143,7 +144,7 @@ class ExpressiveArtRenderTest {
             activeForMood = subs,
             currencyCode = "JPY",
             launcherIcon = AppLauncherIcon.BOTANICAL,
-            useStackMood = true,
+            useStackMood = false,
             isDark = true
         )
         val rvWide = livingProvider.buildNativeLivingViews(
@@ -167,7 +168,7 @@ class ExpressiveArtRenderTest {
             activeForMood = subs,
             currencyCode = "JPY",
             launcherIcon = AppLauncherIcon.BOTANICAL,
-            useStackMood = true,
+            useStackMood = false,
             isDark = false
         )
         val rvCookie = cookieProvider.buildNativeCookieViews(

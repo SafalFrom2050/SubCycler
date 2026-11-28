@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Botanical Bold Color-Block Swirl: Deep Emerald + Electric Emerald + Acid-Lime -->
+    <group android:pivotX="54" android:pivotY="54" android:rotation="120">
+        <path
+            android:fillColor="#008A5A"
+            android:pathData="M42.52,40.88 C44.98,23.66 57.28,19.56 67.12,26.94 C79.42,35.96 81.88,55.64 71.22,65.48 C63.02,72.04 49.90,67.12 44.16,57.28 C40.06,50.72 40.06,44.98 42.52,40.88 Z" />
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="240">
+        <path
+            android:strokeColor="#03261A"
+            android:strokeWidth="1.8"
+            android:strokeLineJoin="round"
+            android:fillColor="#22F09E"
+            android:pathData="M42.52,40.88 C44.98,23.66 57.28,19.56 67.12,26.94 C79.42,35.96 81.88,55.64 71.22,65.48 C63.02,72.04 49.90,67.12 44.16,57.28 C40.06,50.72 40.06,44.98 42.52,40.88 Z" />
+    </group>
+    <path
+        android:strokeColor="#03261A"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:fillColor="#D4FF5E"
+        android:pathData="M42.52,40.88 C44.98,23.66 57.28,19.56 67.12,26.94 C79.42,35.96 81.88,55.64 71.22,65.48 C63.02,72.04 49.90,67.12 44.16,57.28 C40.06,50.72 40.06,44.98 42.52,40.88 Z" />
+    <!-- Center Medallion -->
+    <path
+        android:fillColor="#03261A"
+        android:pathData="M54,37.6 A16.4,16.4 0 1,1 53.99,37.6 Z" />
+    <!-- Calendar Lugs & Frame -->
+    <path
+        android:fillColor="#EEFFF7"
+        android:pathData="M49.77,45.05 A1.9,1.9 0 1,1 49.76,45.05 Z M58.23,45.05 A1.9,1.9 0 1,1 58.22,45.05 Z" />
+    <path
+        android:strokeColor="#EEFFF7"
+        android:strokeWidth="3.12"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M49.44,48.67 H58.56 A4.26,4.26 0 0,1 62.82,52.93 V57.37 A4.26,4.26 0 0,1 58.56,61.63 H49.44 A4.26,4.26 0 0,1 45.18,57.37 V52.93 A4.26,4.26 0 0,1 49.44,48.67 Z" />
+    <!-- Triadic Acid-Lime Inner Cycle Wave -->
+    <path
+        android:strokeColor="#D4FF5E"
+        android:strokeWidth="2.75"
+        android:strokeLineCap="round"
+        android:pathData="M49.59,56.03 C52.46,53.85 55.54,56.97 58.41,54.79" />
+</vector>

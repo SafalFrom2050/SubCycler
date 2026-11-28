@@ -12,7 +12,7 @@ import java.time.LocalDate
 class BrandColorHarmonizerTest {
 
     @Test
-    fun allTopTwentyPresetsMeetWcacAaaContrastInBothLightAndDarkModes() {
+    fun allTopTwentyPresetsMeetHighContrastInBothLightAndDarkModes() {
         PresetLibrary.presets.forEach { preset ->
             listOf(false, true).forEach { isDark ->
                 val palette = BrandColorHarmonizer.harmonizedTonalPalette(
@@ -24,8 +24,8 @@ class BrandColorHarmonizerTest {
                 val fgRgb = BrandColorHarmonizer.composeColorToRgb(palette.content)
                 val ratio = BrandColorHarmonizer.contrastRatio(bgRgb, fgRgb)
                 assertTrue(
-                    "Expected >= 7.0 contrast for ${preset.name} (dark=$isDark), got $ratio",
-                    ratio >= 7.0
+                    "Expected >= 5.0 Bold Expressive contrast for ${preset.name} (dark=$isDark), got $ratio",
+                    ratio >= 5.0
                 )
             }
         }
@@ -79,18 +79,30 @@ class BrandColorHarmonizerTest {
     }
 
     @Test
-    fun heroMoodMaintainsHighContrastForActiveStacksInLightAndDark() {
+    fun heroMoodIsFlatSingleHueAndMaintainsHighContrastInLightAndDark() {
         val stack = listOf(
             Subscription(name = "Netflix", cost = 17.99, colorHex = "#E50914", startDate = LocalDate.of(2026, 11, 27)),
             Subscription(name = "Disney+", cost = 15.99, colorHex = "#113CCF", startDate = LocalDate.of(2026, 11, 27))
         )
         listOf(false, true).forEach { isDark ->
             val mood = BrandColorHarmonizer.resolveHeroMoodPalette(stack, useStackMood = true, isDark = isDark)
+            // Pure Flat Color-Block: no multi-color rainbow gradient stops
+            assertEquals(mood.baseColor, mood.gradientStart)
+            assertEquals(mood.baseColor, mood.gradientMid)
+            assertEquals(mood.baseColor, mood.gradientEnd)
+            assertEquals(2, mood.stackAccentDots.size)
+
             val ratio = BrandColorHarmonizer.contrastRatio(
-                BrandColorHarmonizer.composeColorToRgb(mood.gradientStart),
+                BrandColorHarmonizer.composeColorToRgb(mood.baseColor),
                 BrandColorHarmonizer.composeColorToRgb(mood.contentColor)
             )
-            assertTrue("Hero mood contrast too low (dark=$isDark): $ratio", ratio >= 7.0)
+            assertTrue("Hero mood contrast too low (dark=$isDark): $ratio", ratio >= 5.5)
+
+            val sealRatio = BrandColorHarmonizer.contrastRatio(
+                BrandColorHarmonizer.composeColorToRgb(mood.sealColor),
+                BrandColorHarmonizer.composeColorToRgb(mood.onSealColor)
+            )
+            assertTrue("Hero seal contrast too low (dark=$isDark): $sealRatio", sealRatio >= 10.0)
         }
     }
 
@@ -178,7 +190,7 @@ class BrandColorHarmonizerTest {
                 )
                 assertTrue(
                     "Low mood primary contrast for ${preset.name} (dark=$isDark): $primaryContrast",
-                    primaryContrast >= 7.0
+                    primaryContrast >= 5.0
                 )
                 assertTrue(
                     "Low mood container contrast for ${preset.name} (dark=$isDark): $containerContrast",

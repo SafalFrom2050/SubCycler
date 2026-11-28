@@ -44,13 +44,14 @@ class NextUpCookieWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        val appContext = context.applicationContext
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                val subs = AppDatabase.getDatabase(context).subscriptionDao().getAllSubscriptionsList().toDomain()
+                val subs = AppDatabase.getDatabase(appContext).subscriptionDao().getAllSubscriptionsList().toDomain()
                 val prefs = runCatching {
                     UserPreferencesRepositoryImpl(
-                        dataStore = context.userDataStore,
+                        dataStore = appContext.userDataStore,
                         defaultCurrencyCode = MoneyFormatter.currencyCodeForLocale()
                     ).userPreferences.first()
                 }.getOrNull()
@@ -58,7 +59,7 @@ class NextUpCookieWidgetProvider : AppWidgetProvider() {
                 val launcherIcon = prefs?.launcherIcon ?: AppLauncherIcon.BOTANICAL
                 val useStackMood = prefs?.useStackHeroMood ?: true
                 val themeMode = prefs?.themeMode ?: AppThemeMode.SYSTEM
-                val isDark = ExpressiveNotificationArt.resolveDarkTheme(context, themeMode)
+                val isDark = ExpressiveNotificationArt.resolveDarkTheme(appContext, themeMode)
 
                 val today = LocalDate.now()
                 val allStatuses = subs.map { RotationEngine.calculateCycleStatus(it, today) }
@@ -121,8 +122,8 @@ class NextUpCookieWidgetProvider : AppWidgetProvider() {
         val inkArgb = when {
             soonest == null -> ExpressiveNotificationArt.toArgb(accent.onPrimaryContainer)
             soonest.phase == CyclePhase.BLACKOUT && soonest.daysRemainingInPhase <= 1 ->
-                ExpressiveNotificationArt.toArgb(accent.onPrimary)
-            !useStackMood -> ExpressiveNotificationArt.toArgb(accent.onPrimaryContainer)
+                ExpressiveNotificationArt.toArgb(accent.onHeroPop)
+            !useStackMood -> ExpressiveNotificationArt.toArgb(accent.heroContent)
             else -> {
                 val sub = soonest.subscription
                 val palette = BrandColorHarmonizer.harmonizedTonalPalette(sub.name, sub.colorHex, isDark)
