@@ -59,6 +59,11 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -141,6 +146,7 @@ import com.subtrack.core.ui.components.ImportPreviewSheet
 import com.subtrack.core.ui.components.ImportStackSheet
 import com.subtrack.core.ui.components.NextActionBanner
 import com.subtrack.core.ui.components.PendingSubscriptionActionDialog
+import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
 import com.subtrack.core.ui.components.ShapeBloomBackdrop
 import com.subtrack.core.ui.components.ShareStackSheet
@@ -845,6 +851,22 @@ fun DashboardScreen(
                                 val count = filterCounts[filter] ?: 0
                                 val chipInteraction = remember { MutableInteractionSource() }
                                 val chipPressed by chipInteraction.collectIsPressedAsState()
+                                var chipAnimNonce by remember { mutableIntStateOf(0) }
+                                LaunchedEffect(isSelected) {
+                                    if (isSelected) chipAnimNonce++
+                                }
+                                val filterIcon = when (filter) {
+                                    SubscriptionFilter.ALL -> if (isSelected) Icons.Rounded.GridView else Icons.Outlined.GridView
+                                    SubscriptionFilter.ACTIVE -> Icons.Rounded.PlayArrow
+                                    SubscriptionFilter.BLACKOUT -> Icons.Rounded.Pause
+                                    SubscriptionFilter.ROTATING -> Icons.Rounded.Autorenew
+                                }
+                                val filterMotion = when (filter) {
+                                    SubscriptionFilter.ALL -> ReactiveMotionType.POP_BOUNCE
+                                    SubscriptionFilter.ACTIVE -> ReactiveMotionType.NUDGE_RIGHT
+                                    SubscriptionFilter.BLACKOUT -> ReactiveMotionType.PAUSE_SETTLE
+                                    SubscriptionFilter.ROTATING -> ReactiveMotionType.CYCLE_SPIN
+                                }
                                 val chipCorner by animateDpAsState(
                                     targetValue = when {
                                         chipPressed -> 10.dp
@@ -879,6 +901,7 @@ fun DashboardScreen(
                                 Surface(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        if (isSelected) chipAnimNonce++
                                         onAction(DashboardAction.SetFilter(filter))
                                         scope.launch {
                                             if (reducedMotion) {
@@ -899,15 +922,30 @@ fun DashboardScreen(
                                     Row(
                                         modifier = Modifier
                                             .height(38.dp)
-                                            .padding(start = 10.dp, end = 14.dp),
+                                            .padding(start = 11.dp, end = if (count > 0 || filter == SubscriptionFilter.ALL) 9.dp else 13.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                                     ) {
+                                        ReactiveIcon(
+                                            imageVector = filterIcon,
+                                            contentDescription = null,
+                                            tint = chipFg,
+                                            size = 15.dp,
+                                            motion = filterMotion,
+                                            isPressed = chipPressed,
+                                            triggerKey = chipAnimNonce
+                                        )
+                                        Text(
+                                            text = filter.displayName,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 12.5.sp,
+                                            color = chipFg
+                                        )
                                         if (count > 0 || filter == SubscriptionFilter.ALL) {
                                             Box(
                                                 modifier = Modifier
-                                                    .height(22.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .height(20.dp)
+                                                    .clip(RoundedCornerShape(999.dp))
                                                     .background(
                                                         if (isSelected) {
                                                             MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
@@ -922,28 +960,23 @@ fun DashboardScreen(
                                                     text = "$count",
                                                     fontFamily = DisplayFontFamily,
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    fontSize = 11.sp,
+                                                    fontSize = 10.5.sp,
                                                     color = chipFg
                                                 )
                                             }
                                         }
-                                        Text(
-                                            text = filter.displayName,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 12.5.sp,
-                                            color = chipFg
-                                        )
                                     }
                                 }
                             }
 
-                            // Compact Sort Pill (matching 38dp height & corner compression)
+                            // Compact Sort Pill (matching 38dp height, corner compression, and 180° flip icon)
                             item(key = "sort_pill") {
                                 val nextSort = SubscriptionSort.entries[
                                     (uiState.selectedSort.ordinal + 1) % SubscriptionSort.entries.size
                                 ]
                                 val sortInteraction = remember { MutableInteractionSource() }
                                 val sortPressed by sortInteraction.collectIsPressedAsState()
+                                var sortTapCount by remember { mutableIntStateOf(0) }
                                 val sortCorner by animateDpAsState(
                                     targetValue = if (sortPressed) 10.dp else 18.dp,
                                     animationSpec = ExpressiveMotion.standardSpatialFastDp()
@@ -953,6 +986,7 @@ fun DashboardScreen(
                                 Surface(
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        sortTapCount++
                                         onAction(DashboardAction.SetSort(nextSort))
                                     },
                                     interactionSource = sortInteraction,
@@ -966,11 +1000,14 @@ fun DashboardScreen(
                                             .padding(horizontal = 13.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
+                                        ReactiveIcon(
                                             imageVector = Icons.Default.SwapVert,
                                             contentDescription = "Change sort order",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(15.dp)
+                                            size = 15.dp,
+                                            motion = ReactiveMotionType.SWAP_FLIP,
+                                            isPressed = sortPressed,
+                                            triggerKey = sortTapCount
                                         )
                                         Spacer(modifier = Modifier.width(5.dp))
                                         Text(

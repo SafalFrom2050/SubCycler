@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import kotlinx.coroutines.launch
 
 /**
@@ -46,6 +47,7 @@ enum class ReactiveMotionType {
     NUDGE_LEFT,
     NUDGE_RIGHT,
     PIGGY_BOUNCE,
+    PAUSE_SETTLE,
     POP_BOUNCE
 }
 
@@ -91,17 +93,26 @@ fun ReactiveIcon(
         label = "reactiveIconPressTilt"
     )
 
-    val animScale = remember { Animatable(1f) }
+    val reducedMotion = rememberReducedMotionEnabled()
+    val animScaleX = remember { Animatable(1f) }
+    val animScaleY = remember { Animatable(1f) }
     val animRotation = remember { Animatable(0f) }
     val animOffsetX = remember { Animatable(0f) }
     val animOffsetY = remember { Animatable(0f) }
     var hasInitialized by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(triggerKey) {
+    LaunchedEffect(triggerKey, reducedMotion) {
         if (triggerKey == null) return@LaunchedEffect
         val isFirst = hasInitialized == 0
         hasInitialized++
         if (isFirst && !animateOnFirstComposition) return@LaunchedEffect
+        if (reducedMotion) {
+            animScaleX.snapTo(1f)
+            animScaleY.snapTo(1f)
+            animOffsetX.snapTo(0f)
+            animOffsetY.snapTo(0f)
+            return@LaunchedEffect
+        }
 
         val bouncySpring = spring<Float>(
             dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -112,12 +123,22 @@ fun ReactiveIcon(
             stiffness = Spring.StiffnessMediumLow
         )
 
+        fun kotlinx.coroutines.CoroutineScope.bounceUniformScale(from: Float, peak: Float? = null) {
+            launch {
+                animScaleX.snapTo(from)
+                if (peak != null) animScaleX.animateTo(peak, spring(stiffness = Spring.StiffnessHigh))
+                animScaleX.animateTo(1f, bouncySpring)
+            }
+            launch {
+                animScaleY.snapTo(from)
+                if (peak != null) animScaleY.animateTo(peak, spring(stiffness = Spring.StiffnessHigh))
+                animScaleY.animateTo(1f, bouncySpring)
+            }
+        }
+
         when (motion) {
             ReactiveMotionType.GEAR_SPIN -> {
-                launch {
-                    animScale.snapTo(0.86f)
-                    animScale.animateTo(1f, bouncySpring)
-                }
+                bounceUniformScale(0.86f)
                 launch {
                     val target = animRotation.value + 120f
                     animRotation.animateTo(target, livelySpring)
@@ -125,10 +146,7 @@ fun ReactiveIcon(
             }
 
             ReactiveMotionType.PLUS_TWIST -> {
-                launch {
-                    animScale.snapTo(0.80f)
-                    animScale.animateTo(1f, bouncySpring)
-                }
+                bounceUniformScale(0.80f)
                 launch {
                     val target = animRotation.value + 90f
                     animRotation.animateTo(target, livelySpring)
@@ -136,27 +154,21 @@ fun ReactiveIcon(
             }
 
             ReactiveMotionType.CYCLE_SPIN -> {
-                launch {
-                    animScale.snapTo(0.86f)
-                    animScale.animateTo(1f, bouncySpring)
-                }
+                bounceUniformScale(0.86f)
                 launch {
                     val target = animRotation.value + 360f
                     animRotation.animateTo(
                         target,
                         spring(
-                            dampingRatio = 0.52f,
-                            stiffness = Spring.StiffnessLow
+                            dampingRatio = 0.56f,
+                            stiffness = Spring.StiffnessMediumLow
                         )
                     )
                 }
             }
 
             ReactiveMotionType.SWAP_FLIP -> {
-                launch {
-                    animScale.snapTo(0.84f)
-                    animScale.animateTo(1f, bouncySpring)
-                }
+                bounceUniformScale(0.84f)
                 launch {
                     val target = animRotation.value + 180f
                     animRotation.animateTo(target, livelySpring)
@@ -164,10 +176,7 @@ fun ReactiveIcon(
             }
 
             ReactiveMotionType.BELL_RING -> {
-                launch {
-                    animScale.snapTo(1.16f)
-                    animScale.animateTo(1f, bouncySpring)
-                }
+                bounceUniformScale(1.16f)
                 launch {
                     animRotation.animateTo(-20f, spring(stiffness = Spring.StiffnessHigh))
                     animRotation.animateTo(18f, spring(stiffness = Spring.StiffnessHigh))
@@ -178,32 +187,23 @@ fun ReactiveIcon(
             }
 
             ReactiveMotionType.NUDGE_LEFT -> {
+                bounceUniformScale(0.88f)
                 launch {
-                    animScale.snapTo(0.88f)
-                    animScale.animateTo(1f, bouncySpring)
-                }
-                launch {
-                    animOffsetX.snapTo(-14f)
+                    animOffsetX.snapTo(-10f)
                     animOffsetX.animateTo(0f, bouncySpring)
                 }
             }
 
             ReactiveMotionType.NUDGE_RIGHT -> {
+                bounceUniformScale(0.88f)
                 launch {
-                    animScale.snapTo(0.88f)
-                    animScale.animateTo(1f, bouncySpring)
-                }
-                launch {
-                    animOffsetX.snapTo(14f)
+                    animOffsetX.snapTo(10f)
                     animOffsetX.animateTo(0f, bouncySpring)
                 }
             }
 
             ReactiveMotionType.PIGGY_BOUNCE -> {
-                launch {
-                    animScale.snapTo(1.18f)
-                    animScale.animateTo(1f, bouncySpring)
-                }
+                bounceUniformScale(1.18f)
                 launch {
                     animOffsetY.animateTo(-12f, spring(stiffness = Spring.StiffnessHigh))
                     animOffsetY.animateTo(0f, livelySpring)
@@ -215,12 +215,21 @@ fun ReactiveIcon(
                 }
             }
 
-            ReactiveMotionType.POP_BOUNCE -> {
+            ReactiveMotionType.PAUSE_SETTLE -> {
+                // Crisp horizontal pinch & vertical calm settle like gently braking to pause
                 launch {
-                    animScale.snapTo(0.78f)
-                    animScale.animateTo(1.14f, spring(stiffness = Spring.StiffnessHigh))
-                    animScale.animateTo(1f, bouncySpring)
+                    animScaleX.snapTo(0.74f)
+                    animScaleX.animateTo(1.08f, spring(stiffness = Spring.StiffnessHigh))
+                    animScaleX.animateTo(1f, bouncySpring)
                 }
+                launch {
+                    animScaleY.snapTo(1.14f)
+                    animScaleY.animateTo(1f, bouncySpring)
+                }
+            }
+
+            ReactiveMotionType.POP_BOUNCE -> {
+                bounceUniformScale(0.78f, peak = 1.14f)
                 launch {
                     animRotation.snapTo(-10f)
                     animRotation.animateTo(0f, bouncySpring)
@@ -236,9 +245,8 @@ fun ReactiveIcon(
         modifier = modifier
             .size(size)
             .graphicsLayer {
-                val combinedScale = pressScale * animScale.value
-                scaleX = combinedScale
-                scaleY = combinedScale
+                scaleX = pressScale * animScaleX.value
+                scaleY = pressScale * animScaleY.value
                 rotationZ = animRotation.value + pressTilt + extraRotationDegrees
                 translationX = animOffsetX.value
                 translationY = animOffsetY.value
