@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -40,6 +41,7 @@ import com.subtrack.core.ui.components.decodeQrFromBitmap
 import com.subtrack.core.ui.theme.SubTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -67,15 +69,28 @@ class MainActivity : ComponentActivity() {
             val launcherIcon by appViewModel.launcherIcon.collectAsStateWithLifecycle()
             val dockMood by appViewModel.dockMood.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
+            var isSplashDismissed by remember { mutableStateOf(false) }
+            var hasCompletedInitialWidgetSync by remember { mutableStateOf(false) }
             val useDarkTheme = when (themeMode) {
                 AppThemeMode.SYSTEM -> systemDark
                 AppThemeMode.LIGHT -> false
                 AppThemeMode.DARK -> true
             }
 
-            // Keep all home-screen widgets live-synced whenever theme, icon accent, stack mood, or active stack changes
-            LaunchedEffect(themeMode, launcherIcon, dockMood.useStackHeroMood, dockMood.activeSubscriptions) {
-                if (dockMood.isLoaded) {
+            // Defer home-screen widget broadcasts until after the launch splash and Home's
+            // initial entrance choreography settle so widget IPC/Canvas work never stutters launch.
+            LaunchedEffect(
+                isSplashDismissed,
+                themeMode,
+                launcherIcon,
+                dockMood.useStackHeroMood,
+                dockMood.activeSubscriptions
+            ) {
+                if (dockMood.isLoaded && isSplashDismissed) {
+                    if (!hasCompletedInitialWidgetSync) {
+                        delay(650L)
+                        hasCompletedInitialWidgetSync = true
+                    }
                     SubCyclerWidgets.requestUpdateAll(this@MainActivity)
                 }
             }
@@ -152,6 +167,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         },
+                        onSplashDismissed = { isSplashDismissed = true },
                         appViewModel = appViewModel
                     )
                 }

@@ -3,8 +3,8 @@ package com.subtrack.app.ui.navigation
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -74,6 +75,7 @@ import com.subtrack.feature.onboarding.OnboardingRoute
 import com.subtrack.feature.planner.PlannerRoute
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -86,6 +88,7 @@ fun SubTrackApp(
     onTransferPayloadConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    onSplashDismissed: () -> Unit = {},
     appViewModel: AppViewModel = hiltViewModel()
 ) {
     val launchState by appViewModel.launchState.collectAsStateWithLifecycle()
@@ -148,6 +151,7 @@ fun SubTrackApp(
                 onSplashFinished = {
                     splashRevealStarted = true
                     splashDismissed = true
+                    onSplashDismissed()
                 }
             )
         }
@@ -156,12 +160,12 @@ fun SubTrackApp(
 
 /**
  * Bold Color-Block Material 3 Expressive Launch Splash:
- * 1. Opens seamlessly from Android's system splash onto a crisp architectural canvas framed by
- *    subtle off-corner M3E geometry, centering the swirling logo inside a flat Color-Block `Cookie12`
- *    medallion ringed by a counter-rotating Triadic Pop dashed halo.
- * 2. Once hydrated, decelerates cleanly to upright and morphs both the medallion and the 3 swirl
- *    petals into the live Bold Stack Mood palette with a spring bloom + wordmark & stack-dots reveal.
- * 3. Lifts and dissolves straight into the already-populated Home screen with zero empty-state flash.
+ * 1. Holds the plain canvas until DataStore hydrates `dockMood`, then renders the larger
+ *    Color-Block `Cookie12` medallion and swirl emblem cleanly while the underlying screen
+ *    finishes its first composition/layout pass so zero main-thread spikes contend with animation.
+ * 2. Performs one uninterrupted, GPU-only 360° expressive spin + spring bloom + minimal
+ *    `SubCycler` wordmark reveal (zero per-frame recompositions, cached vector paths).
+ * 3. Lifts and dissolves smoothly straight into Home's unfurling launch choreography.
  */
 @Composable
 private fun SubCyclerExpressiveSplashOverlay(
@@ -188,8 +192,8 @@ private fun SubCyclerExpressiveSplashOverlay(
     val currentOnFinished by rememberUpdatedState(onSplashFinished)
 
     val rotation = remember { Animatable(0f) }
-    val logoScale = remember { Animatable(if (reducedMotion) 1f else 0.84f) }
-    val medallionScale = remember { Animatable(if (reducedMotion) 1f else 0.72f) }
+    val logoScale = remember { Animatable(if (reducedMotion) 1f else 0.88f) }
+    val medallionScale = remember { Animatable(if (reducedMotion) 1f else 0.82f) }
     val wordmarkProgress = remember { Animatable(0f) }
     val overlayAlpha = remember { Animatable(1f) }
     val overlayScale = remember { Animatable(1f) }
@@ -217,12 +221,13 @@ private fun SubCyclerExpressiveSplashOverlay(
         )
     }
     val activeSwirlColors = if (morphedToStackMood) stackMoodSwirl else launcherSwirl
-    val stageColor by animateColorAsState(
+    // Keep as State<Color> and read exclusively in draw phase so color morphs trigger 0 recompositions.
+    val stageColorState = animateColorAsState(
         targetValue = if (morphedToStackMood) heroMood.baseColor else launcherAccent.heroBase,
         animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
         label = "splashStageColor"
     )
-    val stagePopColor by animateColorAsState(
+    val stagePopColorState = animateColorAsState(
         targetValue = if (morphedToStackMood) heroMood.sealColor else launcherAccent.heroPop,
         animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
         label = "splashStagePopColor"
@@ -230,6 +235,8 @@ private fun SubCyclerExpressiveSplashOverlay(
     val cookieStageShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Cookie12) }
     val cornerCloverShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Clover8) }
     val cornerPebbleShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Pebble) }
+    val cloverAlpha = if (isDark) 0.24f else 0.13f
+    val pebbleAlpha = if (isDark) 0.14f else 0.22f
 
     LaunchedEffect(reducedMotion) {
         if (reducedMotion) {
@@ -237,81 +244,71 @@ private fun SubCyclerExpressiveSplashOverlay(
                 delay(24L)
             }
             morphedToStackMood = true
+            wordmarkProgress.snapTo(1f)
             currentOnExitStart()
             currentOnFinished()
             return@LaunchedEffect
         }
 
-        // Phase 1: Snappy medallion bloom + crisp 360° swirl spin while Room/DataStore hydrate
-        val popJob = launch {
-            logoScale.animateTo(
-                targetValue = 1f,
-                animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
-            )
+        // Let the underlying Dashboard/Onboarding finish its heavy first composition & layout pass
+        // before starting the animation clock, then drain 2 clean VSync frames for locked 90/120Hz.
+        withTimeoutOrNull(450L) {
+            while (!currentReady) {
+                delay(16L)
+            }
         }
+        withFrameNanos { }
+        withFrameNanos { }
+
+        // Phase 1: Single uninterrupted expressive bloom + silky 360° settle + wordmark slide-up
+        val spinEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
         val medallionJob = launch {
             medallionScale.animateTo(
                 targetValue = 1f,
                 animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
             )
         }
-        rotation.animateTo(
-            targetValue = 360f,
-            animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)
-        )
-        popJob.join()
-        medallionJob.join()
-
-        while (!currentReady) {
-            rotation.animateTo(
-                targetValue = rotation.value + 120f,
-                animationSpec = tween(durationMillis = 190, easing = LinearEasing)
-            )
-        }
-
-        // Phase 2: Settle upright, morph medallion & swirl into Bold Stack Mood, and reveal wordmark
-        val nextUpright = ((rotation.value / 360f).toInt() + if (rotation.value % 360f > 5f) 1 else 0) * 360f
-        morphedToStackMood = true
-        val settleSpin = launch {
-            if (nextUpright > rotation.value) {
-                rotation.animateTo(
-                    targetValue = nextUpright,
-                    animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
-                )
-            }
-        }
-        val bloomPulse = launch {
+        val logoJob = launch {
             logoScale.animateTo(
-                targetValue = 1.09f,
+                targetValue = 1f,
                 animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
             )
-            logoScale.animateTo(
-                targetValue = 1.0f,
-                animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
+        }
+        val spinJob = launch {
+            rotation.animateTo(
+                targetValue = 360f,
+                animationSpec = tween(durationMillis = 440, easing = spinEasing)
             )
         }
-        val revealWordmark = launch {
+        val moodAndWordmarkJob = launch {
+            delay(130L)
+            morphedToStackMood = true
             wordmarkProgress.animateTo(
                 targetValue = 1f,
                 animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
             )
         }
-        settleSpin.join()
-        bloomPulse.join()
-        revealWordmark.join()
-        delay(200L)
+        medallionJob.join()
+        logoJob.join()
+        spinJob.join()
+        moodAndWordmarkJob.join()
 
-        // Phase 3: Crisp lift & dissolve straight into hydrated Home — fire entrance handoff now
+        while (!currentReady) {
+            delay(16L)
+        }
+        delay(150L)
+
+        // Phase 2: Crisp lift & dissolve straight into hydrated Home — fire entrance handoff now
         currentOnExitStart()
         val liftJob = launch {
             overlayScale.animateTo(
                 targetValue = 1.045f,
-                animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 185, easing = FastOutSlowInEasing)
             )
         }
         overlayAlpha.animateTo(
             targetValue = 0f,
-            animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = 185, easing = FastOutSlowInEasing)
         )
         liftJob.join()
         currentOnFinished()
@@ -328,149 +325,102 @@ private fun SubCyclerExpressiveSplashOverlay(
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        if (dockMood.isLoaded) {
-            // Graphic off-corner Bold Color-Block silhouettes (zero blurry gradient fog)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 84.dp, y = (-68).dp)
-                    .size(236.dp)
-                    .graphicsLayer {
-                        rotationZ = rotation.value * 0.08f
-                        scaleX = medallionScale.value
-                        scaleY = medallionScale.value
-                    }
-                    .expressivePolygonSurface(
-                        shape = cornerCloverShape,
-                        color = stageColor.copy(alpha = if (isDark) 0.24f else 0.13f)
-                    )
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-76).dp, y = 78.dp)
-                    .size(214.dp)
-                    .graphicsLayer {
-                        rotationZ = 24f - rotation.value * 0.06f
-                        scaleX = medallionScale.value
-                        scaleY = medallionScale.value
-                    }
-                    .expressivePolygonSurface(
-                        shape = cornerPebbleShape,
-                        color = stagePopColor.copy(alpha = if (isDark) 0.14f else 0.22f)
-                    )
-            )
+        // Graphic off-corner Bold Color-Block silhouettes (zero blurry gradient fog)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 84.dp, y = (-68).dp)
+                .size(236.dp)
+                .graphicsLayer {
+                    rotationZ = rotation.value * 0.08f
+                    scaleX = medallionScale.value
+                    scaleY = medallionScale.value
+                }
+                .expressivePolygonSurface(
+                    shape = cornerCloverShape,
+                    color = { stageColorState.value.copy(alpha = cloverAlpha) }
+                )
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .offset(x = (-76).dp, y = 78.dp)
+                .size(214.dp)
+                .graphicsLayer {
+                    rotationZ = 24f - rotation.value * 0.06f
+                    scaleX = medallionScale.value
+                    scaleY = medallionScale.value
+                }
+                .expressivePolygonSurface(
+                    shape = cornerPebbleShape,
+                    color = { stagePopColorState.value.copy(alpha = pebbleAlpha) }
+                )
+        )
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier.size(206.dp),
+                contentAlignment = Alignment.Center
             ) {
+                // Larger Flat Color-Block Cookie12 stage medallion + cached Triadic dashed halo
                 Box(
-                    modifier = Modifier.size(164.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Pure Flat Color-Block Cookie12 stage medallion + counter-rotating Triadic Pop dashed ring
-                    Box(
-                        modifier = Modifier
-                            .size(150.dp)
-                            .graphicsLayer {
-                                scaleX = medallionScale.value
-                                scaleY = medallionScale.value
-                                rotationZ = -rotation.value * 0.16f
-                            }
-                            .expressivePolygonSurface(
-                                shape = cookieStageShape,
-                                color = stageColor
+                    modifier = Modifier
+                        .size(192.dp)
+                        .graphicsLayer {
+                            scaleX = medallionScale.value
+                            scaleY = medallionScale.value
+                            rotationZ = -rotation.value * 0.14f
+                        }
+                        .expressivePolygonSurface(
+                            shape = cookieStageShape,
+                            color = { stageColorState.value }
+                        )
+                        .drawWithCache {
+                            val inset = 14.dp.toPx()
+                            val ringRadius = (size.minDimension / 2f) - inset
+                            val dashStroke = Stroke(
+                                width = 1.8.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(
+                                    floatArrayOf(7.dp.toPx(), 7.dp.toPx()),
+                                    0f
+                                )
                             )
-                            .drawBehind {
-                                val inset = 11.dp.toPx()
+                            onDrawBehind {
                                 drawCircle(
-                                    color = stagePopColor.copy(alpha = 0.78f),
-                                    radius = (size.minDimension / 2f) - inset,
-                                    style = Stroke(
-                                        width = 1.6.dp.toPx(),
-                                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 6.dp.toPx()), 0f)
-                                    )
+                                    color = stagePopColorState.value.copy(alpha = 0.80f),
+                                    radius = ringRadius,
+                                    style = dashStroke
                                 )
                             }
-                    )
-
-                    SubCyclerSwirlLogo(
-                        colors = activeSwirlColors,
-                        size = 92.dp,
-                        cornerRadius = 26.dp,
-                        rotationDegrees = rotation.value,
-                        contentDescriptionText = "SubCycler loading",
-                        modifier = Modifier.graphicsLayer {
-                            scaleX = logoScale.value
-                            scaleY = logoScale.value
                         }
-                    )
-                }
+                )
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                SubCyclerSwirlLogo(
+                    colors = activeSwirlColors,
+                    size = 118.dp,
+                    cornerRadius = 33.dp,
+                    rotationDegreesProvider = { rotation.value },
+                    contentDescriptionText = "SubCycler loading",
                     modifier = Modifier.graphicsLayer {
-                        val p = wordmarkProgress.value.coerceIn(0f, 1f)
-                        alpha = p
-                        translationY = (1f - p) * 12.dp.toPx()
+                        scaleX = logoScale.value
+                        scaleY = logoScale.value
                     }
-                ) {
-                    ExpressiveBrandWordmark(fontSize = 32.sp)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        border = BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.55f else 0.70f)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            val dots = if (morphedToStackMood && heroMood.stackAccentDots.size >= 2) {
-                                heroMood.stackAccentDots
-                            } else {
-                                listOf(stagePopColor)
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                dots.forEach { dotColor ->
-                                    Box(
-                                        modifier = Modifier
-                                            .size(7.dp)
-                                            .clip(CircleShape)
-                                            .background(dotColor)
-                                            .border(
-                                                width = 0.6.dp,
-                                                color = if (isDark) Color.White.copy(alpha = 0.30f) else Color.Black.copy(alpha = 0.14f),
-                                                shape = CircleShape
-                                            )
-                                    )
-                                }
-                            }
-                            Text(
-                                text = if (morphedToStackMood && heroMood.stackAccentDots.size >= 2) {
-                                    "STACK MOOD"
-                                } else {
-                                    "CYCLE SMARTER"
-                                },
-                                fontFamily = BodyFontFamily,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.2.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(22.dp))
+
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    val p = wordmarkProgress.value.coerceIn(0f, 1f)
+                    alpha = p
+                    translationY = (1f - p) * 12.dp.toPx()
                 }
+            ) {
+                ExpressiveBrandWordmark(fontSize = 34.sp)
             }
         }
     }
@@ -545,16 +495,16 @@ private fun SubTrackMainNavigation(
         selectedTabIndex = clamped
     }
 
-    // Gently pre-warm secondary tabs after the launch splash clears so even the very first tap
-    // switches immediately via pure GPU layer glide with zero composition stall.
+    // Gently pre-warm secondary tabs after the launch splash and Home's initial entrance springs
+    // settle so even the very first tap switches immediately via pure GPU layer glide with zero hitch.
     LaunchedEffect(isSplashDismissed) {
         if (!isSplashDismissed) return@LaunchedEffect
         if (!isPlannerMounted) {
-            delay(180L)
+            delay(520L)
             isPlannerMounted = true
         }
         if (!isAnalyticsMounted) {
-            delay(180L)
+            delay(220L)
             isAnalyticsMounted = true
         }
     }
