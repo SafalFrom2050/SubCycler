@@ -122,8 +122,8 @@ object ExpressiveNotificationArt {
                 buildScallopedPath(cx, cy, sizePx * 0.46f, petals = 9, amplitudeFraction = 0.085f)
             }
             NotificationBadgeShape.SUNNY_12 -> {
-                containerArgb = toArgb(accent.primary)
-                contentArgb = toArgb(accent.onPrimary)
+                containerArgb = toArgb(accent.heroPop)
+                contentArgb = toArgb(accent.onHeroPop)
                 buildScallopedPath(cx, cy, sizePx * 0.47f, petals = 12, amplitudeFraction = 0.07f)
             }
             NotificationBadgeShape.SQUIRCLE -> {
@@ -144,17 +144,11 @@ object ExpressiveNotificationArt {
         fillPaint.color = containerArgb
         canvas.drawPath(badgePath, fillPaint)
 
-        strokePaint.color = if (shape == NotificationBadgeShape.SUNNY_12) {
-            toArgb(accent.onPrimary, 72)
-        } else {
-            toArgb(palette.border, 140)
-        }
-        strokePaint.strokeWidth = sizePx * 0.022f
         if (shape == NotificationBadgeShape.SUNNY_12) {
+            strokePaint.color = toArgb(accent.onHeroPop, 82)
+            strokePaint.strokeWidth = sizePx * 0.022f
             strokePaint.pathEffect = DashPathEffect(floatArrayOf(sizePx * 0.05f, sizePx * 0.04f), 0f)
             canvas.drawCircle(cx, cy, sizePx * 0.36f, strokePaint)
-        } else {
-            canvas.drawPath(badgePath, strokePaint)
         }
 
         val initials = ExpressivePalettes.initialsForService(serviceName)
