@@ -163,6 +163,7 @@ import com.subtrack.core.ui.components.progressiveEdgeFade
 import com.subtrack.core.ui.components.rememberExpressiveSnackHostState
 import com.subtrack.core.ui.components.renderStackShareCardBitmap
 import com.subtrack.core.ui.theme.DisplayFontFamily
+import com.subtrack.core.ui.theme.DisplayHeroFontFamily
 import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.core.ui.theme.orSnapIfReduced
@@ -857,9 +858,9 @@ fun DashboardScreen(
                     }
                 }
 
-                // 4. Comfort-Band Morphing Filter Strip (synchronized live with HorizontalPager swipes!)
-                if (showFilterBar) {
-                    item(key = "filter_row", contentType = "filters") {
+                // 4. Expressive Section Title + Comfort-Band Morphing Filter Strip (synchronized live with HorizontalPager swipes!)
+                if (uiState.totalSubscriptionCount > 0 || showFilterBar) {
+                    item(key = "stack_header", contentType = "filters") {
                         val visualSelectedFilter = filters[filterPagerState.currentPage]
                         val skipChipEntrance = isEntranceReady || reducedMotion
                         val chipStripReveal = remember {
@@ -874,19 +875,35 @@ fun DashboardScreen(
                                 chipStripReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
                             }
                         }
-                        LazyRow(
-                            state = filterRowState,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            contentPadding = PaddingValues(horizontal = 16.dp),
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .graphicsLayer {
                                     val r = chipStripReveal.value
                                     alpha = ExpressiveMotion.clampEffectProgress(r * 1.45f)
                                     translationY = (1f - r) * 10.dp.toPx()
-                                }
+                                },
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
+                            Text(
+                                text = "Your stack",
+                                fontFamily = DisplayHeroFontFamily,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 21.sp,
+                                lineHeight = 24.sp,
+                                letterSpacing = (-0.55).sp,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                maxLines = 1,
+                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 2.dp)
+                            )
+                            if (showFilterBar) {
+                                LazyRow(
+                                    state = filterRowState,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                             items(filters, key = { it.name }) { filter ->
                                 val isSelected = filter == visualSelectedFilter
                                 val count = filterCounts[filter] ?: 0
@@ -1060,6 +1077,8 @@ fun DashboardScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
+                                }
+                            }
                                 }
                             }
                         }
