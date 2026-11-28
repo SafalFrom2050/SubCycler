@@ -47,6 +47,9 @@ import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import kotlinx.coroutines.delay
 
+private val GrayscaleSilkColorFilter: ColorFilter =
+    ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+
 /**
  * Full-screen Material 3 Expressive editorial backdrop:
  * keeps main surfaces cleanly neutral (~70%) with subtle sculptural silk waves
@@ -115,7 +118,7 @@ fun ExpressiveScreenBackdrop(
             contentDescription = null,
             contentScale = ContentScale.Crop,
             alpha = imageAlpha,
-            colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }),
+            colorFilter = GrayscaleSilkColorFilter,
             modifier = Modifier.fillMaxSize()
         )
         Box(
@@ -188,7 +191,7 @@ fun ExpressiveHeroCardBackdrop(
             contentDescription = null,
             contentScale = ContentScale.Crop,
             alpha = if (isDark) 0.34f else 0.46f,
-            colorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }),
+            colorFilter = GrayscaleSilkColorFilter,
             modifier = Modifier.matchParentSize()
         )
         Box(

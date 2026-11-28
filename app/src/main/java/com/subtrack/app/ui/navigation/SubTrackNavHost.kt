@@ -1,5 +1,6 @@
 package com.subtrack.app.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -8,10 +9,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -37,6 +35,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -44,19 +43,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.ui.components.ExpressiveBrandWordmark
 import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
@@ -137,6 +127,7 @@ fun SubTrackApp(
                 onApplyLauncherIcon = onApplyLauncherIcon,
                 onPreviewNotifications = onPreviewNotifications,
                 dockMood = dockMood,
+                isSplashDismissed = splashDismissed,
                 onDashboardFirstDataReady = { isDashboardHydrated = true }
             )
         }
@@ -339,7 +330,6 @@ private fun SubCyclerExpressiveSplashOverlay(
 
 @Composable
 private fun SubTrackMainNavigation(
-    navController: NavHostController = rememberNavController(),
     openSubscriptionId: Long? = null,
     onOpenSubscriptionConsumed: () -> Unit = {},
     pendingTransferPayload: String? = null,
@@ -347,38 +337,76 @@ private fun SubTrackMainNavigation(
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
     dockMood: DockMoodState = DockMoodState(),
+    isSplashDismissed: Boolean = true,
     onDashboardFirstDataReady: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
     val reducedMotion = rememberReducedMotionEnabled()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
-    val selectedTabIndex = remember(currentDestination) {
-        NavigationItems.indexFor(currentDestination)
-    }
-    val isOnDashboard = currentDestination?.hierarchy?.any {
-        it.hasRoute(DashboardDestination::class)
-    } != false
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
+    var outgoingTabIndex by remember { mutableIntStateOf(-1) }
+    var transitionDirection by remember { mutableIntStateOf(1) }
+    val transitionProgress = remember { Animatable(1f) }
+    var isPlannerMounted by remember { mutableStateOf(false) }
+    var isAnalyticsMounted by remember { mutableStateOf(false) }
+
+    val isOnDashboard = selectedTabIndex == 0
     var pendingAddSubscription by remember { mutableStateOf(false) }
     var pendingOpenPairedSwap by remember { mutableStateOf(false) }
     var internalOpenSubId by remember { mutableStateOf<Long?>(null) }
     val effectiveOpenSubId = openSubscriptionId ?: internalOpenSubId
     val isDark = LocalSubCyclerDarkTheme.current
 
-    fun navigateToTab(destination: Any) {
-        navController.navigate(destination) {
-            popUpTo(navController.graph.findStartDestination().id) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
+    fun selectTabIndex(targetIndex: Int) {
+        val clamped = targetIndex.coerceIn(0, NavigationItems.items.lastIndex)
+        if (clamped == 1) isPlannerMounted = true
+        if (clamped == 2) isAnalyticsMounted = true
+        if (clamped == selectedTabIndex) return
+        outgoingTabIndex = selectedTabIndex
+        transitionDirection = if (clamped >= selectedTabIndex) 1 else -1
+        selectedTabIndex = clamped
+    }
+
+    // Gently pre-warm secondary tabs after the launch splash clears so even the very first tap
+    // switches immediately via pure GPU layer glide with zero composition stall.
+    LaunchedEffect(isSplashDismissed) {
+        if (!isSplashDismissed) return@LaunchedEffect
+        if (!isPlannerMounted) {
+            delay(180L)
+            isPlannerMounted = true
         }
+        if (!isAnalyticsMounted) {
+            delay(180L)
+            isAnalyticsMounted = true
+        }
+    }
+
+    LaunchedEffect(selectedTabIndex, reducedMotion) {
+        if (outgoingTabIndex < 0 || outgoingTabIndex == selectedTabIndex) {
+            transitionProgress.snapTo(1f)
+            outgoingTabIndex = -1
+            return@LaunchedEffect
+        }
+        if (reducedMotion) {
+            transitionProgress.snapTo(1f)
+            outgoingTabIndex = -1
+            return@LaunchedEffect
+        }
+        transitionProgress.snapTo(0f)
+        transitionProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 155, easing = FastOutSlowInEasing)
+        )
+        outgoingTabIndex = -1
+    }
+
+    BackHandler(enabled = selectedTabIndex != 0) {
+        selectTabIndex(0)
     }
 
     // Ensure notification, widget, and transfer deep-links switch back to Subs from Planner/Savings
     LaunchedEffect(effectiveOpenSubId, pendingTransferPayload) {
         if ((effectiveOpenSubId != null || !pendingTransferPayload.isNullOrBlank()) && !isOnDashboard) {
-            navigateToTab(DashboardDestination)
+            selectTabIndex(0)
         }
     }
 
@@ -415,54 +443,21 @@ private fun SubTrackMainNavigation(
         label = "dockIndicatorInk"
     )
 
-    val tabSlideSpec = remember(reducedMotion) {
-        ExpressiveMotion.standardSpatialFast<IntOffset>().orSnapIfReduced(reducedMotion)
-    }
-    val tabFadeSpec = remember(reducedMotion) {
-        ExpressiveMotion.effectsFast<Float>().orSnapIfReduced(reducedMotion)
-    }
+    val isTransitioning = outgoingTabIndex >= 0
 
     ExpressiveScreenBackdrop {
-        // True edge-to-edge scroll-under: content fills full screen behind floating toolbar
+        // True edge-to-edge scroll-under: warm-mounted GPU tab slots keep scroll & ViewModels live
+        // inside an isolated stage Box so their z-ordering never competes with the floating dock.
         Box(modifier = Modifier.fillMaxSize()) {
-            NavHost(
-                navController = navController,
-                startDestination = DashboardDestination,
-                modifier = Modifier.fillMaxSize(),
-                enterTransition = {
-                    val from = NavigationItems.indexFor(initialState.destination)
-                    val to = NavigationItems.indexFor(targetState.destination)
-                    val direction = if (to >= from) 1 else -1
-                    slideInHorizontally(animationSpec = tabSlideSpec) { fullWidth ->
-                        direction * (fullWidth / 14)
-                    } + fadeIn(animationSpec = tabFadeSpec)
-                },
-                exitTransition = {
-                    val from = NavigationItems.indexFor(initialState.destination)
-                    val to = NavigationItems.indexFor(targetState.destination)
-                    val direction = if (to >= from) 1 else -1
-                    slideOutHorizontally(animationSpec = tabSlideSpec) { fullWidth ->
-                        -direction * (fullWidth / 18)
-                    } + fadeOut(animationSpec = tabFadeSpec)
-                },
-                popEnterTransition = {
-                    val from = NavigationItems.indexFor(initialState.destination)
-                    val to = NavigationItems.indexFor(targetState.destination)
-                    val direction = if (to >= from) 1 else -1
-                    slideInHorizontally(animationSpec = tabSlideSpec) { fullWidth ->
-                        direction * (fullWidth / 14)
-                    } + fadeIn(animationSpec = tabFadeSpec)
-                },
-                popExitTransition = {
-                    val from = NavigationItems.indexFor(initialState.destination)
-                    val to = NavigationItems.indexFor(targetState.destination)
-                    val direction = if (to >= from) 1 else -1
-                    slideOutHorizontally(animationSpec = tabSlideSpec) { fullWidth ->
-                        -direction * (fullWidth / 18)
-                    } + fadeOut(animationSpec = tabFadeSpec)
-                }
-            ) {
-                composable<DashboardDestination> {
+            Box(modifier = Modifier.fillMaxSize()) {
+                WarmTabSlot(
+                    tabIndex = 0,
+                    selectedTabIndex = selectedTabIndex,
+                    outgoingTabIndex = outgoingTabIndex,
+                    isTransitioning = isTransitioning,
+                    transitionDirection = transitionDirection,
+                    transitionProgressProvider = { transitionProgress.value }
+                ) {
                     DashboardRoute(
                         openSubscriptionId = effectiveOpenSubId,
                         onOpenSubscriptionConsumed = {
@@ -475,29 +470,49 @@ private fun SubTrackMainNavigation(
                         onTransferPayloadConsumed = onTransferPayloadConsumed,
                         pendingAddSubscription = pendingAddSubscription,
                         onAddSubscriptionConsumed = { pendingAddSubscription = false },
-                        onNavigateToSavings = { navigateToTab(AnalyticsDestination) },
+                        onNavigateToSavings = { selectTabIndex(2) },
                         onApplyLauncherIcon = onApplyLauncherIcon,
                         onPreviewNotifications = onPreviewNotifications,
                         onFirstDataReady = onDashboardFirstDataReady
                     )
                 }
-                composable<PlannerDestination> {
-                    PlannerRoute(
-                        pendingOpenPairedSwap = pendingOpenPairedSwap,
-                        onOpenPairedSwapConsumed = { pendingOpenPairedSwap = false },
-                        onOpenSubscription = { subId ->
-                            internalOpenSubId = subId
-                            navigateToTab(DashboardDestination)
-                        }
-                    )
+
+                if (isPlannerMounted) {
+                    WarmTabSlot(
+                        tabIndex = 1,
+                        selectedTabIndex = selectedTabIndex,
+                        outgoingTabIndex = outgoingTabIndex,
+                        isTransitioning = isTransitioning,
+                        transitionDirection = transitionDirection,
+                        transitionProgressProvider = { transitionProgress.value }
+                    ) {
+                        PlannerRoute(
+                            pendingOpenPairedSwap = pendingOpenPairedSwap,
+                            onOpenPairedSwapConsumed = { pendingOpenPairedSwap = false },
+                            onOpenSubscription = { subId ->
+                                internalOpenSubId = subId
+                                selectTabIndex(0)
+                            }
+                        )
+                    }
                 }
-                composable<AnalyticsDestination> {
-                    AnalyticsRoute(
-                        onOpenPairedSwap = {
-                            pendingOpenPairedSwap = true
-                            navigateToTab(PlannerDestination)
-                        }
-                    )
+
+                if (isAnalyticsMounted) {
+                    WarmTabSlot(
+                        tabIndex = 2,
+                        selectedTabIndex = selectedTabIndex,
+                        outgoingTabIndex = outgoingTabIndex,
+                        isTransitioning = isTransitioning,
+                        transitionDirection = transitionDirection,
+                        transitionProgressProvider = { transitionProgress.value }
+                    ) {
+                        AnalyticsRoute(
+                            onOpenPairedSwap = {
+                                pendingOpenPairedSwap = true
+                                selectTabIndex(1)
+                            }
+                        )
+                    }
                 }
             }
 
@@ -540,12 +555,7 @@ private fun SubTrackMainNavigation(
                         indicatorContentColor = animatedIndicatorInk,
                         isDark = isDark,
                         reducedMotion = reducedMotion,
-                        onSelectTab = { index ->
-                            val target = NavigationItems.items.getOrNull(index) ?: return@GlidingLiquidNavDock
-                            if (index != selectedTabIndex) {
-                                navigateToTab(target.destination)
-                            }
-                        },
+                        onSelectTab = { index -> selectTabIndex(index) },
                         modifier = Modifier.weight(1f)
                     )
 
@@ -635,7 +645,7 @@ private fun SubTrackMainNavigation(
                                 fabTapCount++
                                 pendingAddSubscription = true
                                 if (!isOnDashboard) {
-                                    navigateToTab(DashboardDestination)
+                                    selectTabIndex(0)
                                 }
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             },
@@ -654,6 +664,62 @@ private fun SubTrackMainNavigation(
                 }
             }
         }
+    }
+}
+
+/**
+ * Zero-teardown GPU tab slot: keeps mounted tabs warm (preserving scroll state, ViewModels, and
+ * Compose slot tables) while omitting placement when inactive (0 overdraw, 0 hit-testing) and
+ * reading [transitionProgressProvider] strictly inside `placeWithLayer` for zero-recomposition slides.
+ */
+@Composable
+private fun WarmTabSlot(
+    tabIndex: Int,
+    selectedTabIndex: Int,
+    outgoingTabIndex: Int,
+    isTransitioning: Boolean,
+    transitionDirection: Int,
+    transitionProgressProvider: () -> Float,
+    content: @Composable () -> Unit
+) {
+    val isSelected = tabIndex == selectedTabIndex
+    val isOutgoing = tabIndex == outgoingTabIndex && isTransitioning
+    val shouldPlace = isSelected || isOutgoing
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                layout(placeable.width, placeable.height) {
+                    if (shouldPlace) {
+                        if (!isTransitioning && isSelected) {
+                            placeable.place(x = 0, y = 0, zIndex = 1f)
+                        } else {
+                            val slidePx = 22.dp.toPx()
+                            placeable.placeWithLayer(
+                                x = 0,
+                                y = 0,
+                                zIndex = if (isSelected) 1f else 0f
+                            ) {
+                                val progress = transitionProgressProvider().coerceIn(0f, 1f)
+                                alpha = if (isSelected) {
+                                    (0.28f + 0.72f * progress).coerceIn(0f, 1f)
+                                } else {
+                                    (1f - progress).coerceIn(0f, 1f)
+                                }
+                                translationX = if (isSelected) {
+                                    transitionDirection * slidePx * (1f - progress)
+                                } else {
+                                    -transitionDirection * slidePx * 0.6f * progress
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+    ) {
+        content()
     }
 }
 
@@ -699,10 +765,14 @@ private fun GlidingLiquidNavDock(
             return@LaunchedEffect
         }
         val movingRight = target >= (pillLeft.value + pillRight.value) * 0.5f
-        val leadingSpec = ExpressiveMotion.expressiveSpatialFastFloat()
+        val leadingSpec = spring<Float>(
+            dampingRatio = 0.72f,
+            stiffness = 920f,
+            visibilityThreshold = 0.001f
+        )
         val trailingSpec = spring<Float>(
-            dampingRatio = 0.78f,
-            stiffness = 380f,
+            dampingRatio = 0.80f,
+            stiffness = 540f,
             visibilityThreshold = 0.001f
         )
         launch {
