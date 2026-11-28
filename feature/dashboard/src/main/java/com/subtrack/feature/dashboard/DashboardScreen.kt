@@ -877,21 +877,23 @@ fun DashboardScreen(
                                         .orSnapIfReduced(reducedMotion),
                                     label = "filterChipCorner"
                                 )
+                                val chipAccentPop = heroMood.sealColor
+                                val chipOnPop = heroMood.onSealColor
                                 val chipBg by animateColorAsState(
-                                    targetValue = if (isSelected) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainer
+                                    targetValue = when {
+                                        isSelected && isDark -> chipAccentPop
+                                        isSelected -> MaterialTheme.colorScheme.onSurface
+                                        else -> MaterialTheme.colorScheme.surfaceContainer
                                     },
                                     animationSpec = ExpressiveMotion.effectsFastColor()
                                         .orSnapIfReduced(reducedMotion),
                                     label = "filterChipBg"
                                 )
                                 val chipFg by animateColorAsState(
-                                    targetValue = if (isSelected) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    targetValue = when {
+                                        isSelected && isDark -> chipOnPop
+                                        isSelected -> chipAccentPop
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                                     },
                                     animationSpec = ExpressiveMotion.effectsFastColor()
                                         .orSnapIfReduced(reducedMotion),
@@ -948,7 +950,7 @@ fun DashboardScreen(
                                                     .clip(RoundedCornerShape(999.dp))
                                                     .background(
                                                         if (isSelected) {
-                                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                                            chipFg.copy(alpha = 0.16f)
                                                         } else {
                                                             MaterialTheme.colorScheme.surfaceContainerHigh
                                                         }

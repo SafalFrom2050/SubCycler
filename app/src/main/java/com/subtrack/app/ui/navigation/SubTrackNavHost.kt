@@ -426,11 +426,15 @@ private fun SubTrackMainNavigation(
     }
 
     val targetIndicatorBg = if (heroMoodPalette != null) {
-        lerp(MaterialTheme.colorScheme.primaryContainer, heroMoodPalette.gradientStart, 0.78f)
+        heroMoodPalette.baseColor
     } else {
-        MaterialTheme.colorScheme.primaryContainer
+        MaterialTheme.colorScheme.primary
     }
-    val targetIndicatorInk = heroMoodPalette?.contentColor ?: MaterialTheme.colorScheme.onPrimaryContainer
+    val targetIndicatorInk = if (heroMoodPalette != null) {
+        heroMoodPalette.contentColor
+    } else {
+        MaterialTheme.colorScheme.onPrimary
+    }
 
     val animatedIndicatorBg by animateColorAsState(
         targetValue = targetIndicatorBg,
@@ -582,9 +586,12 @@ private fun SubTrackMainNavigation(
                             .orSnapIfReduced(reducedMotion),
                         label = "detachedFabRot"
                     )
+                    val accentTokens = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
+                    val fabPopBg = heroMoodPalette?.sealColor ?: accentTokens.heroPop
+                    val fabPopInk = heroMoodPalette?.onSealColor ?: accentTokens.onHeroPop
                     val fabBgColor by animateColorAsState(
                         targetValue = if (isOnDashboard) {
-                            MaterialTheme.colorScheme.primary
+                            fabPopBg
                         } else {
                             MaterialTheme.colorScheme.primaryContainer
                         },
@@ -594,7 +601,7 @@ private fun SubTrackMainNavigation(
                     )
                     val fabIconColor by animateColorAsState(
                         targetValue = if (isOnDashboard) {
-                            MaterialTheme.colorScheme.onPrimary
+                            fabPopInk
                         } else {
                             MaterialTheme.colorScheme.onPrimaryContainer
                         },

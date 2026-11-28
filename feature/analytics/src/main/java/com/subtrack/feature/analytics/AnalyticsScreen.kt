@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -203,11 +204,18 @@ fun AnalyticsScreen(
                     }
                 }
             } else {
-                // 1. Expressive Masked Duotone 5-Year Hero Card with Botanical Compounding Growth Curve
+                // 1. Pure Flat Color-Block 5-Year Hero Card with Triadic Growth Curve
                 item(key = "hero_savings", contentType = "hero") {
                     val hasSavings = uiState.fiveYearSavings > 0.0
                     val savingsPct = uiState.summary.overallSavingsPercentage.roundToInt()
                     val rotatingCount = uiState.rotatingContributions.size
+                    val accentTokens = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
+                    val savingsHeroInk = accentTokens.heroContent
+                    val savingsHeroPillBg = if (isDark) {
+                        Color.Black.copy(alpha = 0.28f)
+                    } else {
+                        Color.White.copy(alpha = 0.22f)
+                    }
 
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -226,7 +234,7 @@ fun AnalyticsScreen(
                             ) {
                                 ExpressiveEyebrow(
                                     text = "PROJECTED 5-YEAR SAVINGS",
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f)
+                                    color = savingsHeroInk.copy(alpha = 0.80f)
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Row(
@@ -242,17 +250,17 @@ fun AnalyticsScreen(
                                                 maximumFractionDigits = 0
                                             ),
                                             heroFontSize = 46.sp,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            color = savingsHeroInk
                                         )
                                         if (hasSavings) {
                                             Spacer(modifier = Modifier.height(10.dp))
                                             Surface(
                                                 shape = RoundedCornerShape(999.dp),
-                                                color = heroPillBg
+                                                color = savingsHeroPillBg
                                             ) {
                                                 Text(
                                                     text = "$savingsPct% cut · $rotatingCount rotating",
-                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    color = savingsHeroInk,
                                                     style = MaterialTheme.typography.labelSmall,
                                                     fontSize = 11.5.sp,
                                                     fontWeight = FontWeight.Bold,
@@ -265,8 +273,8 @@ fun AnalyticsScreen(
                                     if (hasSavings) {
                                         Spacer(modifier = Modifier.width(10.dp))
                                         CompoundingGrowthArc(
-                                            strokeColor = MaterialTheme.colorScheme.primary,
-                                            nodeColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            strokeColor = accentTokens.heroPop,
+                                            nodeColor = savingsHeroInk,
                                             modifier = Modifier
                                                 .width(96.dp)
                                                 .height(74.dp)
@@ -352,12 +360,21 @@ fun AnalyticsScreen(
                             }
 
                             ExpressiveSectionStack {
-                                val vesselColor = MaterialTheme.colorScheme.primaryContainer.copy(
-                                    alpha = if (isDark) 0.42f else 0.56f
-                                )
-                                val vesselSeam = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
                                 uiState.rotatingContributions.forEachIndexed { index, item ->
                                     val sub = item.subscription
+                                    val subPalette = remember(sub.name, sub.colorHex, isDark) {
+                                        com.subtrack.core.ui.theme.BrandColorHarmonizer.harmonizedTonalPalette(
+                                            serviceName = sub.name,
+                                            storedColorHex = sub.colorHex,
+                                            isDark = isDark
+                                        )
+                                    }
+                                    val vesselColor = subPalette.accent.copy(
+                                        alpha = if (isDark) 0.19f else 0.13f
+                                    )
+                                    val vesselSeam = subPalette.accent.copy(
+                                        alpha = if (isDark) 0.72f else 0.62f
+                                    )
                                     val animatedShare by animateFloatAsState(
                                         targetValue = item.shareFraction.coerceIn(0.06f, 1f),
                                         animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
@@ -377,7 +394,7 @@ fun AnalyticsScreen(
                                         outerRadius = 24.dp,
                                         innerRadius = 4.dp
                                     ) {
-                                        // Proportional horizontal tonal vessel sweeping behind the service row
+                                        // Proportional horizontal brand-tinted vessel sweeping behind the service row
                                         Canvas(modifier = Modifier.matchParentSize()) {
                                             val fillW = (size.width * animatedShare).coerceIn(0f, size.width)
                                             drawRect(
@@ -390,7 +407,7 @@ fun AnalyticsScreen(
                                                     color = vesselSeam,
                                                     start = Offset(fillW, 0f),
                                                     end = Offset(fillW, size.height),
-                                                    strokeWidth = 1.dp.toPx()
+                                                    strokeWidth = 1.5.dp.toPx()
                                                 )
                                             }
                                         }
@@ -403,6 +420,7 @@ fun AnalyticsScreen(
                                         ) {
                                             ExpressiveServiceBadge(
                                                 serviceName = sub.name,
+                                                colorHex = sub.colorHex,
                                                 size = 38.dp,
                                                 fontSize = 12.sp
                                             )
