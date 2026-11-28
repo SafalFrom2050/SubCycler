@@ -147,10 +147,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val effectiveSwirlColors = remember(
+                dockMood.isLoaded,
+                dockMood.activeSubscriptions,
+                dockMood.useStackHeroMood,
+                launcherIcon
+            ) {
+                BrandColorHarmonizer.resolveSwirlPetalColors(
+                    activeSubscriptions = if (dockMood.isLoaded) dockMood.activeSubscriptions else emptyList(),
+                    useStackMood = dockMood.useStackHeroMood,
+                    fallbackIcon = launcherIcon
+                )
+            }
+
             SubTrackTheme(
                 darkTheme = useDarkTheme,
                 accentIcon = launcherIcon,
-                accentTokensOverride = effectiveAccentTokens
+                accentTokensOverride = effectiveAccentTokens,
+                swirlColorsOverride = effectiveSwirlColors
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),

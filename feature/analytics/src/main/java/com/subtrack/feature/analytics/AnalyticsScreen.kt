@@ -59,6 +59,7 @@ import com.subtrack.core.ui.components.ExpressiveScreenTitle
 import com.subtrack.core.ui.components.ExpressiveSectionRow
 import com.subtrack.core.ui.components.ExpressiveSectionStack
 import com.subtrack.core.ui.components.ExpressiveServiceBadge
+import com.subtrack.core.ui.components.ExpressiveSettingsActionButton
 import com.subtrack.core.ui.components.ExpressiveTonalPalette
 import com.subtrack.core.ui.components.ShapeBloomBackdrop
 import com.subtrack.core.ui.components.expressiveCardBorder
@@ -77,6 +78,7 @@ import kotlin.math.roundToInt
 fun AnalyticsRoute(
     viewModel: AnalyticsViewModel = hiltViewModel(),
     isEntranceReady: Boolean = true,
+    onOpenSettings: (() -> Unit)? = null,
     onOpenPairedSwap: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -97,6 +99,7 @@ fun AnalyticsRoute(
         uiState = uiState,
         onAction = viewModel::onAction,
         isEntranceReady = isEntranceReady,
+        onOpenSettings = onOpenSettings,
         onOpenPairedSwap = onOpenPairedSwap,
         modifier = modifier
     )
@@ -108,6 +111,7 @@ fun AnalyticsScreen(
     uiState: AnalyticsUiState,
     onAction: (AnalyticsAction) -> Unit,
     isEntranceReady: Boolean = true,
+    onOpenSettings: (() -> Unit)? = null,
     onOpenPairedSwap: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -136,6 +140,11 @@ fun AnalyticsScreen(
             TopAppBar(
                 title = {
                     ExpressiveScreenTitle(text = "Savings")
+                },
+                actions = {
+                    if (onOpenSettings != null) {
+                        ExpressiveSettingsActionButton(onClick = onOpenSettings)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent

@@ -22,6 +22,9 @@ val LocalSubCyclerAccentIcon = staticCompositionLocalOf { AppLauncherIcon.BOTANI
 val LocalSubCyclerAccentTokens = staticCompositionLocalOf {
     launcherAccentTokensFor(AppLauncherIcon.BOTANICAL, isDark = false)
 }
+val LocalSubCyclerSwirlColors = staticCompositionLocalOf {
+    BrandColorHarmonizer.DefaultBotanicalSwirl
+}
 
 /**
  * Curated Bold Color-Block Material 3 Expressive focal accent bundle matching each [AppLauncherIcon].
@@ -324,11 +327,13 @@ fun SubTrackTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     accentIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
     accentTokensOverride: LauncherAccentTokens? = null,
+    swirlColorsOverride: SwirlLogoColors? = null,
     content: @Composable () -> Unit
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
     val colorSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion)
     val baseAccent = accentTokensOverride ?: launcherAccentTokensFor(accentIcon, darkTheme)
+    val effectiveSwirl = swirlColorsOverride ?: BrandColorHarmonizer.swirlColorsForLauncherIcon(accentIcon)
     val baseScheme = buildSubCyclerColorScheme(
         darkTheme = darkTheme,
         accentIcon = accentIcon,
@@ -391,7 +396,8 @@ fun SubTrackTheme(
     CompositionLocalProvider(
         LocalSubCyclerDarkTheme provides darkTheme,
         LocalSubCyclerAccentIcon provides accentIcon,
-        LocalSubCyclerAccentTokens provides animatedAccentTokens
+        LocalSubCyclerAccentTokens provides animatedAccentTokens,
+        LocalSubCyclerSwirlColors provides effectiveSwirl
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

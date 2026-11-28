@@ -484,6 +484,7 @@ private fun SubTrackMainNavigation(
 
     val isOnDashboard = selectedTabIndex == 0
     var pendingAddSubscription by remember { mutableStateOf(false) }
+    var pendingOpenSettings by remember { mutableStateOf(false) }
     var pendingOpenPairedSwap by remember { mutableStateOf(false) }
     var internalOpenSubId by remember { mutableStateOf<Long?>(null) }
     val effectiveOpenSubId = openSubscriptionId ?: internalOpenSubId
@@ -583,6 +584,8 @@ private fun SubTrackMainNavigation(
                         onTransferPayloadConsumed = onTransferPayloadConsumed,
                         pendingAddSubscription = pendingAddSubscription,
                         onAddSubscriptionConsumed = { pendingAddSubscription = false },
+                        pendingOpenSettings = pendingOpenSettings,
+                        onOpenSettingsConsumed = { pendingOpenSettings = false },
                         onNavigateToSavings = { selectTabIndex(2) },
                         onApplyLauncherIcon = onApplyLauncherIcon,
                         onPreviewNotifications = onPreviewNotifications,
@@ -604,6 +607,7 @@ private fun SubTrackMainNavigation(
                             pendingOpenPairedSwap = pendingOpenPairedSwap,
                             onOpenPairedSwapConsumed = { pendingOpenPairedSwap = false },
                             isEntranceReady = hasVisitedPlanner,
+                            onOpenSettings = { pendingOpenSettings = true },
                             onOpenSubscription = { subId ->
                                 internalOpenSubId = subId
                                 selectTabIndex(0)
@@ -623,6 +627,7 @@ private fun SubTrackMainNavigation(
                     ) {
                         AnalyticsRoute(
                             isEntranceReady = hasVisitedSavings,
+                            onOpenSettings = { pendingOpenSettings = true },
                             onOpenPairedSwap = {
                                 pendingOpenPairedSwap = true
                                 selectTabIndex(1)

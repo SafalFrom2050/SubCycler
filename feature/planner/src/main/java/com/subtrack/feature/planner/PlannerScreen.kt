@@ -72,6 +72,7 @@ import com.subtrack.core.ui.components.ExpressiveScreenTitle
 import com.subtrack.core.ui.components.ExpressiveSegmentOption
 import com.subtrack.core.ui.components.ExpressiveSegmentedGroup
 import com.subtrack.core.ui.components.ExpressiveServiceBadge
+import com.subtrack.core.ui.components.ExpressiveSettingsActionButton
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
 import com.subtrack.core.ui.components.ShapeBloomBackdrop
@@ -104,6 +105,7 @@ fun PlannerRoute(
     pendingOpenPairedSwap: Boolean = false,
     onOpenPairedSwapConsumed: () -> Unit = {},
     isEntranceReady: Boolean = true,
+    onOpenSettings: (() -> Unit)? = null,
     onOpenSubscription: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -131,6 +133,7 @@ fun PlannerRoute(
         uiState = uiState,
         onAction = viewModel::onAction,
         isEntranceReady = isEntranceReady,
+        onOpenSettings = onOpenSettings,
         onOpenSubscription = onOpenSubscription,
         modifier = modifier
     )
@@ -142,6 +145,7 @@ fun PlannerScreen(
     uiState: PlannerUiState,
     onAction: (PlannerAction) -> Unit,
     isEntranceReady: Boolean = true,
+    onOpenSettings: (() -> Unit)? = null,
     onOpenSubscription: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -191,7 +195,7 @@ fun PlannerScreen(
                             },
                             shape = RoundedCornerShape(999.dp),
                             color = accentTokens.heroPop,
-                            modifier = Modifier.padding(end = 14.dp)
+                            modifier = Modifier.padding(end = if (onOpenSettings != null) 8.dp else 14.dp)
                         ) {
                             Text(
                                 text = "Today",
@@ -202,6 +206,9 @@ fun PlannerScreen(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                             )
                         }
+                    }
+                    if (onOpenSettings != null) {
+                        ExpressiveSettingsActionButton(onClick = onOpenSettings)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -327,21 +334,10 @@ fun PlannerScreen(
                                 }
                             } else {
                                 item(key = "timeline_section_header", contentType = "section_header") {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        ExpressiveEyebrow(text = "SERVICE CYCLES")
-                                        Text(
-                                            text = "${uiState.cycleStatuses.size} tracked · tap to edit",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                    ExpressiveEyebrow(
+                                        text = "CYCLES",
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
                                 }
 
                                 itemsIndexed(
@@ -391,11 +387,11 @@ fun PlannerScreen(
                                                 )
                                             }
                                         } else {
-                                            ExpressiveEyebrow(text = "CHOOSE YOUR SWAP PAIR")
+                                            ExpressiveEyebrow(text = "SWAP PAIR")
                                             Spacer(modifier = Modifier.height(12.dp))
 
                                             PlannerServiceCardPicker(
-                                                slotLabel = "DAYS 1–30 · FIRST",
+                                                slotLabel = "DAYS 1–30",
                                                 subscriptions = uiState.monthlySubscriptions,
                                                 selected = uiState.service1,
                                                 onSelect = {
@@ -456,7 +452,7 @@ fun PlannerScreen(
                                             }
 
                                             PlannerServiceCardPicker(
-                                                slotLabel = "DAYS 31–60 · SECOND",
+                                                slotLabel = "DAYS 31–60",
                                                 subscriptions = uiState.monthlySubscriptions.filter { it.id != uiState.service1?.id },
                                                 selected = uiState.service2,
                                                 onSelect = {
@@ -519,7 +515,7 @@ fun PlannerScreen(
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(
-                                                    text = "Align 30d / 30d Swap",
+                                                    text = "Align Schedule",
                                                     fontFamily = DisplayFontFamily,
                                                     fontWeight = FontWeight.ExtraBold,
                                                     fontSize = 15.sp
@@ -555,7 +551,7 @@ fun PlannerScreen(
                                                             )
                                                             Spacer(modifier = Modifier.width(8.dp))
                                                             Text(
-                                                                text = "Schedules aligned! Swapping occurs every 30 days.",
+                                                                text = "Aligned · swaps every 30 days",
                                                                 fontSize = 12.sp,
                                                                 fontWeight = FontWeight.SemiBold,
                                                                 color = sagePalette.content
@@ -625,9 +621,9 @@ private fun PlannerDateHeroCard(
     val frostedChipBg = if (isDark) Color.Black.copy(alpha = 0.24f) else Color.White.copy(alpha = 0.18f)
 
     val deltaBadgeText = when {
-        dayOffsetFromToday == 0L -> "TODAY"
-        dayOffsetFromToday > 0L -> "+${dayOffsetFromToday}D AHEAD"
-        else -> "${abs(dayOffsetFromToday)}D AGO"
+        dayOffsetFromToday == 0L -> null
+        dayOffsetFromToday > 0L -> "+${dayOffsetFromToday}D"
+        else -> "-${abs(dayOffsetFromToday)}D"
     }
 
     Surface(
@@ -655,29 +651,31 @@ private fun PlannerDateHeroCard(
                     .fillMaxWidth()
                     .padding(horizontal = 18.dp, vertical = 18.dp)
             ) {
-                // Eyebrow + live relative-date pill
+                // Minimal Eyebrow + offset pill only when away from today (no duplicate TODAY label)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     ExpressiveEyebrow(
-                        text = "ROTATION FORECAST",
+                        text = "FORECAST",
                         color = heroInk.copy(alpha = 0.78f)
                     )
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = if (isViewingToday) frostedBg else accentTokens.heroPop
-                    ) {
-                        Text(
-                            text = deltaBadgeText,
-                            fontFamily = BodyFontFamily,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.8.sp,
-                            color = if (isViewingToday) heroInk else accentTokens.onHeroPop,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
+                    if (deltaBadgeText != null) {
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = accentTokens.heroPop
+                        ) {
+                            Text(
+                                text = deltaBadgeText,
+                                fontFamily = BodyFontFamily,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.8.sp,
+                                color = accentTokens.onHeroPop,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
 
@@ -843,17 +841,15 @@ private fun PlannerDateHeroCard(
                                         color = heroInk
                                     )
                                 }
-                                Text(
-                                    text = if (uiState.blackoutSubsOnSelectedDate.isEmpty()) {
-                                        "All active on this date"
-                                    } else {
-                                        "${uiState.blackoutSubsOnSelectedDate.size} on break"
-                                    },
-                                    fontFamily = BodyFontFamily,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 11.5.sp,
-                                    color = heroInk.copy(alpha = 0.78f)
-                                )
+                                if (uiState.blackoutSubsOnSelectedDate.isNotEmpty()) {
+                                    Text(
+                                        text = "${uiState.blackoutSubsOnSelectedDate.size} on break",
+                                        fontFamily = BodyFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.5.sp,
+                                        color = heroInk.copy(alpha = 0.78f)
+                                    )
+                                }
                             }
 
                             if (uiState.activeSubsOnSelectedDate.isNotEmpty()) {
@@ -958,7 +954,7 @@ private fun PairedSwapHeroCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     ExpressiveEyebrow(
-                        text = "30D / 30D PAIRED SWAP",
+                        text = "PAIRED SWAP",
                         color = heroInk.copy(alpha = 0.78f)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
@@ -972,7 +968,7 @@ private fun PairedSwapHeroCard(
                         Spacer(modifier = Modifier.height(3.dp))
                         val bothText = MoneyFormatter.format(uiState.combinedMonthlyCostBefore, uiState.currencyCode)
                         Text(
-                            text = "Down from $bothText/mo · -$pctCut%",
+                            text = "Down from $bothText · -$pctCut%",
                             color = heroInk.copy(alpha = 0.80f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -988,13 +984,6 @@ private fun PairedSwapHeroCard(
                             letterSpacing = (-0.5).sp,
                             color = heroInk
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Alternate every 30 days so only 1 bills at a time.",
-                            color = heroInk.copy(alpha = 0.80f),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1003,7 +992,7 @@ private fun PairedSwapHeroCard(
                         color = frostedPillBg
                     ) {
                         Text(
-                            text = "1 active at a time · Day 30 handoff",
+                            text = "30d / 30d alternating",
                             color = heroInk,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -1307,13 +1296,13 @@ private fun PairedSwapBatonVisualizer(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ExpressiveEyebrow(text = "60-DAY BATON PASS", fontSize = 10.sp)
+                ExpressiveEyebrow(text = "60-DAY CYCLE", fontSize = 10.sp)
                 Surface(
                     shape = RoundedCornerShape(999.dp),
                     color = accentTokens.heroPop
                 ) {
                     Text(
-                        text = "DAY 30 HANDOFF",
+                        text = "DAY 30",
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 0.6.sp,
@@ -1383,7 +1372,7 @@ private fun PairedSwapBatonVisualizer(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "30d Active",
+                                        text = "Active",
                                         fontFamily = DisplayFontFamily,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.ExtraBold,
@@ -1406,7 +1395,7 @@ private fun PairedSwapBatonVisualizer(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "30d Rest",
+                                        text = "Rest",
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1449,7 +1438,7 @@ private fun PairedSwapBatonVisualizer(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "30d Rest",
+                                        text = "Rest",
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1465,7 +1454,7 @@ private fun PairedSwapBatonVisualizer(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "30d Active",
+                                        text = "Active",
                                         fontFamily = DisplayFontFamily,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.ExtraBold,

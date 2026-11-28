@@ -185,6 +185,8 @@ fun DashboardRoute(
     onTransferPayloadConsumed: () -> Unit = {},
     pendingAddSubscription: Boolean = false,
     onAddSubscriptionConsumed: () -> Unit = {},
+    pendingOpenSettings: Boolean = false,
+    onOpenSettingsConsumed: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
@@ -431,6 +433,8 @@ fun DashboardRoute(
         onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
         pendingAddSubscription = pendingAddSubscription,
         onAddSubscriptionConsumed = onAddSubscriptionConsumed,
+        pendingOpenSettings = pendingOpenSettings,
+        onOpenSettingsConsumed = onOpenSettingsConsumed,
         onApplyLauncherIcon = onApplyLauncherIcon,
         onPreviewNotifications = onPreviewNotifications,
         isEntranceReady = isEntranceReady,
@@ -465,6 +469,8 @@ fun DashboardScreen(
     onOpenSubscriptionConsumed: () -> Unit = {},
     pendingAddSubscription: Boolean = false,
     onAddSubscriptionConsumed: () -> Unit = {},
+    pendingOpenSettings: Boolean = false,
+    onOpenSettingsConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
     isEntranceReady: Boolean = true,
@@ -482,6 +488,14 @@ fun DashboardScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(pendingOpenSettings) {
+        if (pendingOpenSettings) {
+            onAction(DashboardAction.SetBackupFeedback(null))
+            showSettings = true
+            onOpenSettingsConsumed()
+        }
+    }
     var showShareSheet by rememberSaveable { mutableStateOf(false) }
     var showImportSheet by rememberSaveable { mutableStateOf(false) }
     var subscriptionToEdit by remember { mutableStateOf<Subscription?>(null) }

@@ -10,7 +10,10 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -275,7 +278,7 @@ fun ExpressiveKineticBrandHeader(
             colors = swirlColors,
             size = 34.dp,
             cornerRadius = 10.dp,
-            rotationDegrees = spinAngle.value,
+            rotationDegreesProvider = { spinAngle.value },
             contentDescriptionText = "SubCycler logo"
         )
         Spacer(modifier = Modifier.width(10.dp))
@@ -313,23 +316,70 @@ fun ExpressiveKineticBrandHeader(
 }
 
 /**
- * Sculptural Material 3 Expressive screen title for secondary tabs (Planner, Savings).
+ * Sculptural Material 3 Expressive screen title for secondary tabs (Planner, Savings),
+ * anchored with SubCycler's live mood-harmonized swirl emblem so the top bar stays visually
+ * unified across every tab.
  */
 @Composable
 fun ExpressiveScreenTitle(
     text: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showBrandIcon: Boolean = true
 ) {
-    Text(
-        text = text,
+    val swirlColors = com.subtrack.core.ui.theme.LocalSubCyclerSwirlColors.current
+    Row(
         modifier = modifier,
-        style = MaterialTheme.typography.headlineLarge,
-        fontFamily = DisplayHeroFontFamily,
-        fontWeight = FontWeight.Black,
-        fontSize = 28.sp,
-        letterSpacing = (-0.65).sp,
-        color = MaterialTheme.colorScheme.onBackground,
-        maxLines = 1
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (showBrandIcon) {
+            SubCyclerSwirlLogo(
+                colors = swirlColors,
+                size = 34.dp,
+                cornerRadius = 10.dp,
+                contentDescriptionText = "SubCycler logo"
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.headlineLarge,
+            fontFamily = DisplayHeroFontFamily,
+            fontWeight = FontWeight.Black,
+            fontSize = 28.sp,
+            letterSpacing = (-0.65).sp,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * Shared sculptural `Cookie12` Settings action button matching Home's top bar across every main tab.
+ */
+@Composable
+fun ExpressiveSettingsActionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isActive: Boolean = false
+) {
+    val isDark = com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme.current
+    ExpressiveReactiveIconButton(
+        imageVector = Icons.Default.Settings,
+        contentDescription = "Settings",
+        onClick = onClick,
+        modifier = modifier.padding(end = 12.dp),
+        shape = ExpressiveCookie12Shape,
+        containerColor = if (isDark) {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.42f else 0.58f),
+        iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+        buttonSize = 44.dp,
+        iconSize = 20.dp,
+        motion = ReactiveMotionType.GEAR_SPIN,
+        externalTrigger = if (isActive) 1 else 0
     )
 }
 
