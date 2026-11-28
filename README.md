@@ -109,9 +109,9 @@ Local `AlarmManager` and `WorkManager` reminders use **Hybrid Native Android Not
 
 <div align="center">
 
-| Welcome · Rhythm & Theme | Home · Light | Home · Dark (Living Mood) |
+| Welcome · Rhythm & Theme | Home · Light | Home · Dark |
 | :---: | :---: | :---: |
-| <img src="docs/screenshots/welcome.png" alt="SubCycler Welcome screen featuring Bold Color-Block Pause Binge Save hero, animated 30d/15d rhythm wave, top-bar currency picker, and Auto/Custom Theme and Icon studio" width="240"> | <img src="docs/screenshots/dashboard.png" alt="SubCycler Home dashboard in Light Mode with Bold Color-Block hero, Triadic lime savings seal, expanded Google Sans Flex Your stack title, and 2-column Bento cards" width="240"> | <img src="docs/screenshots/dashboard_dark.png" alt="SubCycler Home dashboard in Dark Mode showing Living Stack Mood theming, Your stack expanded header, harmonized Bento cards, and Gliding Liquid Dock" width="240"> |
+| <img src="docs/screenshots/welcome.png" alt="SubCycler Welcome screen featuring Botanical Bold Color-Block Pause Binge Save hero, animated 30d/15d rhythm wave, top-bar currency picker, and Auto/Custom Theme and Icon studio" width="240"> | <img src="docs/screenshots/dashboard.png" alt="SubCycler Home dashboard in Light Mode with Botanical Bold Color-Block hero, Triadic lime savings seal, expanded Google Sans Flex Your stack title, and 2-column Bento cards" width="240"> | <img src="docs/screenshots/dashboard_dark.png" alt="SubCycler Home dashboard in Dark Mode showing Botanical Bold Color-Block theming, Your stack expanded header, harmonized Bento cards, and Gliding Liquid Dock" width="240"> |
 
 | Cycle Detail & Wave Scrubber | Minimal 2-Tab Cycle Studio | Planner · Cycle Timeline |
 | :---: | :---: | :---: |

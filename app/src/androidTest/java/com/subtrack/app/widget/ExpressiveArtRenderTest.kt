@@ -144,7 +144,7 @@ class ExpressiveArtRenderTest {
             activeForMood = subs,
             currencyCode = "JPY",
             launcherIcon = AppLauncherIcon.BOTANICAL,
-            useStackMood = true,
+            useStackMood = false,
             isDark = true
         )
         val rvWide = livingProvider.buildNativeLivingViews(
@@ -168,7 +168,7 @@ class ExpressiveArtRenderTest {
             activeForMood = subs,
             currencyCode = "JPY",
             launcherIcon = AppLauncherIcon.BOTANICAL,
-            useStackMood = true,
+            useStackMood = false,
             isDark = false
         )
         val rvCookie = cookieProvider.buildNativeCookieViews(
