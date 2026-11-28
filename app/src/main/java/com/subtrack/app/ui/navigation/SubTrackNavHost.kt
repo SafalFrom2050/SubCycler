@@ -3,8 +3,11 @@ package com.subtrack.app.ui.navigation
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -39,10 +42,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.invisibleToUser
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -455,13 +461,13 @@ private fun SubTrackMainNavigation(
     val haptic = LocalHapticFeedback.current
     val reducedMotion = rememberReducedMotionEnabled()
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    var outgoingTabIndex by remember { mutableIntStateOf(-1) }
-    var transitionDirection by remember { mutableIntStateOf(1) }
-    val transitionProgress = remember { Animatable(1f) }
-    var isPlannerMounted by remember { mutableStateOf(false) }
-    var isAnalyticsMounted by remember { mutableStateOf(false) }
-    var hasVisitedPlanner by rememberSaveable { mutableStateOf(false) }
-    var hasVisitedSavings by rememberSaveable { mutableStateOf(false) }
+    var tabTransition by remember {
+        mutableStateOf(TabTransitionState(activeIndex = selectedTabIndex))
+    }
+    var isPlannerMounted by remember { mutableStateOf(selectedTabIndex == 1) }
+    var isAnalyticsMounted by remember { mutableStateOf(selectedTabIndex == 2) }
+    var hasVisitedPlanner by rememberSaveable { mutableStateOf(selectedTabIndex == 1) }
+    var hasVisitedSavings by rememberSaveable { mutableStateOf(selectedTabIndex == 2) }
 
     // One-shot launch choreography for the floating dock and detached '+' Cookie12 FAB
     val skipChromeEntrance = isEntranceReady || reducedMotion
@@ -486,15 +492,6 @@ private fun SubTrackMainNavigation(
         }
     }
 
-    LaunchedEffect(selectedTabIndex) {
-        if (selectedTabIndex == 1) {
-            hasVisitedPlanner = true
-        }
-        if (selectedTabIndex == 2) {
-            hasVisitedSavings = true
-        }
-    }
-
     val isOnDashboard = selectedTabIndex == 0
     var pendingAddSubscription by remember { mutableStateOf(false) }
     var pendingOpenSettings by remember { mutableStateOf(false) }
@@ -502,15 +499,52 @@ private fun SubTrackMainNavigation(
     var internalOpenSubId by remember { mutableStateOf<Long?>(null) }
     val effectiveOpenSubId = openSubscriptionId ?: internalOpenSubId
     val isDark = LocalSubCyclerDarkTheme.current
+    val latestReducedMotion by rememberUpdatedState(reducedMotion)
 
-    fun selectTabIndex(targetIndex: Int) {
-        val clamped = targetIndex.coerceIn(0, NavigationItems.items.lastIndex)
-        if (clamped == 1) isPlannerMounted = true
-        if (clamped == 2) isAnalyticsMounted = true
-        if (clamped == selectedTabIndex) return
-        outgoingTabIndex = selectedTabIndex
-        transitionDirection = if (clamped >= selectedTabIndex) 1 else -1
-        selectedTabIndex = clamped
+    val selectTabIndex: (Int) -> Unit = remember {
+        { targetIndex ->
+            val clamped = targetIndex.coerceIn(0, NavigationItems.items.lastIndex)
+            if (clamped == 1) {
+                isPlannerMounted = true
+                hasVisitedPlanner = true
+            }
+            if (clamped == 2) {
+                isAnalyticsMounted = true
+                hasVisitedSavings = true
+            }
+            val current = selectedTabIndex
+            if (clamped != current) {
+                val priorTransition = tabTransition
+                val outgoingStartAlpha = if (
+                    priorTransition.outgoingIndex >= 0 &&
+                    priorTransition.activeIndex == current
+                ) {
+                    incomingTabAlpha(priorTransition.progress.value)
+                } else {
+                    1f
+                }
+                selectedTabIndex = clamped
+                // Construct the fresh Animatable(0f) synchronously in the same Compose snapshot as
+                // selectedTabIndex so frame 0 never renders with a stale 1f progress value.
+                tabTransition = if (latestReducedMotion) {
+                    TabTransitionState(
+                        activeIndex = clamped,
+                        outgoingIndex = -1,
+                        direction = if (clamped >= current) 1 else -1,
+                        outgoingStartAlpha = 1f,
+                        progress = Animatable(1f)
+                    )
+                } else {
+                    TabTransitionState(
+                        activeIndex = clamped,
+                        outgoingIndex = current,
+                        direction = if (clamped >= current) 1 else -1,
+                        outgoingStartAlpha = outgoingStartAlpha,
+                        progress = Animatable(0f)
+                    )
+                }
+            }
+        }
     }
 
     // Gently pre-warm secondary tabs after the launch splash and Home's initial entrance springs
@@ -527,23 +561,31 @@ private fun SubTrackMainNavigation(
         }
     }
 
-    LaunchedEffect(selectedTabIndex, reducedMotion) {
-        if (outgoingTabIndex < 0 || outgoingTabIndex == selectedTabIndex) {
-            transitionProgress.snapTo(1f)
-            outgoingTabIndex = -1
+    LaunchedEffect(tabTransition, reducedMotion) {
+        val transition = tabTransition
+        if (transition.outgoingIndex < 0 || transition.outgoingIndex == transition.activeIndex) {
+            if (transition.progress.value < 1f) {
+                transition.progress.snapTo(1f)
+            }
             return@LaunchedEffect
         }
         if (reducedMotion) {
-            transitionProgress.snapTo(1f)
-            outgoingTabIndex = -1
+            transition.progress.snapTo(1f)
+            if (tabTransition === transition) {
+                tabTransition = transition.copy(outgoingIndex = -1)
+            }
             return@LaunchedEffect
         }
-        transitionProgress.snapTo(0f)
-        transitionProgress.animateTo(
+        transition.progress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 155, easing = FastOutSlowInEasing)
+            animationSpec = tween(
+                durationMillis = TAB_TRANSITION_DURATION_MS,
+                easing = LinearEasing
+            )
         )
-        outgoingTabIndex = -1
+        if (tabTransition === transition) {
+            tabTransition = transition.copy(outgoingIndex = -1)
+        }
     }
 
     BackHandler(enabled = selectedTabIndex != 0) {
@@ -570,86 +612,65 @@ private fun SubTrackMainNavigation(
         label = "dockIndicatorInk"
     )
 
-    val isTransitioning = outgoingTabIndex >= 0
+    val transitionStateProvider: () -> TabTransitionState = remember { { tabTransition } }
+    val latestOnOpenSubscriptionConsumed by rememberUpdatedState(onOpenSubscriptionConsumed)
+    val latestOpenSubscriptionId by rememberUpdatedState(openSubscriptionId)
+    val handleOpenSubscriptionConsumed: () -> Unit = remember {
+        {
+            if (latestOpenSubscriptionId != null) {
+                latestOnOpenSubscriptionConsumed()
+            }
+            internalOpenSubId = null
+        }
+    }
+    val handleAddSubscriptionConsumed: () -> Unit = remember { { pendingAddSubscription = false } }
+    val handleOpenSettings: () -> Unit = remember { { pendingOpenSettings = true } }
+    val handleOpenSettingsConsumed: () -> Unit = remember { { pendingOpenSettings = false } }
+    val handleOpenPairedSwapConsumed: () -> Unit = remember { { pendingOpenPairedSwap = false } }
+    val handleNavigateToSavings: () -> Unit = remember { { selectTabIndex(2) } }
+    val handleOpenPairedSwap: () -> Unit = remember {
+        {
+            pendingOpenPairedSwap = true
+            selectTabIndex(1)
+        }
+    }
+    val handleOpenSubscriptionFromPlanner: (Long) -> Unit = remember {
+        { subId ->
+            internalOpenSubId = subId
+            selectTabIndex(0)
+        }
+    }
 
     ExpressiveScreenBackdrop {
         // True edge-to-edge scroll-under: warm-mounted GPU tab slots keep scroll & ViewModels live
-        // inside an isolated stage Box so their z-ordering never competes with the floating dock.
+        // inside an isolated stage composable so switching tabs never recomposes or re-measures tabs.
         Box(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                WarmTabSlot(
-                    tabIndex = 0,
-                    selectedTabIndex = selectedTabIndex,
-                    outgoingTabIndex = outgoingTabIndex,
-                    isTransitioning = isTransitioning,
-                    transitionDirection = transitionDirection,
-                    transitionProgressProvider = { transitionProgress.value }
-                ) {
-                    DashboardRoute(
-                        openSubscriptionId = effectiveOpenSubId,
-                        onOpenSubscriptionConsumed = {
-                            if (openSubscriptionId != null) {
-                                onOpenSubscriptionConsumed()
-                            }
-                            internalOpenSubId = null
-                        },
-                        pendingTransferPayload = pendingTransferPayload,
-                        onTransferPayloadConsumed = onTransferPayloadConsumed,
-                        pendingAddSubscription = pendingAddSubscription,
-                        onAddSubscriptionConsumed = { pendingAddSubscription = false },
-                        pendingOpenSettings = pendingOpenSettings,
-                        onOpenSettingsConsumed = { pendingOpenSettings = false },
-                        onNavigateToSavings = { selectTabIndex(2) },
-                        onApplyLauncherIcon = onApplyLauncherIcon,
-                        onPreviewNotifications = onPreviewNotifications,
-                        onPreviewWelcome = onPreviewWelcome,
-                        isEntranceReady = isEntranceReady,
-                        onFirstDataReady = onDashboardFirstDataReady
-                    )
-                }
-
-                if (isPlannerMounted) {
-                    WarmTabSlot(
-                        tabIndex = 1,
-                        selectedTabIndex = selectedTabIndex,
-                        outgoingTabIndex = outgoingTabIndex,
-                        isTransitioning = isTransitioning,
-                        transitionDirection = transitionDirection,
-                        transitionProgressProvider = { transitionProgress.value }
-                    ) {
-                        PlannerRoute(
-                            pendingOpenPairedSwap = pendingOpenPairedSwap,
-                            onOpenPairedSwapConsumed = { pendingOpenPairedSwap = false },
-                            isEntranceReady = hasVisitedPlanner,
-                            onOpenSettings = { pendingOpenSettings = true },
-                            onOpenSubscription = { subId ->
-                                internalOpenSubId = subId
-                                selectTabIndex(0)
-                            }
-                        )
-                    }
-                }
-
-                if (isAnalyticsMounted) {
-                    WarmTabSlot(
-                        tabIndex = 2,
-                        selectedTabIndex = selectedTabIndex,
-                        outgoingTabIndex = outgoingTabIndex,
-                        isTransitioning = isTransitioning,
-                        transitionDirection = transitionDirection,
-                        transitionProgressProvider = { transitionProgress.value }
-                    ) {
-                        AnalyticsRoute(
-                            isEntranceReady = hasVisitedSavings,
-                            onOpenSettings = { pendingOpenSettings = true },
-                            onOpenPairedSwap = {
-                                pendingOpenPairedSwap = true
-                                selectTabIndex(1)
-                            }
-                        )
-                    }
-                }
-            }
+            SubTrackTabStage(
+                transitionStateProvider = transitionStateProvider,
+                isPlannerMounted = isPlannerMounted,
+                isAnalyticsMounted = isAnalyticsMounted,
+                hasVisitedPlanner = hasVisitedPlanner,
+                hasVisitedSavings = hasVisitedSavings,
+                effectiveOpenSubId = effectiveOpenSubId,
+                onOpenSubscriptionConsumed = handleOpenSubscriptionConsumed,
+                pendingTransferPayload = pendingTransferPayload,
+                onTransferPayloadConsumed = onTransferPayloadConsumed,
+                pendingAddSubscription = pendingAddSubscription,
+                onAddSubscriptionConsumed = handleAddSubscriptionConsumed,
+                pendingOpenSettings = pendingOpenSettings,
+                onOpenSettings = handleOpenSettings,
+                onOpenSettingsConsumed = handleOpenSettingsConsumed,
+                pendingOpenPairedSwap = pendingOpenPairedSwap,
+                onOpenPairedSwapConsumed = handleOpenPairedSwapConsumed,
+                onNavigateToSavings = handleNavigateToSavings,
+                onOpenPairedSwap = handleOpenPairedSwap,
+                onOpenSubscriptionFromPlanner = handleOpenSubscriptionFromPlanner,
+                onApplyLauncherIcon = onApplyLauncherIcon,
+                onPreviewNotifications = onPreviewNotifications,
+                onPreviewWelcome = onPreviewWelcome,
+                isEntranceReady = isEntranceReady,
+                onDashboardFirstDataReady = onDashboardFirstDataReady
+            )
 
             // Smooth 4-stop bottom fade scrim so scrolling cards glide cleanly behind the floating dock
             Box(
@@ -814,52 +835,188 @@ private fun SubTrackMainNavigation(
     }
 }
 
+private val TabExitEasing = FastOutLinearInEasing
+private val TabEnterAlphaEasing = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1.0f)
+private val TabEnterSpatialEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+
+internal const val TAB_TRANSITION_DURATION_MS = 220
+private const val TAB_OUTGOING_END_PROGRESS = 0.34f
+private const val TAB_INCOMING_START_PROGRESS = 0.24f
+
+internal fun outgoingTabAlpha(progress: Float): Float {
+    val t = progress.coerceIn(0f, 1f)
+    val outT = (t / TAB_OUTGOING_END_PROGRESS).coerceIn(0f, 1f)
+    return (1f - TabExitEasing.transform(outT)).coerceIn(0f, 1f)
+}
+
+internal fun incomingTabAlpha(progress: Float): Float {
+    val t = progress.coerceIn(0f, 1f)
+    if (t <= TAB_INCOMING_START_PROGRESS) return 0f
+    val inT = ((t - TAB_INCOMING_START_PROGRESS) / (1f - TAB_INCOMING_START_PROGRESS)).coerceIn(0f, 1f)
+    return TabEnterAlphaEasing.transform(inT).coerceIn(0f, 1f)
+}
+
+internal fun incomingTabSpatial(progress: Float): Float {
+    val t = progress.coerceIn(0f, 1f)
+    if (t <= TAB_INCOMING_START_PROGRESS) return 0f
+    val inT = ((t - TAB_INCOMING_START_PROGRESS) / (1f - TAB_INCOMING_START_PROGRESS)).coerceIn(0f, 1f)
+    return TabEnterSpatialEasing.transform(inT).coerceIn(0f, 1f)
+}
+
+private data class TabTransitionState(
+    val activeIndex: Int,
+    val outgoingIndex: Int = -1,
+    val direction: Int = 1,
+    val outgoingStartAlpha: Float = 1f,
+    val progress: Animatable<Float, AnimationVector1D> = Animatable(1f)
+)
+
+@Composable
+private fun SubTrackTabStage(
+    transitionStateProvider: () -> TabTransitionState,
+    isPlannerMounted: Boolean,
+    isAnalyticsMounted: Boolean,
+    hasVisitedPlanner: Boolean,
+    hasVisitedSavings: Boolean,
+    effectiveOpenSubId: Long?,
+    onOpenSubscriptionConsumed: () -> Unit,
+    pendingTransferPayload: String?,
+    onTransferPayloadConsumed: () -> Unit,
+    pendingAddSubscription: Boolean,
+    onAddSubscriptionConsumed: () -> Unit,
+    pendingOpenSettings: Boolean,
+    onOpenSettings: () -> Unit,
+    onOpenSettingsConsumed: () -> Unit,
+    pendingOpenPairedSwap: Boolean,
+    onOpenPairedSwapConsumed: () -> Unit,
+    onNavigateToSavings: () -> Unit,
+    onOpenPairedSwap: () -> Unit,
+    onOpenSubscriptionFromPlanner: (Long) -> Unit,
+    onApplyLauncherIcon: (AppLauncherIcon) -> Unit,
+    onPreviewNotifications: () -> Unit,
+    onPreviewWelcome: () -> Unit,
+    isEntranceReady: Boolean,
+    onDashboardFirstDataReady: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        WarmTabSlot(
+            tabIndex = 0,
+            transitionStateProvider = transitionStateProvider
+        ) {
+            DashboardRoute(
+                openSubscriptionId = effectiveOpenSubId,
+                onOpenSubscriptionConsumed = onOpenSubscriptionConsumed,
+                pendingTransferPayload = pendingTransferPayload,
+                onTransferPayloadConsumed = onTransferPayloadConsumed,
+                pendingAddSubscription = pendingAddSubscription,
+                onAddSubscriptionConsumed = onAddSubscriptionConsumed,
+                pendingOpenSettings = pendingOpenSettings,
+                onOpenSettingsConsumed = onOpenSettingsConsumed,
+                onNavigateToSavings = onNavigateToSavings,
+                onApplyLauncherIcon = onApplyLauncherIcon,
+                onPreviewNotifications = onPreviewNotifications,
+                onPreviewWelcome = onPreviewWelcome,
+                isEntranceReady = isEntranceReady,
+                onFirstDataReady = onDashboardFirstDataReady
+            )
+        }
+
+        if (isPlannerMounted) {
+            WarmTabSlot(
+                tabIndex = 1,
+                transitionStateProvider = transitionStateProvider
+            ) {
+                PlannerRoute(
+                    pendingOpenPairedSwap = pendingOpenPairedSwap,
+                    onOpenPairedSwapConsumed = onOpenPairedSwapConsumed,
+                    isEntranceReady = hasVisitedPlanner,
+                    onOpenSettings = onOpenSettings,
+                    onOpenSubscription = onOpenSubscriptionFromPlanner
+                )
+            }
+        }
+
+        if (isAnalyticsMounted) {
+            WarmTabSlot(
+                tabIndex = 2,
+                transitionStateProvider = transitionStateProvider
+            ) {
+                AnalyticsRoute(
+                    isEntranceReady = hasVisitedSavings,
+                    onOpenSettings = onOpenSettings,
+                    onOpenPairedSwap = onOpenPairedSwap
+                )
+            }
+        }
+    }
+}
+
 /**
- * Zero-teardown GPU tab slot: keeps mounted tabs warm (preserving scroll state, ViewModels, and
- * Compose slot tables) while omitting placement when inactive (0 overdraw, 0 hit-testing) and
- * reading [transitionProgressProvider] strictly inside `placeWithLayer` for zero-recomposition slides.
+ * Zero-teardown GPU tab slot: keeps mounted tabs warm AND continuously placed in a persistent
+ * hardware layer so HWUI never discards or re-records a screen's DisplayList on tab switches.
+ * Inactive tabs stay at `alpha = 0f` (skipped by HWUI with 0 GPU overdraw), blocked at
+ * [PointerEventPass.Initial] (0 touch leakage), and hidden from accessibility.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun WarmTabSlot(
     tabIndex: Int,
-    selectedTabIndex: Int,
-    outgoingTabIndex: Int,
-    isTransitioning: Boolean,
-    transitionDirection: Int,
-    transitionProgressProvider: () -> Float,
+    transitionStateProvider: () -> TabTransitionState,
     content: @Composable () -> Unit
 ) {
-    val isSelected = tabIndex == selectedTabIndex
-    val isOutgoing = tabIndex == outgoingTabIndex && isTransitioning
-    val shouldPlace = isSelected || isOutgoing
-
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .semantics {
+                if (transitionStateProvider().activeIndex != tabIndex) {
+                    invisibleToUser()
+                }
+            }
+            .pointerInput(tabIndex) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (transitionStateProvider().activeIndex != tabIndex) {
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
             .layout { measurable, constraints ->
                 val placeable = measurable.measure(constraints)
                 layout(placeable.width, placeable.height) {
-                    if (shouldPlace) {
-                        if (!isTransitioning && isSelected) {
-                            placeable.place(x = 0, y = 0, zIndex = 1f)
-                        } else {
-                            val slidePx = 22.dp.toPx()
-                            placeable.placeWithLayer(
-                                x = 0,
-                                y = 0,
-                                zIndex = if (isSelected) 1f else 0f
-                            ) {
-                                val progress = transitionProgressProvider().coerceIn(0f, 1f)
-                                alpha = if (isSelected) {
-                                    (0.28f + 0.72f * progress).coerceIn(0f, 1f)
-                                } else {
-                                    (1f - progress).coerceIn(0f, 1f)
-                                }
-                                translationX = if (isSelected) {
-                                    transitionDirection * slidePx * (1f - progress)
-                                } else {
-                                    -transitionDirection * slidePx * 0.6f * progress
-                                }
+                    val transition = transitionStateProvider()
+                    val isSelected = tabIndex == transition.activeIndex
+                    val isOutgoing = tabIndex == transition.outgoingIndex &&
+                        transition.outgoingIndex != transition.activeIndex
+                    val slidePx = 10.dp.toPx()
+                    placeable.placeWithLayer(
+                        x = 0,
+                        y = 0,
+                        zIndex = when {
+                            isSelected -> 1f
+                            isOutgoing -> 0f
+                            else -> -1f
+                        }
+                    ) {
+                        when {
+                            !isSelected && !isOutgoing -> {
+                                alpha = 0f
+                                translationX = 0f
+                            }
+                            transition.outgoingIndex < 0 -> {
+                                alpha = if (isSelected) 1f else 0f
+                                translationX = 0f
+                            }
+                            isSelected -> {
+                                val t = transition.progress.value.coerceIn(0f, 1f)
+                                alpha = incomingTabAlpha(t)
+                                translationX = transition.direction * slidePx * (1f - incomingTabSpatial(t))
+                            }
+                            else -> {
+                                val t = transition.progress.value.coerceIn(0f, 1f)
+                                alpha = (transition.outgoingStartAlpha * outgoingTabAlpha(t)).coerceIn(0f, 1f)
+                                translationX = 0f
                             }
                         }
                     }
@@ -1063,7 +1220,15 @@ private fun GlidingLiquidNavDock(
                     val isVisuallyActive = if (isDragging) index == dragHoverIndex else isSelected
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
-                    var tapTrigger by remember { mutableIntStateOf(0) }
+                    var selectTrigger by remember { mutableIntStateOf(0) }
+                    var wasVisuallyActive by remember { mutableStateOf(isVisuallyActive) }
+
+                    LaunchedEffect(isVisuallyActive) {
+                        if (isVisuallyActive && !wasVisuallyActive) {
+                            selectTrigger++
+                        }
+                        wasVisuallyActive = isVisuallyActive
+                    }
 
                     LaunchedEffect(isPressed) {
                         if (isPressed) {
@@ -1111,7 +1276,9 @@ private fun GlidingLiquidNavDock(
                                 interactionSource = interactionSource,
                                 indication = null
                             ) {
-                                tapTrigger++
+                                if (isSelected) {
+                                    selectTrigger++
+                                }
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onSelectTab(index)
                             },
@@ -1128,7 +1295,7 @@ private fun GlidingLiquidNavDock(
                                 size = 20.dp,
                                 motion = iconMotion,
                                 isPressed = isPressed,
-                                triggerKey = Pair(isVisuallyActive, tapTrigger)
+                                triggerKey = selectTrigger
                             )
                             Spacer(modifier = Modifier.height(1.dp))
                             Text(
