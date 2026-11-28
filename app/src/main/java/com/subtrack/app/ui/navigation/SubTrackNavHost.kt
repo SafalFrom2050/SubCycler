@@ -11,11 +11,13 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,12 +26,14 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -53,6 +57,7 @@ import com.subtrack.core.ui.components.ExpressiveMaterialPolygons
 import com.subtrack.core.ui.components.ExpressiveScreenBackdrop
 import com.subtrack.core.ui.components.ReactiveIcon
 import com.subtrack.core.ui.components.ReactiveMotionType
+import com.subtrack.core.ui.components.RoundedPolygonShape
 import com.subtrack.core.ui.components.SubCyclerSwirlLogo
 import com.subtrack.core.ui.components.expressivePolygonSurface
 import com.subtrack.core.ui.components.rememberMorphingPolygonShape
@@ -60,6 +65,7 @@ import com.subtrack.core.ui.theme.BodyFontFamily
 import com.subtrack.core.ui.theme.BrandColorHarmonizer
 import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.launcherAccentTokensFor
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import com.subtrack.feature.analytics.AnalyticsRoute
@@ -143,11 +149,13 @@ fun SubTrackApp(
 }
 
 /**
- * Branded Material 3 Expressive Launch Splash:
- * 1. Spins the user's selected launcher swirl icon smoothly while Room + DataStore hydrate underneath.
- * 2. Once hydrated, decelerates cleanly to upright and morphs the 3 petals into the live Stack Mood
- *    swirl colorway with a spring bloom + wordmark reveal.
- * 3. Fades straight into the already-populated Home screen—eliminating any flash of empty state.
+ * Bold Color-Block Material 3 Expressive Launch Splash:
+ * 1. Opens seamlessly from Android's system splash onto a crisp architectural canvas framed by
+ *    subtle off-corner M3E geometry, centering the swirling logo inside a flat Color-Block `Cookie12`
+ *    medallion ringed by a counter-rotating Triadic Pop dashed halo.
+ * 2. Once hydrated, decelerates cleanly to upright and morphs both the medallion and the 3 swirl
+ *    petals into the live Bold Stack Mood palette with a spring bloom + wordmark & stack-dots reveal.
+ * 3. Lifts and dissolves straight into the already-populated Home screen with zero empty-state flash.
  */
 @Composable
 private fun SubCyclerExpressiveSplashOverlay(
@@ -162,8 +170,9 @@ private fun SubCyclerExpressiveSplashOverlay(
     val currentOnFinished by rememberUpdatedState(onSplashFinished)
 
     val rotation = remember { Animatable(0f) }
-    val logoScale = remember { Animatable(if (reducedMotion) 1f else 0.86f) }
-    val wordmarkAlpha = remember { Animatable(0f) }
+    val logoScale = remember { Animatable(if (reducedMotion) 1f else 0.84f) }
+    val medallionScale = remember { Animatable(if (reducedMotion) 1f else 0.72f) }
+    val wordmarkProgress = remember { Animatable(0f) }
     val overlayAlpha = remember { Animatable(1f) }
     val overlayScale = remember { Animatable(1f) }
     var morphedToStackMood by remember { mutableStateOf(false) }
@@ -178,12 +187,31 @@ private fun SubCyclerExpressiveSplashOverlay(
             fallbackIcon = dockMood.launcherIcon
         )
     }
+    val launcherAccent = remember(dockMood.launcherIcon, isDark) {
+        launcherAccentTokensFor(dockMood.launcherIcon, isDark)
+    }
+    val heroMood = remember(dockMood.activeSubscriptions, dockMood.useStackHeroMood, dockMood.launcherIcon, isDark) {
+        BrandColorHarmonizer.resolveHeroMoodPalette(
+            activeSubscriptions = dockMood.activeSubscriptions,
+            useStackMood = dockMood.useStackHeroMood,
+            isDark = isDark,
+            fallbackIcon = dockMood.launcherIcon
+        )
+    }
     val activeSwirlColors = if (morphedToStackMood) stackMoodSwirl else launcherSwirl
-    val auraColor by animateColorAsState(
-        targetValue = activeSwirlColors.midPetal.copy(alpha = if (isDark) 0.24f else 0.28f),
+    val stageColor by animateColorAsState(
+        targetValue = if (morphedToStackMood) heroMood.baseColor else launcherAccent.heroBase,
         animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
-        label = "splashAuraColor"
+        label = "splashStageColor"
     )
+    val stagePopColor by animateColorAsState(
+        targetValue = if (morphedToStackMood) heroMood.sealColor else launcherAccent.heroPop,
+        animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
+        label = "splashStagePopColor"
+    )
+    val cookieStageShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Cookie12) }
+    val cornerCloverShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Clover8) }
+    val cornerPebbleShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Pebble) }
 
     LaunchedEffect(reducedMotion) {
         while (!currentDockLoaded) {
@@ -198,28 +226,34 @@ private fun SubCyclerExpressiveSplashOverlay(
             return@LaunchedEffect
         }
 
-        // Phase 1: Spring pop-in + crisp 360° material icon rotation while data loads
+        // Phase 1: Snappy medallion bloom + crisp 360° swirl spin while Room/DataStore hydrate
         val popJob = launch {
             logoScale.animateTo(
                 targetValue = 1f,
                 animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
             )
         }
+        val medallionJob = launch {
+            medallionScale.animateTo(
+                targetValue = 1f,
+                animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
+            )
+        }
         rotation.animateTo(
             targetValue = 360f,
-            animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing)
         )
         popJob.join()
+        medallionJob.join()
 
-        // If Room/DataStore is still hydrating on a cold boot, continue smooth steady spin
         while (!currentReady) {
             rotation.animateTo(
                 targetValue = rotation.value + 120f,
-                animationSpec = tween(durationMillis = 220, easing = LinearEasing)
+                animationSpec = tween(durationMillis = 190, easing = LinearEasing)
             )
         }
 
-        // Phase 2: Settle upright to nearest 360° multiple & morph into live Stack Mood swirl!
+        // Phase 2: Settle upright, morph medallion & swirl into Bold Stack Mood, and reveal wordmark
         val nextUpright = ((rotation.value / 360f).toInt() + if (rotation.value % 360f > 5f) 1 else 0) * 360f
         morphedToStackMood = true
         val settleSpin = launch {
@@ -241,26 +275,26 @@ private fun SubCyclerExpressiveSplashOverlay(
             )
         }
         val revealWordmark = launch {
-            wordmarkAlpha.animateTo(
+            wordmarkProgress.animateTo(
                 targetValue = 1f,
-                animationSpec = ExpressiveMotion.effectsFast()
+                animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
             )
         }
         settleSpin.join()
         bloomPulse.join()
         revealWordmark.join()
-        delay(220L)
+        delay(200L)
 
-        // Phase 3: Clean lift & dissolve straight into hydrated Home
+        // Phase 3: Crisp lift & dissolve straight into hydrated Home
         val liftJob = launch {
             overlayScale.animateTo(
-                targetValue = 1.05f,
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                targetValue = 1.045f,
+                animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing)
             )
         }
         overlayAlpha.animateTo(
             targetValue = 0f,
-            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing)
         )
         liftJob.join()
         currentOnFinished()
@@ -277,49 +311,146 @@ private fun SubCyclerExpressiveSplashOverlay(
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        ExpressiveScreenBackdrop {
+        if (dockMood.isLoaded) {
+            // Graphic off-corner Bold Color-Block silhouettes (zero blurry gradient fog)
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 84.dp, y = (-68).dp)
+                    .size(236.dp)
+                    .graphicsLayer {
+                        rotationZ = rotation.value * 0.08f
+                        scaleX = medallionScale.value
+                        scaleY = medallionScale.value
+                    }
+                    .expressivePolygonSurface(
+                        shape = cornerCloverShape,
+                        color = stageColor.copy(alpha = if (isDark) 0.24f else 0.13f)
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-76).dp, y = 78.dp)
+                    .size(214.dp)
+                    .graphicsLayer {
+                        rotationZ = 24f - rotation.value * 0.06f
+                        scaleX = medallionScale.value
+                        scaleY = medallionScale.value
+                    }
+                    .expressivePolygonSurface(
+                        shape = cornerPebbleShape,
+                        color = stagePopColor.copy(alpha = if (isDark) 0.14f else 0.22f)
+                    )
+            )
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                if (dockMood.isLoaded) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(164.dp)
-                                .drawBehind {
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(auraColor, Color.Transparent),
-                                            center = center,
-                                            radius = size.minDimension * 0.52f
-                                        )
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            SubCyclerSwirlLogo(
-                                colors = activeSwirlColors,
-                                size = 96.dp,
-                                cornerRadius = 28.dp,
-                                rotationDegrees = rotation.value,
-                                contentDescriptionText = "SubCycler loading",
-                                modifier = Modifier.graphicsLayer {
-                                    scaleX = logoScale.value
-                                    scaleY = logoScale.value
-                                }
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Box(
-                            modifier = Modifier.graphicsLayer {
-                                alpha = wordmarkAlpha.value
+                Box(
+                    modifier = Modifier.size(164.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Pure Flat Color-Block Cookie12 stage medallion + counter-rotating Triadic Pop dashed ring
+                    Box(
+                        modifier = Modifier
+                            .size(150.dp)
+                            .graphicsLayer {
+                                scaleX = medallionScale.value
+                                scaleY = medallionScale.value
+                                rotationZ = -rotation.value * 0.16f
                             }
+                            .expressivePolygonSurface(
+                                shape = cookieStageShape,
+                                color = stageColor
+                            )
+                            .drawBehind {
+                                val inset = 11.dp.toPx()
+                                drawCircle(
+                                    color = stagePopColor.copy(alpha = 0.78f),
+                                    radius = (size.minDimension / 2f) - inset,
+                                    style = Stroke(
+                                        width = 1.6.dp.toPx(),
+                                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 6.dp.toPx()), 0f)
+                                    )
+                                )
+                            }
+                    )
+
+                    SubCyclerSwirlLogo(
+                        colors = activeSwirlColors,
+                        size = 92.dp,
+                        cornerRadius = 26.dp,
+                        rotationDegrees = rotation.value,
+                        contentDescriptionText = "SubCycler loading",
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = logoScale.value
+                            scaleY = logoScale.value
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.graphicsLayer {
+                        val p = wordmarkProgress.value.coerceIn(0f, 1f)
+                        alpha = p
+                        translationY = (1f - p) * 12.dp.toPx()
+                    }
+                ) {
+                    ExpressiveBrandWordmark(fontSize = 32.sp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.55f else 0.70f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            ExpressiveBrandWordmark(fontSize = 30.sp)
+                            val dots = if (morphedToStackMood && heroMood.stackAccentDots.size >= 2) {
+                                heroMood.stackAccentDots
+                            } else {
+                                listOf(stagePopColor)
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                dots.forEach { dotColor ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(7.dp)
+                                            .clip(CircleShape)
+                                            .background(dotColor)
+                                            .border(
+                                                width = 0.6.dp,
+                                                color = if (isDark) Color.White.copy(alpha = 0.30f) else Color.Black.copy(alpha = 0.14f),
+                                                shape = CircleShape
+                                            )
+                                    )
+                                }
+                            }
+                            Text(
+                                text = if (morphedToStackMood && heroMood.stackAccentDots.size >= 2) {
+                                    "STACK MOOD"
+                                } else {
+                                    "CYCLE SMARTER"
+                                },
+                                fontFamily = BodyFontFamily,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.2.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
