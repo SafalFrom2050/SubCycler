@@ -1,15 +1,19 @@
 package com.subtrack.core.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,9 +30,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Pending
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,6 +51,8 @@ import androidx.compose.ui.unit.sp
 import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.engine.RotationEngine
 import com.subtrack.core.domain.model.*
+import com.subtrack.core.ui.theme.BrandColorHarmonizer
+import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -58,9 +63,8 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 private enum class SubscriptionFormStep(val label: String) {
-    BASICS("Basics"),
-    CYCLE("Cycle"),
-    NOTES("Notes")
+    DETAILS("Details"),
+    CYCLE("Cycle")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,12 +80,21 @@ fun AddEditSubscriptionDialog(
     val haptic = LocalHapticFeedback.current
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+    val isDark = LocalSubCyclerDarkTheme.current
     // Block accidental swipe-down dismissal; users close deliberately via ×, Done, or Back.
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { it != SheetValue.Hidden }
     )
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy") }
+
+    // Calm neutral selection tokens so form controls stay quiet and only the primary CTA pops.
+    val neutralSelectedBg = if (isDark) Color(0xFF34393E) else Color(0xFFFFFFFF)
+    val neutralSelectedBorder = BorderStroke(
+        width = 1.dp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.24f else 0.16f)
+    )
+    val neutralUnselectedBg = MaterialTheme.colorScheme.surfaceContainerHigh
 
     // Single app-wide currency: never expose per-subscription currency options in the form.
     val currencyCode = defaultCurrencyCode
@@ -144,13 +157,14 @@ fun AddEditSubscriptionDialog(
     }
     var colorHex by remember {
         mutableStateOf(
-            com.subtrack.core.ui.theme.BrandColorHarmonizer.resolveEffectiveBrandHex(
+            BrandColorHarmonizer.resolveEffectiveBrandHex(
                 serviceName = initialNameSeed,
                 storedColorHex = initialSubscription?.colorHex ?: initialPreset?.colorHex
             )
         )
     }
     var userPickedColor by remember { mutableStateOf(false) }
+    var showColorPicker by remember { mutableStateOf(false) }
     var notes by remember { mutableStateOf(initialSubscription?.notes ?: "") }
 
     val initialCycleStatus = remember(initialSubscription) {
@@ -194,19 +208,10 @@ fun AddEditSubscriptionDialog(
         else -> initialSubscription?.isBillingDateConfirmed ?: false
     }
 
-    val previewMissingItems = remember(parsedCost, effectiveDateConfirmed, effectiveStrategyConfirmed, billingPeriod) {
-        buildList {
-            if (parsedCost == null) add(SetupMissingItem.PRICE)
-            if (!effectiveDateConfirmed) add(SetupMissingItem.BILLING_DATE)
-            if (billingPeriod == BillingPeriod.MONTHLY && !effectiveStrategyConfirmed) add(SetupMissingItem.CYCLE)
-        }
-    }
-
-    // Race-free automatic persistence state (insert once on new draft, update in place thereafter!)
+    // Race-free automatic persistence state (insert once on new draft, update in place thereafter)
     val saveMutex = remember { Mutex() }
     var persistedId by remember { mutableLongStateOf(initialSubscription?.id ?: 0L) }
     var lastSavedSnapshot by remember { mutableStateOf(initialSubscription) }
-    var hasAutoSaved by remember { mutableStateOf(initialSubscription != null) }
 
     val currentDraftSnapshot: Subscription? = remember(
         name,
@@ -322,7 +327,6 @@ fun AddEditSubscriptionDialog(
             } else {
                 lastSavedSnapshot = toPersist
             }
-            hasAutoSaved = true
         }
     }
 
@@ -359,35 +363,78 @@ fun AddEditSubscriptionDialog(
                 .imePadding()
                 .navigationBarsPadding()
         ) {
-            // Clean Header Row: Organic Badge + Title + Close Button (auto-save status shows cleanly in the home app bar)
+            // 1. Minimal Header: Tappable Badge (expands Brand Color) + Service/Form Title + Close
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ExpressiveServiceBadge(
-                    serviceName = previewName,
-                    initials = if (name.isBlank()) "+" else ExpressivePalettes.initialsForService(name),
-                    colorHex = colorHex,
-                    size = 42.dp,
-                    fontSize = if (name.isBlank()) 17.sp else 13.5.sp,
-                    isSelected = name.isNotBlank()
-                )
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            showColorPicker = !showColorPicker
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    ExpressiveServiceBadge(
+                        serviceName = previewName,
+                        initials = if (name.isBlank()) "+" else ExpressivePalettes.initialsForService(name),
+                        colorHex = colorHex,
+                        size = 42.dp,
+                        fontSize = if (name.isBlank()) 17.sp else 13.5.sp,
+                        isSelected = name.isNotBlank()
+                    )
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(18.dp),
+                        shape = CircleShape,
+                        color = if (showColorPicker) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHighest
+                        },
+                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.surfaceContainerLow)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = "Brand color",
+                                tint = if (showColorPicker) {
+                                    MaterialTheme.colorScheme.surface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.size(10.dp)
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = if (isEditing) "Edit subscription" else "New subscription",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 20.sp,
-                    letterSpacing = (-0.5).sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isEditing) {
+                            name.trim().ifBlank { "Edit subscription" }
+                        } else {
+                            "New subscription"
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 20.sp,
+                        letterSpacing = (-0.5).sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 Spacer(modifier = Modifier.width(8.dp))
+
                 Surface(
                     onClick = { closeAndFlush() },
                     shape = CircleShape,
@@ -405,18 +452,71 @@ fun AddEditSubscriptionDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            // Collapsible Brand Tint Swatch Strip (hidden by default; revealed on badge tap)
+            AnimatedVisibility(
+                visible = showColorPicker,
+                enter = expandVertically(tween(180)) + fadeIn(tween(150)),
+                exit = shrinkVertically(tween(140)) + fadeOut(tween(110))
+            ) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(PresetLibrary.customColorSwatches, key = { it.second }) { (swatchLabel, swatchHex) ->
+                            val isSwatchSelected = colorHex.equals(swatchHex, ignoreCase = true)
+                            val swatchPalette = remember(swatchHex, isDark) {
+                                BrandColorHarmonizer.harmonizedTonalPaletteFromHex(
+                                    hex = swatchHex,
+                                    isDark = isDark
+                                )
+                            }
+                            Surface(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    colorHex = swatchHex
+                                    userPickedColor = true
+                                    showColorPicker = false
+                                },
+                                modifier = Modifier.size(32.dp),
+                                shape = CircleShape,
+                                color = swatchPalette.container,
+                                border = BorderStroke(
+                                    width = if (isSwatchSelected) 2.dp else 1.dp,
+                                    color = if (isSwatchSelected) {
+                                        swatchPalette.content
+                                    } else {
+                                        swatchPalette.border.copy(alpha = 0.5f)
+                                    }
+                                )
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (isSwatchSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "$swatchLabel selected",
+                                            tint = swatchPalette.content,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(9.dp)
+                                                .clip(CircleShape)
+                                                .background(swatchPalette.accent)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
-            // Spring-expanding stadium progress dots (8dp -> 28dp) above whisper-quiet capsule switcher
-            ExpressiveStepDots(
-                totalSteps = SubscriptionFormStep.entries.size,
-                currentStep = currentStep,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 10.dp)
-            )
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Whisper-Quiet Neutral Capsule Step Switcher (calm, tappable, zero loud bars)
+            // 2. Single Clean 2-Tab Neutral Capsule Switcher (Details · Cycle) — zero duplicate dots!
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -434,29 +534,15 @@ fun AddEditSubscriptionDialog(
                 ) {
                     SubscriptionFormStep.entries.forEachIndexed { index, step ->
                         val isCurrent = currentStep == index
-                        val isVisited = index < currentStep || (index == 1 && visitedCycleStep)
                         val pillBg by animateColorAsState(
-                            targetValue = if (isCurrent) {
-                                MaterialTheme.colorScheme.surfaceContainerHighest
-                            } else {
-                                Color.Transparent
-                            },
+                            targetValue = if (isCurrent) neutralSelectedBg else Color.Transparent,
                             animationSpec = tween(160),
                             label = "quietStepBg"
-                        )
-                        val dotColor by animateColorAsState(
-                            targetValue = when {
-                                isCurrent -> MaterialTheme.colorScheme.primary
-                                isVisited -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-                                else -> Color.Transparent
-                            },
-                            animationSpec = tween(160),
-                            label = "quietStepDot"
                         )
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(34.dp)
+                                .height(36.dp)
                                 .clip(RoundedCornerShape(999.dp))
                                 .background(pillBg, RoundedCornerShape(999.dp))
                                 .clickable {
@@ -471,40 +557,24 @@ fun AddEditSubscriptionDialog(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                if (isCurrent || isVisited) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(5.dp)
-                                            .clip(CircleShape)
-                                            .background(dotColor)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                }
-                                Text(
-                                    text = step.label,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isCurrent) {
-                                        MaterialTheme.colorScheme.onSurface
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = if (isVisited) 0.9f else 0.72f
-                                        )
-                                    },
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                            Text(
+                                text = step.label,
+                                fontSize = 12.5.sp,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isCurrent) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
             }
 
-            // Compact Animated Step Content
+            // 3. Animated 2-Step Form Body
             Column(
                 modifier = Modifier
                     .weight(1f, fill = false)
@@ -529,114 +599,105 @@ fun AddEditSubscriptionDialog(
                     label = "addEditStepTransition"
                 ) { stepIndex ->
                     when (stepIndex) {
-                        // STEP 1: BASICS (Name, Optional Price in App Currency, Billing Period, Category)
-                        0 -> Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
+                        // STEP 1: DETAILS (Presets for new, Name, Cost + Inline Mo/Yr, Plans, Category, Optional Notes)
+                        0 -> Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             if (!isEditing) {
-                                Column {
-                                    ExpressiveEyebrow(
-                                        text = "QUICK PRESETS",
-                                        modifier = Modifier.padding(horizontal = 20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    LazyRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        contentPadding = PaddingValues(horizontal = 20.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(7.dp)
-                                    ) {
-                                        items(PresetLibrary.presets, key = { it.name }) { preset ->
-                                            val isPresetSelected = name == preset.name
-                                            Surface(
-                                                onClick = {
-                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    name = preset.name
-                                                    val defaultTier = RegionalPriceCatalog.defaultTierFor(preset.name, currencyCode)
-                                                    if (defaultTier != null) {
-                                                        costStr = RegionalPriceCatalog.formatEditablePrice(defaultTier.price, currencyCode)
-                                                        billingPeriod = defaultTier.billingPeriod
-                                                    } else {
-                                                        costStr = ""
-                                                        billingPeriod = BillingPeriod.MONTHLY
-                                                    }
-                                                    category = preset.category
-                                                    colorHex = preset.colorHex
-                                                    userPickedColor = false
-                                                    strategy = if (billingPeriod == BillingPeriod.YEARLY) {
-                                                        RotationStrategy.CONTINUOUS
-                                                    } else {
-                                                        preset.suggestedStrategy
-                                                    }
-                                                    customActiveDays = preset.suggestedActiveDays.coerceIn(7, 90)
-                                                    customBlackoutDays = preset.suggestedBlackoutDays.coerceAtLeast(0)
-                                                },
-                                                shape = RoundedCornerShape(999.dp),
-                                                color = if (isPresetSelected) {
-                                                    MaterialTheme.colorScheme.primaryContainer
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 20.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                                ) {
+                                    items(PresetLibrary.presets, key = { it.name }) { preset ->
+                                        val isPresetSelected = name == preset.name
+                                        Surface(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                name = preset.name
+                                                val defaultTier = RegionalPriceCatalog.defaultTierFor(preset.name, currencyCode)
+                                                if (defaultTier != null) {
+                                                    costStr = RegionalPriceCatalog.formatEditablePrice(defaultTier.price, currencyCode)
+                                                    billingPeriod = defaultTier.billingPeriod
                                                 } else {
-                                                    MaterialTheme.colorScheme.surfaceContainerHigh
+                                                    costStr = ""
+                                                    billingPeriod = BillingPeriod.MONTHLY
                                                 }
+                                                category = preset.category
+                                                colorHex = preset.colorHex
+                                                userPickedColor = false
+                                                strategy = if (billingPeriod == BillingPeriod.YEARLY) {
+                                                    RotationStrategy.CONTINUOUS
+                                                } else {
+                                                    preset.suggestedStrategy
+                                                }
+                                                customActiveDays = preset.suggestedActiveDays.coerceIn(7, 90)
+                                                customBlackoutDays = preset.suggestedBlackoutDays.coerceAtLeast(0)
+                                            },
+                                            shape = RoundedCornerShape(999.dp),
+                                            color = if (isPresetSelected) neutralSelectedBg else neutralUnselectedBg,
+                                            border = if (isPresetSelected) neutralSelectedBorder else null
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(start = 7.dp, end = 12.dp, top = 6.dp, bottom = 6.dp)
                                             ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.padding(start = 7.dp, end = 13.dp, top = 6.dp, bottom = 6.dp)
-                                                ) {
-                                                    ExpressiveServiceBadge(
-                                                        serviceName = preset.name,
-                                                        colorHex = preset.colorHex,
-                                                        size = 22.dp,
-                                                        fontSize = 8.5.sp,
-                                                        isSelected = isPresetSelected
-                                                    )
-                                                    Spacer(modifier = Modifier.width(7.dp))
-                                                    Text(
-                                                        text = preset.name,
-                                                        color = if (isPresetSelected) {
-                                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                                        } else {
-                                                            MaterialTheme.colorScheme.onSurface
-                                                        },
-                                                        fontWeight = if (isPresetSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        fontSize = 12.sp
-                                                    )
-                                                }
+                                                ExpressiveServiceBadge(
+                                                    serviceName = preset.name,
+                                                    colorHex = preset.colorHex,
+                                                    size = 22.dp,
+                                                    fontSize = 8.5.sp,
+                                                    isSelected = isPresetSelected
+                                                )
+                                                Spacer(modifier = Modifier.width(7.dp))
+                                                Text(
+                                                    text = preset.name,
+                                                    color = if (isPresetSelected) {
+                                                        MaterialTheme.colorScheme.onSurface
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                    },
+                                                    fontWeight = if (isPresetSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    fontSize = 12.sp
+                                                )
                                             }
                                         }
                                     }
                                 }
                             }
 
-                            // Service Name + Optional Cost (uses single app currency — no per-item currency picker)
+                            // Full-width Service Name + Unified Cost & Inline Mo/Yr Toggle Row
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 20.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
+                                OutlinedTextField(
+                                    value = name,
+                                    onValueChange = { nextName ->
+                                        val clipped = nextName.take(60)
+                                        name = clipped
+                                        if (!userPickedColor) {
+                                            PresetLibrary.brandColorHexForName(clipped)?.let { matched ->
+                                                colorHex = matched
+                                            }
+                                        }
+                                    },
+                                    label = { Text("Service name") },
+                                    placeholder = { Text("e.g. Netflix") },
+                                    isError = attemptedAdvance && name.trim().isEmpty(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = dialogTextFieldColors(),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                                )
+
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    OutlinedTextField(
-                                        value = name,
-                                        onValueChange = { nextName ->
-                                            val clipped = nextName.take(60)
-                                            name = clipped
-                                            if (!userPickedColor) {
-                                                PresetLibrary.brandColorHexForName(clipped)?.let { matched ->
-                                                    colorHex = matched
-                                                }
-                                            }
-                                        },
-                                        label = { Text("Service name") },
-                                        placeholder = { Text("e.g. Netflix") },
-                                        isError = attemptedAdvance && name.trim().isEmpty(),
-                                        modifier = Modifier.weight(1.25f),
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = dialogTextFieldColors(),
-                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) })
-                                    )
-
                                     OutlinedTextField(
                                         value = costStr,
                                         onValueChange = { costStr = it.take(12) },
@@ -644,7 +705,7 @@ fun AddEditSubscriptionDialog(
                                         prefix = { Text(MoneyFormatter.symbol(currencyCode)) },
                                         placeholder = { Text("Optional") },
                                         isError = hasInvalidCostFormat,
-                                        modifier = Modifier.weight(0.95f),
+                                        modifier = Modifier.weight(1f),
                                         singleLine = true,
                                         shape = RoundedCornerShape(16.dp),
                                         colors = dialogTextFieldColors(),
@@ -654,18 +715,67 @@ fun AddEditSubscriptionDialog(
                                         ),
                                         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
                                     )
+
+                                    // Compact Neutral Inline Mo / Yr Pill Toggle
+                                    Surface(
+                                        modifier = Modifier
+                                            .padding(top = 6.dp)
+                                            .height(54.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainer,
+                                        border = expressiveCardBorder()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            BillingPeriod.entries.forEach { period ->
+                                                val isSelected = billingPeriod == period
+                                                Surface(
+                                                    onClick = {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        billingPeriod = period
+                                                        if (period == BillingPeriod.YEARLY) {
+                                                            strategy = RotationStrategy.CONTINUOUS
+                                                        }
+                                                    },
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    color = if (isSelected) neutralSelectedBg else Color.Transparent,
+                                                    border = if (isSelected) neutralSelectedBorder else null,
+                                                    modifier = Modifier.fillMaxHeight()
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier.padding(horizontal = 14.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = if (period == BillingPeriod.MONTHLY) "Mo" else "Yr",
+                                                            fontSize = 12.5.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isSelected) {
+                                                                MaterialTheme.colorScheme.onSurface
+                                                            } else {
+                                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
                                 if (hasInvalidCostFormat) {
                                     Text(
-                                        text = "Check price format — enter a positive number.",
+                                        text = "Enter a positive number.",
                                         fontSize = 11.5.sp,
                                         color = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.padding(start = 2.dp)
                                     )
                                 } else if (hasLegacyCurrencyMismatch) {
                                     Text(
-                                        text = "App currency is $currencyCode — confirm the price in $currencyCode.",
+                                        text = "Confirm price in $currencyCode.",
                                         fontSize = 11.5.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(start = 2.dp)
@@ -673,11 +783,11 @@ fun AddEditSubscriptionDialog(
                                 }
                             }
 
-                            // 1-Tap Localized Plan Tiers
+                            // Calm Neutral Localized Plan Tiers (no clashing secondary blue!)
                             if (matchingTiers.isNotEmpty()) {
                                 Column {
                                     ExpressiveEyebrow(
-                                        text = "ESTIMATED $currencyCode PLANS",
+                                        text = "$currencyCode PLANS",
                                         modifier = Modifier.padding(horizontal = 20.dp)
                                     )
                                     Spacer(modifier = Modifier.height(7.dp))
@@ -699,16 +809,13 @@ fun AddEditSubscriptionDialog(
                                                     }
                                                 },
                                                 shape = RoundedCornerShape(999.dp),
-                                                color = if (isTierActive) {
-                                                    MaterialTheme.colorScheme.secondaryContainer
-                                                } else {
-                                                    MaterialTheme.colorScheme.surfaceContainerHigh
-                                                }
+                                                color = if (isTierActive) neutralSelectedBg else neutralUnselectedBg,
+                                                border = if (isTierActive) neutralSelectedBorder else null
                                             ) {
                                                 Text(
                                                     text = "${tier.label} · ${MoneyFormatter.format(tier.price, currencyCode, maximumFractionDigits = if (zeroDecimal) 0 else 2)}${tier.billingPeriod.shortSuffix}",
                                                     color = if (isTierActive) {
-                                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                                        MaterialTheme.colorScheme.onSurface
                                                     } else {
                                                         MaterialTheme.colorScheme.onSurfaceVariant
                                                     },
@@ -722,34 +829,13 @@ fun AddEditSubscriptionDialog(
                                 }
                             }
 
-                            // Connected Material 3 Expressive Billing Period Segmented Group
-                            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                                ExpressiveEyebrow(text = "BILLING PERIOD")
-                                Spacer(modifier = Modifier.height(8.dp))
-                                val periodOptions = remember {
-                                    BillingPeriod.entries.map { ExpressiveSegmentOption(it, it.displayName) }
-                                }
-                                ExpressiveSegmentedGroup(
-                                    options = periodOptions,
-                                    selectedValue = billingPeriod,
-                                    onSelect = { period ->
-                                        billingPeriod = period
-                                        if (period == BillingPeriod.YEARLY) {
-                                            strategy = RotationStrategy.CONTINUOUS
-                                        }
-                                    },
-                                    height = 44.dp,
-                                    fontSize = 12.5.sp
-                                )
-                            }
-
-                            // Full-bleed Category Pill Row
+                            // Calm Neutral Category Pill Row
                             Column {
                                 ExpressiveEyebrow(
                                     text = "CATEGORY",
                                     modifier = Modifier.padding(horizontal = 20.dp)
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(7.dp))
                                 LazyRow(
                                     modifier = Modifier.fillMaxWidth(),
                                     contentPadding = PaddingValues(horizontal = 20.dp),
@@ -763,16 +849,13 @@ fun AddEditSubscriptionDialog(
                                                 category = cat
                                             },
                                             shape = RoundedCornerShape(999.dp),
-                                            color = if (isSelected) {
-                                                MaterialTheme.colorScheme.primaryContainer
-                                            } else {
-                                                MaterialTheme.colorScheme.surfaceContainerHigh
-                                            }
+                                            color = if (isSelected) neutralSelectedBg else neutralUnselectedBg,
+                                            border = if (isSelected) neutralSelectedBorder else null
                                         ) {
                                             Text(
                                                 text = cat.displayName,
                                                 color = if (isSelected) {
-                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                    MaterialTheme.colorScheme.onSurface
                                                 } else {
                                                     MaterialTheme.colorScheme.onSurfaceVariant
                                                 },
@@ -785,70 +868,27 @@ fun AddEditSubscriptionDialog(
                                 }
                             }
 
-                            // Curated Soft-Pastel Accent Color Swatch Row
-                            Column {
-                                ExpressiveEyebrow(
-                                    text = "BRAND TINT",
-                                    modifier = Modifier.padding(horizontal = 20.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                val isDark = com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme.current
-                                LazyRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentPadding = PaddingValues(horizontal = 20.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
-                                ) {
-                                    items(PresetLibrary.customColorSwatches, key = { it.second }) { (swatchLabel, swatchHex) ->
-                                        val isSwatchSelected = colorHex.equals(swatchHex, ignoreCase = true)
-                                        val swatchPalette = remember(swatchHex, isDark) {
-                                            com.subtrack.core.ui.theme.BrandColorHarmonizer.harmonizedTonalPaletteFromHex(
-                                                hex = swatchHex,
-                                                isDark = isDark
-                                            )
-                                        }
-                                        Surface(
-                                            onClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                colorHex = swatchHex
-                                                userPickedColor = true
-                                            },
-                                            modifier = Modifier.size(34.dp),
-                                            shape = CircleShape,
-                                            color = swatchPalette.container,
-                                            border = androidx.compose.foundation.BorderStroke(
-                                                width = if (isSwatchSelected) 2.dp else 1.dp,
-                                                color = if (isSwatchSelected) {
-                                                    swatchPalette.content
-                                                } else {
-                                                    swatchPalette.border.copy(alpha = 0.5f)
-                                                }
-                                            )
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                if (isSwatchSelected) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = "$swatchLabel selected",
-                                                        tint = swatchPalette.content,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                } else {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(10.dp)
-                                                            .clip(CircleShape)
-                                                            .background(swatchPalette.accent)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            // Compact Optional Notes Field (eliminates filler Step 3!)
+                            OutlinedTextField(
+                                value = notes,
+                                onValueChange = { notes = it.take(180) },
+                                label = { Text("Notes (optional)") },
+                                placeholder = { Text("Watchlist or account note") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp),
+                                singleLine = false,
+                                minLines = 1,
+                                maxLines = 3,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = dialogTextFieldColors(),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                            )
                         }
 
-                        // STEP 2: BILLING DATE + INTERACTIVE CYCLE STRATEGY
-                        1 -> Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
+                        // STEP 2: BILLING DATE + MINIMAL NEUTRAL CYCLE STRATEGY
+                        else -> Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             Surface(
                                 onClick = { showDatePicker = true },
                                 modifier = Modifier
@@ -870,16 +910,16 @@ fun AddEditSubscriptionDialog(
                                         tint = if (billingDateCleared) {
                                             MaterialTheme.colorScheme.onSurfaceVariant
                                         } else {
-                                            MaterialTheme.colorScheme.primary
+                                            MaterialTheme.colorScheme.onSurface
                                         },
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(19.dp)
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = if (isEditingPaused) "PAUSE ENDS" else "NEXT BILLING DATE",
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 11.sp,
+                                            fontSize = 10.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             letterSpacing = 0.5.sp
                                         )
@@ -911,7 +951,7 @@ fun AddEditSubscriptionDialog(
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                                         ) {
                                             Text(
-                                                text = "Not sure",
+                                                text = "Clear",
                                                 fontSize = 11.5.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -953,111 +993,14 @@ fun AddEditSubscriptionDialog(
                                 }
                             }
                         }
-
-                        // STEP 3: NOTES & LIVE AUTO-SAVED STATUS SUMMARY
-                        else -> Column(
-                            modifier = Modifier.padding(horizontal = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = notes,
-                                onValueChange = { notes = it.take(180) },
-                                label = { Text("Watchlist / Notes (optional)") },
-                                placeholder = { Text("e.g. Severance S3 — shown when break ends") },
-                                modifier = Modifier.fillMaxWidth(),
-                                minLines = 2,
-                                maxLines = 3,
-                                shape = RoundedCornerShape(16.dp),
-                                colors = dialogTextFieldColors(),
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
-                            )
-
-                            val isReady = previewMissingItems.isEmpty()
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(20.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                border = expressiveCardBorder()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(15.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = if (isReady) Icons.Default.CheckCircle else Icons.Default.Pending,
-                                            contentDescription = null,
-                                            tint = if (isReady) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.tertiary
-                                            },
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = if (isReady) "Complete · saved automatically" else "Incomplete · saved automatically",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-
-                                    if (isReady) {
-                                        val priceText = MoneyFormatter.format(parsedCost ?: 0.0, currencyCode) + billingPeriod.shortSuffix
-                                        val cadenceSummary = when {
-                                            billingPeriod == BillingPeriod.YEARLY -> "Yearly"
-                                            strategy == RotationStrategy.CONTINUOUS || customBlackoutDays <= 0 -> "Always on"
-                                            strategy == RotationStrategy.CUSTOM -> "${customActiveDays}d on · ${customBlackoutDays}d off"
-                                            else -> "${strategy.activeDays}d on · ${strategy.blackoutDays}d off"
-                                        }
-                                        Text(
-                                            text = "${name.trim()} · $priceText · $cadenceSummary · Next bill ${suggestedBillingDate.format(dateFormatter)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    } else {
-                                        val missingText = previewMissingItems.joinToString(", ") { it.label }
-                                        Text(
-                                            text = "Missing: $missingText",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            if (SetupMissingItem.PRICE in previewMissingItems) {
-                                                SuggestionChip(
-                                                    onClick = { currentStep = 0 },
-                                                    label = { Text("Add price", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold) },
-                                                    shape = RoundedCornerShape(999.dp)
-                                                )
-                                            }
-                                            if (SetupMissingItem.BILLING_DATE in previewMissingItems || SetupMissingItem.CYCLE in previewMissingItems) {
-                                                SuggestionChip(
-                                                    onClick = { currentStep = 1 },
-                                                    label = {
-                                                        Text(
-                                                            if (SetupMissingItem.BILLING_DATE in previewMissingItems) "Set date" else "Pick cycle",
-                                                            fontSize = 11.5.sp,
-                                                            fontWeight = FontWeight.SemiBold
-                                                        )
-                                                    },
-                                                    shape = RoundedCornerShape(999.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
 
-            // Clean Navigation Footer (No Save buttons — edits auto-save automatically!)
+            // 4. Minimal Footer: Primary accent reserved strictly for the focal CTA
             HorizontalDivider(
                 thickness = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
             )
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1067,9 +1010,9 @@ fun AddEditSubscriptionDialog(
                     if (attemptedAdvance && !canSave) {
                         Text(
                             text = if (name.trim().isEmpty()) {
-                                "Enter a service name to continue."
+                                "Enter a service name."
                             } else {
-                                "Enter a valid price or leave it blank for now."
+                                "Enter a valid price or leave blank."
                             },
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 12.sp,
@@ -1082,12 +1025,107 @@ fun AddEditSubscriptionDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (currentStep > 0) {
+                        if (currentStep == 0 && !isEditing) {
+                            Button(
+                                onClick = {
+                                    attemptedAdvance = true
+                                    if (!canSave) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        return@Button
+                                    }
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    focusManager.clearFocus()
+                                    currentStep = 1
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(999.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (canSave) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainerHigh
+                                    },
+                                    contentColor = if (canSave) {
+                                        MaterialTheme.colorScheme.onPrimary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            ) {
+                                Text(
+                                    text = "Next: Cycle",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.5.sp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else if (currentStep == 0 && isEditing) {
+                            FilledTonalButton(
+                                onClick = {
+                                    attemptedAdvance = true
+                                    if (!canSave) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        return@FilledTonalButton
+                                    }
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    focusManager.clearFocus()
+                                    currentStep = 1
+                                },
+                                modifier = Modifier
+                                    .weight(0.42f)
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(999.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Text("Cycle", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    attemptedAdvance = true
+                                    if (!canSave) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        return@Button
+                                    }
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    closeAndFlush()
+                                },
+                                modifier = Modifier
+                                    .weight(0.58f)
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(999.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Text(
+                                    text = "Done",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.5.sp
+                                )
+                            }
+                        } else {
                             FilledTonalButton(
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     focusManager.clearFocus()
-                                    currentStep = (currentStep - 1).coerceAtLeast(0)
+                                    currentStep = 0
                                 },
                                 modifier = Modifier
                                     .weight(0.38f)
@@ -1106,54 +1144,6 @@ fun AddEditSubscriptionDialog(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Back", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             }
-                        }
-
-                        if (currentStep < SubscriptionFormStep.entries.lastIndex) {
-                            Button(
-                                onClick = {
-                                    attemptedAdvance = true
-                                    if (!canSave) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        return@Button
-                                    }
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    focusManager.clearFocus()
-                                    currentStep += 1
-                                },
-                                modifier = Modifier
-                                    .weight(if (currentStep > 0) 0.62f else 1f)
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(999.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (canSave) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHigh
-                                    },
-                                    contentColor = if (canSave) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                            ) {
-                                val nextLabel = when (currentStep) {
-                                    0 -> if (billingPeriod == BillingPeriod.YEARLY) "Next: Billing date" else "Next: Cycle"
-                                    else -> "Next: Notes"
-                                }
-                                Text(
-                                    text = nextLabel,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 14.5.sp
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        } else {
                             Button(
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -1209,7 +1199,7 @@ fun AddEditSubscriptionDialog(
                             showDatePicker = false
                         }
                     ) {
-                        Text("Not sure")
+                        Text("Clear")
                     }
                     TextButton(onClick = { showDatePicker = false }) {
                         Text("Cancel")
