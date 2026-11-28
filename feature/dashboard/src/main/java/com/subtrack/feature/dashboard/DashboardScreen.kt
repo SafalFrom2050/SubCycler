@@ -1695,17 +1695,15 @@ private fun DashboardEmptyState(
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = if (isFilteredEmpty) {
-                    "Swipe to another tab or jump back to All."
-                } else {
-                    "Tap a popular service to start tracking in $currencyCode, or add your own."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
+            if (!isFilteredEmpty) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Pick a service or add your own.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -1714,7 +1712,7 @@ private fun DashboardEmptyState(
                     onClick = onClearFilter,
                     shape = RoundedCornerShape(999.dp)
                 ) {
-                    Text("Show all subscriptions", fontWeight = FontWeight.Bold)
+                    Text("Show all", fontWeight = FontWeight.Bold)
                 }
             } else {
                 Row(

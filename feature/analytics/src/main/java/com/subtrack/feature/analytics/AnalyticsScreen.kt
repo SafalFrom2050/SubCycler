@@ -242,7 +242,7 @@ fun AnalyticsScreen(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Tap '+' below to add your subscriptions. Rotating streaming & AI tools on 45-day cycles cuts annual costs by ~32%.",
+                                text = "Add subscriptions to project 45-day rotation savings.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -615,9 +615,9 @@ fun AnalyticsScreen(
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = if (allRotating) {
-                                                "Push savings up to ~49% by alternating two services every 30 days."
+                                                "Alternate two services every 30d to save up to 49%."
                                             } else {
-                                                "Add a monthly subscription to simulate 45-day rotation savings."
+                                                "Add a monthly plan to simulate 45-day cycles."
                                             },
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -656,14 +656,8 @@ fun AnalyticsScreen(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "See your total annual savings if you also rotate your continuous monthly plans on 45-day cycles.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -777,6 +771,7 @@ fun AnalyticsScreen(
                                         ) {
                                             ExpressiveServiceBadge(
                                                 serviceName = sub.name,
+                                                colorHex = sub.colorHex,
                                                 size = 40.dp,
                                                 fontSize = 13.sp
                                             )

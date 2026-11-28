@@ -677,7 +677,7 @@ fun AddEditSubscriptionDialog(
                             if (matchingTiers.isNotEmpty()) {
                                 Column {
                                     ExpressiveEyebrow(
-                                        text = "ESTIMATED $currencyCode PLANS · TAP TO FILL",
+                                        text = "ESTIMATED $currencyCode PLANS",
                                         modifier = Modifier.padding(horizontal = 20.dp)
                                     )
                                     Spacer(modifier = Modifier.height(7.dp))
@@ -885,7 +885,7 @@ fun AddEditSubscriptionDialog(
                                         )
                                         Text(
                                             text = if (billingDateCleared) {
-                                                "Not set · tap to pick"
+                                                "Not set"
                                             } else {
                                                 suggestedBillingDate.format(dateFormatter)
                                             },
@@ -945,7 +945,7 @@ fun AddEditSubscriptionDialog(
                                     border = expressiveCardBorder()
                                 ) {
                                     Text(
-                                        text = "Yearly plans renew annually on a continuous 365-day cycle and are normalized to monthly spend in your overview.",
+                                        text = "Annual 365-day renewal.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(14.dp)
@@ -1020,7 +1020,7 @@ fun AddEditSubscriptionDialog(
                                     } else {
                                         val missingText = previewMissingItems.joinToString(", ") { it.label }
                                         Text(
-                                            text = "Missing: $missingText. You can close now and finish these details anytime.",
+                                            text = "Missing: $missingText",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
