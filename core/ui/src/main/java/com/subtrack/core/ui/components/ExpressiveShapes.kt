@@ -763,7 +763,11 @@ fun <T> ExpressiveSegmentedGroup(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     height: Dp = 42.dp,
-    fontSize: TextUnit = 12.5.sp
+    fontSize: TextUnit = 12.5.sp,
+    selectedContainerColor: Color = MaterialTheme.colorScheme.primary,
+    selectedContentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    unselectedContainerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    selectedBorder: BorderStroke? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val isDark = LocalSubCyclerDarkTheme.current
@@ -814,16 +818,16 @@ fun <T> ExpressiveSegmentedGroup(
             )
             val containerColor by animateColorAsState(
                 targetValue = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
+                    selectedContainerColor
                 } else {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
+                    unselectedContainerColor
                 },
                 animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
                 label = "segBg"
             )
             val contentColor by animateColorAsState(
                 targetValue = if (isSelected) {
-                    MaterialTheme.colorScheme.onPrimary
+                    selectedContentColor
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
@@ -838,7 +842,8 @@ fun <T> ExpressiveSegmentedGroup(
                 bottomEnd = endRadius
             )
             val border = when {
-                !isSelected && !isDark -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+                isSelected -> selectedBorder
+                !isDark -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
                 else -> null
             }
 
