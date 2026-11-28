@@ -164,4 +164,27 @@ class AppViewModelTest {
         assertTrue(state.useStackHeroMood)
         assertEquals(listOf("Netflix"), state.activeSubscriptions.map { it.name })
     }
+
+    @Test
+    fun setLauncherIconPersistsSyncedIconToPreferences() = runTest(dispatcher) {
+        val preferences = FakeUserPreferencesRepository(
+            initialPreferences = UserPreferences(
+                isOnboardingCompleted = true,
+                useStackHeroMood = true
+            )
+        )
+        val viewModel = AppViewModel(
+            subscriptionRepository = FakeSubscriptionRepository(),
+            userPreferencesRepository = preferences,
+            appLaunchConfig = AppLaunchConfig(forceOnboardingOnEveryLaunch = false)
+        )
+
+        viewModel.setLauncherIcon(com.subtrack.core.domain.model.AppLauncherIcon.CINEMA)
+        advanceUntilIdle()
+
+        assertEquals(
+            com.subtrack.core.domain.model.AppLauncherIcon.CINEMA,
+            preferences.userPreferences.first().launcherIcon
+        )
+    }
 }

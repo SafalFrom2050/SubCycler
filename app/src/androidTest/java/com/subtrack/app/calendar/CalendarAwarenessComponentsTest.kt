@@ -60,7 +60,7 @@ class CalendarAwarenessComponentsTest {
 
         compose.onNodeWithText("Notifications & Calendar").performClick()
         compose.onNodeWithText("Calendar-aware suggestions").assertIsDisplayed()
-        compose.onNodeWithText("Use selected device calendars", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Local device calendar suggestions", substring = true).assertIsDisplayed()
         compose.onAllNodes(isToggleable())[0].assertIsOff().performClick()
         compose.runOnIdle { assertTrue(requested) }
     }

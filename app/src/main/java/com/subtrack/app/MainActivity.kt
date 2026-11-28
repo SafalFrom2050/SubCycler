@@ -78,6 +78,23 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.DARK -> true
             }
 
+            // When "Adapt to subscriptions" is enabled, automatically keep the home-screen
+            // launcher icon synced to the closest curated icon for the dominant active service.
+            LaunchedEffect(
+                dockMood.isLoaded,
+                dockMood.useStackHeroMood,
+                dockMood.activeSubscriptions,
+                launcherIcon
+            ) {
+                if (dockMood.isLoaded && dockMood.useStackHeroMood) {
+                    val targetIcon = BrandColorHarmonizer.recommendedLauncherIcon(dockMood.activeSubscriptions)
+                    if (targetIcon != launcherIcon) {
+                        appViewModel.setLauncherIcon(targetIcon)
+                    }
+                    pendingLauncherIcon = targetIcon
+                }
+            }
+
             // Defer home-screen widget broadcasts until after the launch splash and Home's
             // initial entrance choreography settle so widget IPC/Canvas work never stutters launch.
             LaunchedEffect(
@@ -215,8 +232,10 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         pendingLauncherIcon?.let { icon ->
             pendingLauncherIcon = null
-            LauncherIconController.applyLauncherIcon(this, icon)
-            SubCyclerWidgets.schedulePostAliasRefresh(applicationContext)
+            val changed = LauncherIconController.applyLauncherIcon(this, icon)
+            if (changed) {
+                SubCyclerWidgets.schedulePostAliasRefresh(applicationContext)
+            }
         }
     }
 
