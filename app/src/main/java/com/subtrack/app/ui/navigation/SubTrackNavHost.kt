@@ -91,6 +91,7 @@ fun SubTrackApp(
     val launchState by appViewModel.launchState.collectAsStateWithLifecycle()
     val dockMood by appViewModel.dockMood.collectAsStateWithLifecycle()
     var isDashboardHydrated by remember { mutableStateOf(false) }
+    var splashRevealStarted by remember { mutableStateOf(false) }
     var splashDismissed by remember { mutableStateOf(false) }
 
     LaunchedEffect(launchState, pendingTransferPayload) {
@@ -134,6 +135,7 @@ fun SubTrackApp(
                 onPreviewNotifications = onPreviewNotifications,
                 dockMood = dockMood,
                 isSplashDismissed = splashDismissed,
+                isEntranceReady = splashRevealStarted,
                 onDashboardFirstDataReady = { isDashboardHydrated = true }
             )
         }
@@ -142,7 +144,11 @@ fun SubTrackApp(
             SubCyclerExpressiveSplashOverlay(
                 dockMood = dockMood,
                 isContentReady = isUnderlyingContentReady,
-                onSplashFinished = { splashDismissed = true }
+                onSplashExitStart = { splashRevealStarted = true },
+                onSplashFinished = {
+                    splashRevealStarted = true
+                    splashDismissed = true
+                }
             )
         }
     }
@@ -161,12 +167,24 @@ fun SubTrackApp(
 private fun SubCyclerExpressiveSplashOverlay(
     dockMood: DockMoodState,
     isContentReady: Boolean,
+    onSplashExitStart: () -> Unit = {},
     onSplashFinished: () -> Unit
 ) {
+    // Hold the plain canvas until DataStore hydrates dockMood so stageColor and swirl petals
+    // initialize directly to the user's selected theme/icon with zero default-green color flash.
+    if (!dockMood.isLoaded) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        )
+        return
+    }
+
     val reducedMotion = rememberReducedMotionEnabled()
     val isDark = LocalSubCyclerDarkTheme.current
     val currentReady by rememberUpdatedState(isContentReady)
-    val currentDockLoaded by rememberUpdatedState(dockMood.isLoaded)
+    val currentOnExitStart by rememberUpdatedState(onSplashExitStart)
     val currentOnFinished by rememberUpdatedState(onSplashFinished)
 
     val rotation = remember { Animatable(0f) }
@@ -214,14 +232,12 @@ private fun SubCyclerExpressiveSplashOverlay(
     val cornerPebbleShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Pebble) }
 
     LaunchedEffect(reducedMotion) {
-        while (!currentDockLoaded) {
-            delay(16L)
-        }
         if (reducedMotion) {
             while (!currentReady) {
                 delay(24L)
             }
             morphedToStackMood = true
+            currentOnExitStart()
             currentOnFinished()
             return@LaunchedEffect
         }
@@ -285,7 +301,8 @@ private fun SubCyclerExpressiveSplashOverlay(
         revealWordmark.join()
         delay(200L)
 
-        // Phase 3: Crisp lift & dissolve straight into hydrated Home
+        // Phase 3: Crisp lift & dissolve straight into hydrated Home — fire entrance handoff now
+        currentOnExitStart()
         val liftJob = launch {
             overlayScale.animateTo(
                 targetValue = 1.045f,
@@ -469,6 +486,7 @@ private fun SubTrackMainNavigation(
     onPreviewNotifications: () -> Unit = {},
     dockMood: DockMoodState = DockMoodState(),
     isSplashDismissed: Boolean = true,
+    isEntranceReady: Boolean = true,
     onDashboardFirstDataReady: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
@@ -479,6 +497,36 @@ private fun SubTrackMainNavigation(
     val transitionProgress = remember { Animatable(1f) }
     var isPlannerMounted by remember { mutableStateOf(false) }
     var isAnalyticsMounted by remember { mutableStateOf(false) }
+    var hasVisitedSavings by rememberSaveable { mutableStateOf(false) }
+
+    // One-shot launch choreography for the floating dock and detached '+' Cookie12 FAB
+    val skipChromeEntrance = isEntranceReady || reducedMotion
+    val dockReveal = remember { Animatable(if (skipChromeEntrance) 1f else 0f) }
+    val fabReveal = remember { Animatable(if (skipChromeEntrance) 1f else 0f) }
+
+    LaunchedEffect(isEntranceReady, reducedMotion) {
+        if (!isEntranceReady) return@LaunchedEffect
+        if (reducedMotion) {
+            dockReveal.snapTo(1f)
+            fabReveal.snapTo(1f)
+            return@LaunchedEffect
+        }
+        if (dockReveal.value >= 0.99f && fabReveal.value >= 0.99f) return@LaunchedEffect
+        launch {
+            delay(45L)
+            dockReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+        }
+        launch {
+            delay(90L)
+            fabReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialFastFloat())
+        }
+    }
+
+    LaunchedEffect(selectedTabIndex) {
+        if (selectedTabIndex == 2) {
+            hasVisitedSavings = true
+        }
+    }
 
     val isOnDashboard = selectedTabIndex == 0
     var pendingAddSubscription by remember { mutableStateOf(false) }
@@ -608,6 +656,7 @@ private fun SubTrackMainNavigation(
                         onNavigateToSavings = { selectTabIndex(2) },
                         onApplyLauncherIcon = onApplyLauncherIcon,
                         onPreviewNotifications = onPreviewNotifications,
+                        isEntranceReady = isEntranceReady,
                         onFirstDataReady = onDashboardFirstDataReady
                     )
                 }
@@ -642,6 +691,7 @@ private fun SubTrackMainNavigation(
                         transitionProgressProvider = { transitionProgress.value }
                     ) {
                         AnalyticsRoute(
+                            isEntranceReady = hasVisitedSavings,
                             onOpenPairedSwap = {
                                 pendingOpenPairedSwap = true
                                 selectTabIndex(1)
@@ -691,7 +741,13 @@ private fun SubTrackMainNavigation(
                         isDark = isDark,
                         reducedMotion = reducedMotion,
                         onSelectTab = { index -> selectTabIndex(index) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .graphicsLayer {
+                                val d = dockReveal.value
+                                alpha = ExpressiveMotion.clampEffectProgress(d * 1.5f)
+                                translationY = (1f - d) * 26.dp.toPx()
+                            }
                     )
 
                     // Detached 12-Petal Scalloped '+' Action Button with anticipatory press-preview morph (Cookie12 -> Sunny!)
@@ -765,9 +821,12 @@ private fun SubTrackMainNavigation(
                                 )
                             }
                             .graphicsLayer {
-                                scaleX = fabScale
-                                scaleY = fabScale
-                                rotationZ = fabCookieRotation
+                                val f = fabReveal.value
+                                val revealScale = 0.72f + 0.28f * f
+                                alpha = ExpressiveMotion.clampEffectProgress(f * 1.45f)
+                                scaleX = fabScale * revealScale
+                                scaleY = fabScale * revealScale
+                                rotationZ = fabCookieRotation - (1f - ExpressiveMotion.clampEffectProgress(f)) * 20f
                             }
                             .expressivePolygonSurface(
                                 shape = fabShape,

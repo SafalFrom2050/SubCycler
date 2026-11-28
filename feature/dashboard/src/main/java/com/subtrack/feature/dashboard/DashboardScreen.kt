@@ -78,6 +78,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -187,6 +188,7 @@ fun DashboardRoute(
     onNavigateToSavings: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    isEntranceReady: Boolean = true,
     onFirstDataReady: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -431,6 +433,7 @@ fun DashboardRoute(
         onAddSubscriptionConsumed = onAddSubscriptionConsumed,
         onApplyLauncherIcon = onApplyLauncherIcon,
         onPreviewNotifications = onPreviewNotifications,
+        isEntranceReady = isEntranceReady,
         modifier = modifier
     )
 }
@@ -464,6 +467,7 @@ fun DashboardScreen(
     onAddSubscriptionConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
     onPreviewNotifications: () -> Unit = {},
+    isEntranceReady: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -760,6 +764,7 @@ fun DashboardScreen(
                         incompleteCount = uiState.incompleteCount,
                         scrollProgress = heroCollapseProgress,
                         heroMood = heroMood,
+                        isEntranceReady = isEntranceReady,
                         onSavingsClick = onNavigateToSavings,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
@@ -839,12 +844,31 @@ fun DashboardScreen(
                 if (showFilterBar) {
                     item(key = "filter_row", contentType = "filters") {
                         val visualSelectedFilter = filters[filterPagerState.currentPage]
+                        val skipChipEntrance = isEntranceReady || reducedMotion
+                        val chipStripReveal = remember {
+                            androidx.compose.animation.core.Animatable(if (skipChipEntrance) 1f else 0f)
+                        }
+                        LaunchedEffect(isEntranceReady, reducedMotion) {
+                            if (!isEntranceReady) return@LaunchedEffect
+                            if (reducedMotion) {
+                                chipStripReveal.snapTo(1f)
+                            } else if (chipStripReveal.value < 0.99f) {
+                                kotlinx.coroutines.delay(50L)
+                                chipStripReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+                            }
+                        }
                         LazyRow(
                             state = filterRowState,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             contentPadding = PaddingValues(horizontal = 16.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    val r = chipStripReveal.value
+                                    alpha = ExpressiveMotion.clampEffectProgress(r * 1.45f)
+                                    translationY = (1f - r) * 10.dp.toPx()
+                                }
                         ) {
                             items(filters, key = { it.name }) { filter ->
                                 val isSelected = filter == visualSelectedFilter
@@ -852,8 +876,8 @@ fun DashboardScreen(
                                 val chipInteraction = remember { MutableInteractionSource() }
                                 val chipPressed by chipInteraction.collectIsPressedAsState()
                                 var chipAnimNonce by remember { mutableIntStateOf(0) }
-                                LaunchedEffect(isSelected) {
-                                    if (isSelected) chipAnimNonce++
+                                LaunchedEffect(isSelected, isEntranceReady) {
+                                    if (isSelected && isEntranceReady) chipAnimNonce++
                                 }
                                 val filterIcon = when (filter) {
                                     SubscriptionFilter.ALL -> if (isSelected) Icons.Rounded.GridView else Icons.Outlined.GridView
@@ -1143,7 +1167,7 @@ fun DashboardScreen(
                                 }
                             } else {
                                 val rows = pageStatuses.chunked(2)
-                                rows.forEach { rowItems ->
+                                rows.forEachIndexed { rowIdx, rowItems ->
                                     key(rowItems.joinToString("-") { it.subscription.id.toString() }) {
                                         val rowIsFullyRemoving = rowItems.all { it.subscription.id in pendingRemovalIds }
                                         ExpressiveRemovalCollapse(
@@ -1164,8 +1188,9 @@ fun DashboardScreen(
                                                     .height(IntrinsicSize.Min),
                                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                                             ) {
-                                                for (cycleStatus in rowItems) {
+                                                rowItems.forEachIndexed { colIdx, cycleStatus ->
                                                     val isCardRemoving = !rowIsFullyRemoving && cycleStatus.subscription.id in pendingRemovalIds
+                                                    val gridIndex = if (pageIndex == 0) rowIdx * 2 + colIdx else -1
                                                     Box(
                                                         modifier = Modifier
                                                             .weight(1f)
@@ -1183,6 +1208,8 @@ fun DashboardScreen(
                                                         ) {
                                                             SubscriptionGridItem(
                                                                 cycleStatus = cycleStatus,
+                                                                isEntranceReady = isEntranceReady,
+                                                                entranceIndex = gridIndex,
                                                                 onClick = {
                                                                     selectedSubscriptionId = cycleStatus.subscription.id
                                                                 },
