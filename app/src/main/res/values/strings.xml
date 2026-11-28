@@ -2,5 +2,8 @@
     <string name="app_name">SubCycler</string>
     <string name="notification_channel_name">SubCycler Alerts</string>
     <string name="notification_channel_description">Notifications for auto-renewal cancellations and re-subscription dates.</string>
-    <string name="widget_description">At-a-glance effective monthly spend and your next subscription rotation date, 100% offline.</string>
+    <string name="widget_living_pulse_label">SubCycler · Living Pulse</string>
+    <string name="widget_description">Responsive 2x2 / 4x2 / 4x3 spend, annual savings seal, and upcoming cycle rhythm synced to your stack mood.</string>
+    <string name="widget_next_up_label">SubCycler · Next Up Cookie</string>
+    <string name="widget_next_up_description">Sculptural 2x2 scalloped countdown cookie tinted in your soonest service&#8217;s pastel.</string>
 </resources>

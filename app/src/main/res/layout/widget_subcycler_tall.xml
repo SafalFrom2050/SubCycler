@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent">
+
+    <ImageView
+        android:id="@+id/widget_art"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/widget_living_pulse_label"
+        android:scaleType="fitXY" />
+
+    <!-- Transparent proportional hit zones aligned with Hero header + top 3 clickable service rows -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <View
+            android:id="@+id/widget_hero_hit"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="49"
+            android:background="@android:color/transparent" />
+
+        <View
+            android:id="@+id/widget_row_hit_0"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="17"
+            android:background="@android:color/transparent" />
+
+        <View
+            android:id="@+id/widget_row_hit_1"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="17"
+            android:background="@android:color/transparent" />
+
+        <View
+            android:id="@+id/widget_row_hit_2"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="17"
+            android:background="@android:color/transparent" />
+    </LinearLayout>
+</FrameLayout>

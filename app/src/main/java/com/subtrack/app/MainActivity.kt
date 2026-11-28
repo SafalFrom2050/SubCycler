@@ -32,6 +32,8 @@ import com.subtrack.app.notification.NotificationHelper
 import com.subtrack.app.ui.LauncherIconController
 import com.subtrack.app.ui.navigation.AppViewModel
 import com.subtrack.app.ui.navigation.SubTrackApp
+import com.subtrack.app.widget.SubCyclerWidgets
+import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.ui.components.decodeQrFromBitmap
@@ -63,11 +65,19 @@ class MainActivity : ComponentActivity() {
             val appViewModel: AppViewModel = hiltViewModel()
             val themeMode by appViewModel.themeMode.collectAsStateWithLifecycle()
             val launcherIcon by appViewModel.launcherIcon.collectAsStateWithLifecycle()
+            val dockMood by appViewModel.dockMood.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
             val useDarkTheme = when (themeMode) {
                 AppThemeMode.SYSTEM -> systemDark
                 AppThemeMode.LIGHT -> false
                 AppThemeMode.DARK -> true
+            }
+
+            // Keep all home-screen widgets live-synced whenever theme, icon accent, or stack mood changes
+            LaunchedEffect(themeMode, launcherIcon, dockMood.useStackHeroMood) {
+                if (dockMood.isLoaded) {
+                    SubCyclerWidgets.requestUpdateAll(this@MainActivity)
+                }
             }
 
             LaunchedEffect(useDarkTheme) {
@@ -120,6 +130,25 @@ class MainActivity : ComponentActivity() {
                             // in Settings previews the new accent palette live without Android
                             // tearing down the foreground activity mid-session.
                             pendingLauncherIcon = icon
+                        },
+                        onPreviewNotifications = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                ContextCompat.checkSelfPermission(
+                                    this@MainActivity,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                ) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                checkAndRequestNotificationPermission()
+                            } else {
+                                val sampleSub = dockMood.activeSubscriptions.firstOrNull()
+                                NotificationHelper.showExpressiveNotificationPreview(
+                                    context = this@MainActivity,
+                                    sampleSubscription = sampleSub,
+                                    currencyCode = sampleSub?.currency ?: MoneyFormatter.currencyCodeForLocale(),
+                                    launcherIcon = launcherIcon,
+                                    themeMode = themeMode
+                                )
+                            }
                         },
                         appViewModel = appViewModel
                     )

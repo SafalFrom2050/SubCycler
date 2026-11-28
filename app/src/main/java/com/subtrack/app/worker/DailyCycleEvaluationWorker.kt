@@ -7,7 +7,7 @@ import androidx.work.WorkerParameters
 import com.subtrack.app.notification.AlarmScheduler
 import com.subtrack.app.notification.NotificationHelper
 import com.subtrack.app.notification.ReminderDeduplicator
-import com.subtrack.app.widget.SubCyclerWidgetProvider
+import com.subtrack.app.widget.SubCyclerWidgets
 import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.engine.RotationEngine
 import com.subtrack.core.domain.model.CyclePhase
@@ -64,12 +64,14 @@ class DailyCycleEvaluationWorker @AssistedInject constructor(
                             } else {
                                 "Active window ends in $daysRemaining day${if (daysRemaining == 1) "" else "s"} ($endFormatted)"
                             }
-                            NotificationHelper.showNotification(
+                            NotificationHelper.showCycleReminderNotification(
                                 context = applicationContext,
+                                cycleStatus = cycleStatus,
                                 notificationId = notificationId,
                                 title = "Cancel auto-renew: ${sub.name}",
                                 message = "$whenText. Turn off auto-renew to save ~$annualSaveFormatted/yr.",
-                                subscriptionId = sub.id
+                                launcherIcon = userPrefs.launcherIcon,
+                                themeMode = userPrefs.themeMode
                             )
                             ReminderDeduplicator.markFired(applicationContext, dedupKey)
                         }
@@ -83,12 +85,14 @@ class DailyCycleEvaluationWorker @AssistedInject constructor(
                             } else {
                                 "${sub.name} break ends $timing. Ready for your next ${sub.activeDays}-day binge window."
                             }
-                            NotificationHelper.showNotification(
+                            NotificationHelper.showCycleReminderNotification(
                                 context = applicationContext,
+                                cycleStatus = cycleStatus,
                                 notificationId = notificationId,
                                 title = "Ready to re-subscribe: ${sub.name}",
                                 message = body,
-                                subscriptionId = sub.id
+                                launcherIcon = userPrefs.launcherIcon,
+                                themeMode = userPrefs.themeMode
                             )
                             ReminderDeduplicator.markFired(applicationContext, dedupKey)
                         }
@@ -103,7 +107,7 @@ class DailyCycleEvaluationWorker @AssistedInject constructor(
                 )
             }
 
-            SubCyclerWidgetProvider.requestUpdate(applicationContext)
+            SubCyclerWidgets.requestUpdateAll(applicationContext)
             Result.success()
         } catch (_: Exception) {
             Result.retry()
