@@ -21,8 +21,9 @@ data class SwirlLogoColors(
     val lightPetal: Color,
     val midPetal: Color,
     val deepPetal: Color,
-    val backdrop: Color = Color(0xFF02151B),
-    val centerGlyph: Color = Color(0xFFC8FDE8)
+    val backdrop: Color = Color(0xFF03261A),
+    val centerGlyph: Color = Color(0xFFEEFFF7),
+    val waveAccent: Color = BrandTriadicLime
 )
 
 /**
@@ -76,11 +77,12 @@ object BrandColorHarmonizer {
     )
 
     val DefaultBotanicalSwirl = SwirlLogoColors(
-        lightPetal = Color(0xFFB8FCE1),
-        midPetal = Color(0xFF4FE3A4),
-        deepPetal = Color(0xFF0D8F67),
-        backdrop = Color(0xFF02151B),
-        centerGlyph = Color(0xFFC8FDE8)
+        lightPetal = BrandTriadicLime,
+        midPetal = BrandDarkPrimary,
+        deepPetal = Color(0xFF008A5A),
+        backdrop = Color(0xFF03261A),
+        centerGlyph = Color(0xFFEEFFF7),
+        waveAccent = BrandTriadicLime
     )
 
     fun parseHexRgb(hex: String?): Int? {
@@ -241,13 +243,15 @@ object BrandColorHarmonizer {
                 midPetal = colorFromHex(icon.midPetalHex),
                 deepPetal = colorFromHex(icon.deepPetalHex),
                 backdrop = colorFromHex(icon.backdropHex),
-                centerGlyph = colorFromHex(icon.lightPetalHex)
+                centerGlyph = Color(0xFFF6F9F8),
+                waveAccent = colorFromHex(icon.waveAccentHex)
             )
         }
 
     /**
-     * Resolves the 3 petal colors of SubCycler's dynamic swirl logo from the user's currently active
-     * subscriptions (ordered by monthly spend, deduplicated by distinct hue so petals stay vivid).
+     * Resolves the 3 bold true-hue jewel petals of SubCycler's dynamic swirl logo from the user's
+     * currently active subscriptions (ordered by monthly spend, deduplicated by distinct hue so
+     * petals stay saturated and unmistakably recognizable—zero chalky pastel washout).
      * Falls back to [fallbackIcon]'s curated swirl colorway when [useStackMood] is off or empty.
      */
     fun resolveSwirlPetalColors(
@@ -261,38 +265,46 @@ object BrandColorHarmonizer {
         val distinctHues = selectDistinctActiveBrandRgb(activeSubscriptions, maxCount = 3)
         if (distinctHues.isEmpty()) return fallbackSwirl
 
+        val (leadH, leadS, leadNeutral) = trueHueAndSat(distinctHues[0])
+        val moodBackdrop = if (leadNeutral) {
+            Color(0xFF0F1418)
+        } else {
+            rgbToComposeColor(hslToRgb(leadH, (leadS * 0.56f).coerceIn(0.32f, 0.58f), 0.08f))
+        }
+        val (popWave, _) = triadicPopForHeroHue(leadH, leadNeutral)
+
         return when (distinctHues.size) {
             1 -> {
-                val (h, s, isNeutral) = trueHueAndSat(distinctHues[0])
                 SwirlLogoColors(
-                    lightPetal = petalColor(h, s, isNeutral, targetLightness = 0.82f, satScale = 0.88f),
-                    midPetal = petalColor(h, s, isNeutral, targetLightness = 0.60f, satScale = 0.88f),
-                    deepPetal = petalColor(h, s, isNeutral, targetLightness = 0.40f, satScale = 0.86f),
-                    backdrop = fallbackSwirl.backdrop,
-                    centerGlyph = petalColor(h, s, isNeutral, targetLightness = 0.88f, satScale = 0.72f)
+                    lightPetal = petalColor(leadH, leadS, leadNeutral, targetLightness = 0.68f, satScale = 0.94f),
+                    midPetal = petalColor(leadH, leadS, leadNeutral, targetLightness = 0.52f, satScale = 0.94f),
+                    deepPetal = petalColor(leadH, leadS, leadNeutral, targetLightness = 0.35f, satScale = 0.90f),
+                    backdrop = moodBackdrop,
+                    centerGlyph = Color(0xFFFFFFFF),
+                    waveAccent = popWave
                 )
             }
             2 -> {
-                val (h1, s1, n1) = trueHueAndSat(distinctHues[0])
                 val (h2, s2, n2) = trueHueAndSat(distinctHues[1])
                 SwirlLogoColors(
-                    lightPetal = petalColor(h1, s1, n1, targetLightness = 0.80f, satScale = 0.88f),
-                    midPetal = petalColor(h2, s2, n2, targetLightness = 0.60f, satScale = 0.88f),
+                    lightPetal = petalColor(leadH, leadS, leadNeutral, targetLightness = 0.56f, satScale = 0.94f),
+                    midPetal = petalColor(h2, s2, n2, targetLightness = 0.54f, satScale = 0.92f),
                     deepPetal = fallbackSwirl.deepPetal,
-                    backdrop = fallbackSwirl.backdrop,
-                    centerGlyph = fallbackSwirl.centerGlyph
+                    backdrop = moodBackdrop,
+                    centerGlyph = Color(0xFFFFFFFF),
+                    waveAccent = popWave
                 )
             }
             else -> {
-                val (h1, s1, n1) = trueHueAndSat(distinctHues[0])
                 val (h2, s2, n2) = trueHueAndSat(distinctHues[1])
                 val (h3, s3, n3) = trueHueAndSat(distinctHues[2])
                 SwirlLogoColors(
-                    lightPetal = petalColor(h1, s1, n1, targetLightness = 0.80f, satScale = 0.88f),
-                    midPetal = petalColor(h2, s2, n2, targetLightness = 0.60f, satScale = 0.88f),
-                    deepPetal = petalColor(h3, s3, n3, targetLightness = 0.42f, satScale = 0.86f),
-                    backdrop = fallbackSwirl.backdrop,
-                    centerGlyph = Color(0xFFECFFF6)
+                    lightPetal = petalColor(leadH, leadS, leadNeutral, targetLightness = 0.56f, satScale = 0.94f),
+                    midPetal = petalColor(h2, s2, n2, targetLightness = 0.54f, satScale = 0.92f),
+                    deepPetal = petalColor(h3, s3, n3, targetLightness = 0.48f, satScale = 0.90f),
+                    backdrop = moodBackdrop,
+                    centerGlyph = Color(0xFFFFFFFF),
+                    waveAccent = popWave
                 )
             }
         }

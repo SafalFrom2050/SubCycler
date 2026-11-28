@@ -556,7 +556,7 @@ fun CalendarSettingsSheet(
                                                             color = MaterialTheme.colorScheme.onSurface
                                                         )
                                                         Text(
-                                                            text = "Softly tint the hero card, swirl logo & active dock pill from your active subscriptions.",
+                                                            text = "Match the hero card, swirl logo, dock pill & widgets to your active subscriptions.",
                                                             style = MaterialTheme.typography.bodySmall,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )

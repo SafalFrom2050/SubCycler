@@ -35,13 +35,11 @@ import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 
 /**
- * Dynamic 3-Petal SubCycler Botanical Swirl Logo:
- * Renders the 3 interlocking organic teardrop petals around the deep midnight-pine
- * center disc and calendar-cycle mark. Each petal smoothly cross-fades to reflect
- * the user's top 3 currently active subscriptions' harmonized brand colors, falling
- * back to classic Botanical Emerald when the stack is empty or Stack Mood is off.
+ * Dynamic Bold Color-Block 3-Petal SubCycler Swirl Logo:
+ * Renders 3 interlocking organic teardrop petals with crisp cut-line separation around a deep
+ * center medallion and calendar-cycle mark featuring a contrasting Triadic Pop inner wave.
  *
- * Pure Compose Canvas drawing guarantees crisp vector geometry on Android 8.0–16 (API 26–36)
+ * Pure Compose Canvas drawing guarantees razor-sharp vector geometry on Android 8.0–16 (API 26–36)
  * without `Outline.Generic` clipping issues.
  */
 @Composable
@@ -61,6 +59,7 @@ fun SubCyclerSwirlLogo(
     val deepPetal by animateColorAsState(colors.deepPetal, colorSpec, label = "swirlDeepPetal")
     val backdrop by animateColorAsState(colors.backdrop, colorSpec, label = "swirlBackdrop")
     val centerGlyph by animateColorAsState(colors.centerGlyph, colorSpec, label = "swirlGlyph")
+    val waveAccent by animateColorAsState(colors.waveAccent, colorSpec, label = "swirlWaveAccent")
 
     Box(
         modifier = modifier
@@ -85,7 +84,8 @@ fun SubCyclerSwirlLogo(
                 midPetal = midPetal,
                 deepPetal = deepPetal,
                 backdrop = backdrop,
-                centerGlyph = centerGlyph
+                centerGlyph = centerGlyph,
+                waveAccent = waveAccent
             )
         }
     }
@@ -96,7 +96,8 @@ private fun DrawScope.drawSwirlPetalsAndMark(
     midPetal: Color,
     deepPetal: Color,
     backdrop: Color,
-    centerGlyph: Color
+    centerGlyph: Color,
+    waveAccent: Color
 ) {
     val s = size.minDimension
     val cx = size.width / 2f
@@ -104,7 +105,6 @@ private fun DrawScope.drawSwirlPetalsAndMark(
     val center = Offset(cx, cy)
 
     fun buildPetalPath(): Path = Path().apply {
-        // Organic plump teardrop-swirl petal positioned at top-right (0 deg)
         moveTo(cx - s * 0.14f, cy - s * 0.16f)
         cubicTo(
             cx - s * 0.11f, cy - s * 0.37f,
@@ -130,37 +130,36 @@ private fun DrawScope.drawSwirlPetalsAndMark(
     }
 
     val petalPath = buildPetalPath()
+    val seamStroke = Stroke(width = (s * 0.022f).coerceAtLeast(0.9f), join = StrokeJoin.Round)
 
-    // Draw back-to-front in 120° rotational symmetry matching the master brand silhouette:
-    // 1) Bottom-right deep petal (120°)
+    // Back-to-front 120° rotational symmetry with crisp cut-line separation for Bold Color-Block petals
     rotate(degrees = 120f, pivot = center) {
         drawPath(path = petalPath, color = deepPetal)
     }
-    // 2) Left mid-tone petal (240°)
     rotate(degrees = 240f, pivot = center) {
+        drawPath(path = petalPath, color = backdrop, style = seamStroke)
         drawPath(path = petalPath, color = midPetal)
     }
-    // 3) Top-right luminous petal (0°)
+    drawPath(path = petalPath, color = backdrop, style = seamStroke)
     drawPath(path = petalPath, color = lightPetal)
 
     // Center dark circular medallion
-    val discRadius = s * 0.195f
+    val discRadius = s * 0.20f
     drawCircle(
         color = backdrop,
         radius = discRadius,
         center = center
     )
 
-    // Crisp center calendar-cycle rounded mark (2 top tabs + rounded body + wavy cycle bar)
-    val frameW = s * 0.21f
-    val frameH = s * 0.155f
+    // Crisp center calendar-cycle rounded mark (2 top tabs + rounded body + Triadic wavy cycle bar)
+    val frameW = s * 0.215f
+    val frameH = s * 0.158f
     val frameLeft = cx - frameW / 2f
     val frameTop = cy - frameH / 2f + s * 0.014f
-    val strokeW = (s * 0.036f).coerceAtLeast(1.4f)
+    val strokeW = (s * 0.038f).coerceAtLeast(1.4f)
 
-    // Two rounded top calendar lugs
-    val lugRadius = (s * 0.022f).coerceAtLeast(1.0f)
-    val lugY = frameTop - s * 0.020f
+    val lugRadius = (s * 0.023f).coerceAtLeast(1.0f)
+    val lugY = frameTop - s * 0.021f
     drawCircle(
         color = centerGlyph,
         radius = lugRadius,
@@ -172,7 +171,6 @@ private fun DrawScope.drawSwirlPetalsAndMark(
         center = Offset(cx + frameW * 0.24f, lugY)
     )
 
-    // Rounded hollow calendar body
     drawRoundRect(
         color = centerGlyph,
         topLeft = Offset(frameLeft, frameTop),
@@ -181,10 +179,9 @@ private fun DrawScope.drawSwirlPetalsAndMark(
         style = Stroke(width = strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round)
     )
 
-    // Smooth wave bar inside the calendar mark
     val waveY = frameTop + frameH * 0.52f
-    val waveHalfW = frameW * 0.24f
-    val waveAmp = frameH * 0.11f
+    val waveHalfW = frameW * 0.25f
+    val waveAmp = frameH * 0.12f
     val wavePath = Path().apply {
         moveTo(cx - waveHalfW, waveY + waveAmp * 0.4f)
         cubicTo(
@@ -195,14 +192,14 @@ private fun DrawScope.drawSwirlPetalsAndMark(
     }
     drawPath(
         path = wavePath,
-        color = centerGlyph,
-        style = Stroke(width = strokeW * 0.82f, cap = StrokeCap.Round)
+        color = waveAccent,
+        style = Stroke(width = strokeW * 0.88f, cap = StrokeCap.Round)
     )
 }
 
 /**
  * Android [android.graphics.Canvas] renderer mirroring [SubCyclerSwirlLogo] so exported
- * `1080×1350` QR Stack Card PNGs showcase the user's personalized 3-petal swirl logo.
+ * `1080×1350` QR Stack Card PNGs and home-screen widgets showcase the user's personalized swirl.
  */
 fun drawSubCyclerSwirlLogoOnCanvas(
     canvas: android.graphics.Canvas,
@@ -224,8 +221,15 @@ fun drawSubCyclerSwirlLogoOnCanvas(
     canvas.save()
     canvas.clipPath(clipPath)
 
+    val backdropArgb = toArgb(colors.backdrop)
     val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    fillPaint.color = toArgb(colors.backdrop)
+    val seamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = backdropArgb
+        strokeWidth = (s * 0.022f).coerceAtLeast(1.2f)
+        strokeJoin = Paint.Join.ROUND
+    }
+    fillPaint.color = backdropArgb
     canvas.drawRect(bounds, fillPaint)
 
     val petalPath = android.graphics.Path().apply {
@@ -260,32 +264,35 @@ fun drawSubCyclerSwirlLogoOnCanvas(
     canvas.drawPath(petalPath, fillPaint)
     canvas.restore()
 
-    // 240° mid petal
+    // 240° mid petal + cut-line
     canvas.save()
     canvas.rotate(240f, cx, cy)
+    canvas.drawPath(petalPath, seamPaint)
     fillPaint.color = toArgb(colors.midPetal)
     canvas.drawPath(petalPath, fillPaint)
     canvas.restore()
 
-    // 0° light petal
+    // 0° light petal + cut-line
+    canvas.drawPath(petalPath, seamPaint)
     fillPaint.color = toArgb(colors.lightPetal)
     canvas.drawPath(petalPath, fillPaint)
 
     // Center medallion
-    fillPaint.color = toArgb(colors.backdrop)
-    canvas.drawCircle(cx, cy, s * 0.195f, fillPaint)
+    fillPaint.color = backdropArgb
+    canvas.drawCircle(cx, cy, s * 0.20f, fillPaint)
 
     // Center calendar-cycle mark
     val glyphArgb = toArgb(colors.centerGlyph)
-    val frameW = s * 0.21f
-    val frameH = s * 0.155f
+    val waveArgb = toArgb(colors.waveAccent)
+    val frameW = s * 0.215f
+    val frameH = s * 0.158f
     val frameLeft = cx - frameW / 2f
     val frameTop = cy - frameH / 2f + s * 0.014f
-    val strokeW = (s * 0.036f).coerceAtLeast(1.8f)
+    val strokeW = (s * 0.038f).coerceAtLeast(1.8f)
 
     fillPaint.color = glyphArgb
-    val lugRadius = (s * 0.022f).coerceAtLeast(1.2f)
-    val lugY = frameTop - s * 0.020f
+    val lugRadius = (s * 0.023f).coerceAtLeast(1.2f)
+    val lugY = frameTop - s * 0.021f
     canvas.drawCircle(cx - frameW * 0.24f, lugY, lugRadius, fillPaint)
     canvas.drawCircle(cx + frameW * 0.24f, lugY, lugRadius, fillPaint)
 
@@ -304,8 +311,8 @@ fun drawSubCyclerSwirlLogoOnCanvas(
     )
 
     val waveY = frameTop + frameH * 0.52f
-    val waveHalfW = frameW * 0.24f
-    val waveAmp = frameH * 0.11f
+    val waveHalfW = frameW * 0.25f
+    val waveAmp = frameH * 0.12f
     val wavePath = android.graphics.Path().apply {
         moveTo(cx - waveHalfW, waveY + waveAmp * 0.4f)
         cubicTo(
@@ -314,7 +321,8 @@ fun drawSubCyclerSwirlLogoOnCanvas(
             cx + waveHalfW, waveY - waveAmp * 0.4f
         )
     }
-    strokePaint.strokeWidth = strokeW * 0.82f
+    strokePaint.color = waveArgb
+    strokePaint.strokeWidth = strokeW * 0.88f
     canvas.drawPath(wavePath, strokePaint)
 
     canvas.restore()
