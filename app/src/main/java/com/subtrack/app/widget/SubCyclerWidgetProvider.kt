@@ -173,7 +173,13 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
         val sealOnPrimary = ExpressiveNotificationArt.toArgb(heroMood.onSealColor)
 
         val hasSavings = summary.totalAnnualSavings > 0.5
-        val savingsAmount = MoneyFormatter.format(summary.totalAnnualSavings, currencyCode, maximumFractionDigits = 0)
+        val showSeal = hasSavings || (summary.totalSubscriptions > 0 && summary.totalMonthlyOptimizedCost > 0.5)
+        val sealTopLabel = if (hasSavings) "SAVE" else "YEARLY"
+        val savingsAmount = MoneyFormatter.format(
+            if (hasSavings) summary.totalAnnualSavings else summary.totalMonthlyOptimizedCost * 12.0,
+            currencyCode,
+            maximumFractionDigits = 0
+        )
         val monthlyFormatted = if (summary.totalSubscriptions == 0) {
             "Add stack"
         } else {
@@ -248,7 +254,8 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
 
                 bindSavingsSeal(
                     views = this,
-                    hasSavings = hasSavings,
+                    showSeal = showSeal,
+                    sealTopLabel = sealTopLabel,
                     savingsAmount = savingsAmount,
                     accentPrimary = sealPrimary,
                     accentOnPrimary = sealOnPrimary,
@@ -273,7 +280,8 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                 )
                 bindSavingsSeal(
                     views = this,
-                    hasSavings = hasSavings,
+                    showSeal = showSeal,
+                    sealTopLabel = sealTopLabel,
                     savingsAmount = savingsAmount,
                     accentPrimary = sealPrimary,
                     accentOnPrimary = sealOnPrimary,
@@ -365,7 +373,8 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                 )
                 bindSavingsSeal(
                     views = this,
-                    hasSavings = hasSavings,
+                    showSeal = showSeal,
+                    sealTopLabel = sealTopLabel,
                     savingsAmount = savingsAmount,
                     accentPrimary = sealPrimary,
                     accentOnPrimary = sealOnPrimary,
@@ -503,12 +512,19 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_savings_subtitle, subLine)
         views.setTextColor(R.id.widget_savings_subtitle, inkSecondary)
 
-        if (hasSavings && summary.totalMonthlyStandardCost > summary.totalMonthlyOptimizedCost) {
-            val spendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost).toFloat()
+        val hasSpendWave = summary.totalSubscriptions > 0 && summary.totalMonthlyOptimizedCost > 0.5
+        val hasSavingsSplit = hasSavings && summary.totalMonthlyStandardCost > summary.totalMonthlyOptimizedCost
+        if (hasSpendWave) {
+            val spendFraction = if (hasSavingsSplit) {
+                (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost).toFloat()
+            } else {
+                1f
+            }
             val waveStrip = ExpressiveWidgetArt.renderWavyEfficiencyStripBitmap(
                 spendFraction = spendFraction,
                 waveArgb = (inkPrimary and 0x00FFFFFF) or (0xD6 shl 24),
-                savedArgb = accentPrimary
+                savedArgb = accentPrimary,
+                showSavedPill = hasSavingsSplit
             )
             views.setViewVisibility(R.id.widget_efficiency_wave, View.VISIBLE)
             views.setImageViewBitmap(R.id.widget_efficiency_wave, waveStrip)
@@ -519,18 +535,20 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
 
     private fun bindSavingsSeal(
         views: RemoteViews,
-        hasSavings: Boolean,
+        showSeal: Boolean,
+        sealTopLabel: String,
         savingsAmount: String,
         accentPrimary: Int,
         accentOnPrimary: Int,
         compact: Boolean
     ) {
-        if (!hasSavings) {
+        if (!showSeal) {
             views.setViewVisibility(R.id.widget_seal_box, View.GONE)
             return
         }
         views.setViewVisibility(R.id.widget_seal_box, View.VISIBLE)
         views.setMaskTint(R.id.widget_seal_bg, accentPrimary, 255)
+        views.setTextViewText(R.id.widget_seal_top, sealTopLabel)
         views.setTextColor(R.id.widget_seal_top, (accentOnPrimary and 0x00FFFFFF) or (0xC8 shl 24))
         views.setTextViewText(R.id.widget_seal_amount, savingsAmount)
         views.setTextColor(R.id.widget_seal_amount, accentOnPrimary)

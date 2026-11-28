@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -48,6 +49,7 @@ import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.model.RotationStrategy
 import com.subtrack.core.ui.components.CurrencyScopeNotice
 import com.subtrack.core.ui.components.ExpressiveClover4Shape
+import com.subtrack.core.ui.components.ExpressiveCookie12Shape
 import com.subtrack.core.ui.components.ExpressiveCookie8Shape
 import com.subtrack.core.ui.components.ExpressiveEyebrow
 import com.subtrack.core.ui.components.ExpressiveHeroCardBackdrop
@@ -297,26 +299,28 @@ fun AnalyticsScreen(
                                             heroFontSize = 46.sp,
                                             color = savingsHeroInk
                                         )
-                                        if (hasSavings) {
-                                            Spacer(modifier = Modifier.height(10.dp))
-                                            Surface(
-                                                shape = RoundedCornerShape(999.dp),
-                                                color = savingsHeroPillBg
-                                            ) {
-                                                Text(
-                                                    text = "$savingsPct% cut · $rotatingCount rotating",
-                                                    color = savingsHeroInk,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontSize = 11.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-                                                )
-                                            }
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(999.dp),
+                                            color = savingsHeroPillBg
+                                        ) {
+                                            Text(
+                                                text = if (hasSavings) {
+                                                    "$savingsPct% cut · $rotatingCount rotating"
+                                                } else {
+                                                    "All always-on · ${uiState.summary.totalSubscriptions} tracked"
+                                                },
+                                                color = savingsHeroInk,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                                            )
                                         }
                                     }
 
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     if (hasSavings) {
-                                        Spacer(modifier = Modifier.width(10.dp))
                                         CompoundingGrowthArc(
                                             strokeColor = accentTokens.heroPop,
                                             nodeColor = savingsHeroInk,
@@ -325,6 +329,48 @@ fun AnalyticsScreen(
                                                 .width(96.dp)
                                                 .height(74.dp)
                                         )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(90.dp)
+                                                .expressivePolygonSurface(
+                                                    shape = ExpressiveCookie12Shape,
+                                                    color = accentTokens.heroPop
+                                                )
+                                                .clickable {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    onOpenPairedSwap()
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center,
+                                                modifier = Modifier.padding(horizontal = 8.dp)
+                                            ) {
+                                                Text(
+                                                    text = "ROTATE",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = 1.sp,
+                                                    color = accentTokens.onHeroPop.copy(alpha = 0.78f)
+                                                )
+                                                Text(
+                                                    text = "-32%",
+                                                    fontFamily = DisplayFontFamily,
+                                                    fontSize = 20.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    letterSpacing = (-0.5).sp,
+                                                    color = accentTokens.onHeroPop
+                                                )
+                                                Text(
+                                                    text = "possible",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = accentTokens.onHeroPop.copy(alpha = 0.78f)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

@@ -134,6 +134,7 @@ object ExpressiveWidgetArt {
         spendFraction: Float,
         waveArgb: Int,
         savedArgb: Int,
+        showSavedPill: Boolean = true,
         widthPx: Int = 420,
         heightPx: Int = 36
     ): Bitmap {
@@ -145,9 +146,12 @@ object ExpressiveWidgetArt {
         val halfStroke = strokeW / 2f
         val savedPillH = 12.5f
         val visualGap = 15f
-        val clamped = spendFraction.coerceIn(0.22f, 0.88f)
-        val waveVisualEndX = (widthPx - visualGap) * clamped
         val waveStartX = halfStroke
+        val waveVisualEndX = if (showSavedPill) {
+            (widthPx - visualGap) * spendFraction.coerceIn(0.22f, 0.88f)
+        } else {
+            widthPx - savedPillH - visualGap
+        }
         val waveEndX = (waveVisualEndX - halfStroke).coerceAtLeast(waveStartX + 1f)
 
         val amp = 6.8f
@@ -180,10 +184,14 @@ object ExpressiveWidgetArt {
         }
         canvas.drawPath(wavePath, wavePaint)
 
-        val savedStartX = (waveVisualEndX + visualGap).coerceAtMost(widthPx - savedPillH)
-        val savedRect = RectF(savedStartX, centerY - savedPillH / 2f, widthPx.toFloat(), centerY + savedPillH / 2f)
         val savedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = savedArgb }
-        canvas.drawRoundRect(savedRect, savedPillH / 2f, savedPillH / 2f, savedPaint)
+        if (showSavedPill) {
+            val savedStartX = (waveVisualEndX + visualGap).coerceAtMost(widthPx - savedPillH)
+            val savedRect = RectF(savedStartX, centerY - savedPillH / 2f, widthPx.toFloat(), centerY + savedPillH / 2f)
+            canvas.drawRoundRect(savedRect, savedPillH / 2f, savedPillH / 2f, savedPaint)
+        } else {
+            canvas.drawCircle(widthPx - savedPillH / 2f, centerY, savedPillH * 0.52f, savedPaint)
+        }
 
         return bitmap
     }

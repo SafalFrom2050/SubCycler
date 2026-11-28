@@ -135,9 +135,10 @@ fun FinancialEfficiencyHud(
         wiggleRotation.animateTo(-6f, ExpressiveMotion.expressiveSpatialDefaultFloat())
     }
 
+    val showSeal = hasSavings || summary.totalMonthlyOptimizedCost > 0.5
     val badgeScale by animateFloatAsState(
         targetValue = when {
-            !hasSavings -> 0.85f
+            !showSeal -> 0.85f
             stickerPressed -> 0.89f
             else -> 1f
         },
@@ -219,12 +220,19 @@ fun FinancialEfficiencyHud(
                         heroFontSize = 44.sp,
                         color = heroInkColor
                     )
-                    if (hasSavings && summary.totalMonthlyStandardCost > summary.totalMonthlyOptimizedCost) {
+                    val hasSpendWave = summary.totalMonthlyOptimizedCost > 0.5
+                    val hasSavingsSplit = hasSavings && summary.totalMonthlyStandardCost > summary.totalMonthlyOptimizedCost
+                    if (hasSpendWave) {
                         Spacer(modifier = Modifier.height(3.dp))
-                        val fullMonthly = MoneyFormatter.format(summary.totalMonthlyStandardCost, currencyCode)
-                        val pctOff = summary.overallSavingsPercentage.roundToInt()
+                        val subtitleLine = if (hasSavingsSplit) {
+                            val fullMonthly = MoneyFormatter.format(summary.totalMonthlyStandardCost, currencyCode)
+                            val pctOff = summary.overallSavingsPercentage.roundToInt()
+                            "Down from $fullMonthly/mo · -$pctOff%"
+                        } else {
+                            "All always-on · full rate"
+                        }
                         Text(
-                            text = "Down from $fullMonthly/mo · -$pctOff%",
+                            text = subtitleLine,
                             color = heroInkColor.copy(alpha = 0.78f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -232,9 +240,13 @@ fun FinancialEfficiencyHud(
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(5.dp))
-                        val targetSpendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost)
-                            .toFloat()
-                            .coerceIn(0.22f, 0.88f)
+                        val targetSpendFraction = if (hasSavingsSplit) {
+                            (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost)
+                                .toFloat()
+                                .coerceIn(0.22f, 0.88f)
+                        } else {
+                            1f
+                        }
                         val animatedSpendFraction by animateFloatAsState(
                             targetValue = targetSpendFraction,
                             animationSpec = ExpressiveMotion.standardSpatialDefaultFloat().orSnapIfReduced(reducedMotion),
@@ -242,13 +254,18 @@ fun FinancialEfficiencyHud(
                         )
                         val spendWaveColor = heroInkColor.copy(alpha = 0.90f)
                         val savedBarColor = sealBgColor
+                        val waveDesc = if (hasSavingsSplit) {
+                            "Effective monthly spend reduced by ${summary.overallSavingsPercentage.roundToInt()} percent"
+                        } else {
+                            "Full monthly spend run-rate with no active rotation breaks"
+                        }
                         Canvas(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .widthIn(max = 172.dp)
                                 .height(16.dp)
                                 .semantics {
-                                    contentDescription = "Effective monthly spend reduced by $pctOff percent"
+                                    contentDescription = waveDesc
                                 }
                         ) {
                             val strokeW = 4.6.dp.toPx()
@@ -259,9 +276,13 @@ fun FinancialEfficiencyHud(
                             val wavelength = 21.dp.toPx()
                             val centerY = size.height / 2f
 
-                            val waveVisualEndX = (size.width - visualGap) * animatedSpendFraction
                             val waveStartX = halfStroke
-                            val targetWaveEndX = (waveVisualEndX - halfStroke).coerceAtLeast(waveStartX + 1f)
+                            val targetWaveEndX = if (hasSavingsSplit) {
+                                val waveVisualEndX = (size.width - visualGap) * animatedSpendFraction
+                                (waveVisualEndX - halfStroke).coerceAtLeast(waveStartX + 1f)
+                            } else {
+                                (size.width - savedPillH - visualGap).coerceAtLeast(waveStartX + 1f)
+                            }
                             val revealRaw = waveReveal.value
                             val waveProgress = ExpressiveMotion.clampEffectProgress(revealRaw * 1.12f)
                             val waveEndX = (waveStartX + (targetWaveEndX - waveStartX) * waveProgress)
@@ -301,19 +322,29 @@ fun FinancialEfficiencyHud(
                                 )
                             }
 
-                            // 2. Matching chunky Triadic-accent Saved pill springs in after the Spend wave lands
+                            // 2. Triadic-accent Saved pill (when rotating) or crisp Triadic cap dot (when always-on)
                             val savedReveal = ((revealRaw - 0.42f) / 0.58f).coerceIn(0f, 1.06f)
                             if (savedReveal > 0.02f) {
-                                val savedStartX = (waveVisualEndX + visualGap).coerceAtMost(size.width - savedPillH)
-                                val targetSavedW = (size.width - savedStartX).coerceAtLeast(savedPillH)
-                                val animatedSavedW = (targetSavedW * savedReveal).coerceIn(savedPillH * 0.6f, size.width - savedStartX)
-                                val savedRadius = CornerRadius(savedPillH / 2f, savedPillH / 2f)
-                                drawRoundRect(
-                                    color = savedBarColor.copy(alpha = ExpressiveMotion.clampEffectProgress(savedReveal * 1.5f)),
-                                    topLeft = Offset(savedStartX, centerY - savedPillH / 2f),
-                                    size = Size(animatedSavedW, savedPillH),
-                                    cornerRadius = savedRadius
-                                )
+                                if (hasSavingsSplit) {
+                                    val waveVisualEndX = (size.width - visualGap) * animatedSpendFraction
+                                    val savedStartX = (waveVisualEndX + visualGap).coerceAtMost(size.width - savedPillH)
+                                    val targetSavedW = (size.width - savedStartX).coerceAtLeast(savedPillH)
+                                    val animatedSavedW = (targetSavedW * savedReveal).coerceIn(savedPillH * 0.6f, size.width - savedStartX)
+                                    val savedRadius = CornerRadius(savedPillH / 2f, savedPillH / 2f)
+                                    drawRoundRect(
+                                        color = savedBarColor.copy(alpha = ExpressiveMotion.clampEffectProgress(savedReveal * 1.5f)),
+                                        topLeft = Offset(savedStartX, centerY - savedPillH / 2f),
+                                        size = Size(animatedSavedW, savedPillH),
+                                        cornerRadius = savedRadius
+                                    )
+                                } else {
+                                    val dotRadius = (savedPillH * 0.52f) * ExpressiveMotion.clampEffectProgress(savedReveal)
+                                    drawCircle(
+                                        color = savedBarColor.copy(alpha = ExpressiveMotion.clampEffectProgress(savedReveal * 1.5f)),
+                                        radius = dotRadius,
+                                        center = Offset(size.width - savedPillH / 2f, centerY)
+                                    )
+                                }
                             }
                         }
                     }
@@ -388,13 +419,19 @@ fun FinancialEfficiencyHud(
                     }
                 }
 
-                if (hasSavings) {
+                if (showSeal) {
                     Spacer(modifier = Modifier.width(12.dp))
+                    val sealAmountValue = if (hasSavings) {
+                        summary.totalAnnualSavings
+                    } else {
+                        summary.totalMonthlyOptimizedCost * 12.0
+                    }
                     val formattedAmountOnly = MoneyFormatter.format(
-                        summary.totalAnnualSavings,
+                        sealAmountValue,
                         currencyCode,
                         maximumFractionDigits = 0
                     )
+                    val sealEyebrow = if (hasSavings) "SAVE" else "YEARLY"
                     val stampShape = rememberMorphingPolygonShape(
                         targetPolygon = if (stickerPressed) {
                             ExpressiveMaterialPolygons.Sunny
@@ -409,6 +446,11 @@ fun FinancialEfficiencyHud(
                         else -> 19.5.sp
                     }
                     val sealRingColor = sealInkColor.copy(alpha = 0.28f)
+                    val sealContentDesc = if (hasSavings) {
+                        "Estimated annual savings $formattedAmountOnly per year. Open Savings."
+                    } else {
+                        "Estimated annual spend $formattedAmountOnly per year. Open Savings to explore rotation."
+                    }
 
                     Box(
                         modifier = Modifier
@@ -438,7 +480,7 @@ fun FinancialEfficiencyHud(
                                 )
                             }
                             .semantics {
-                                contentDescription = "Estimated annual savings $formattedAmountOnly per year. Open Savings."
+                                contentDescription = sealContentDesc
                             }
                             .clickable(
                                 interactionSource = stickerInteraction,
@@ -457,7 +499,7 @@ fun FinancialEfficiencyHud(
                             modifier = Modifier.padding(horizontal = 10.dp)
                         ) {
                             Text(
-                                text = "SAVE",
+                                text = sealEyebrow,
                                 fontFamily = BodyFontFamily,
                                 color = sealInkColor.copy(alpha = 0.78f),
                                 fontWeight = FontWeight.ExtraBold,
