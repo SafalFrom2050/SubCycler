@@ -89,6 +89,7 @@ fun SubTrackApp(
     pendingTransferPayload: String? = null,
     onTransferPayloadConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
+    onPreviewNotifications: () -> Unit = {},
     appViewModel: AppViewModel = hiltViewModel()
 ) {
     val launchState by appViewModel.launchState.collectAsStateWithLifecycle()
@@ -134,6 +135,7 @@ fun SubTrackApp(
                 pendingTransferPayload = pendingTransferPayload,
                 onTransferPayloadConsumed = onTransferPayloadConsumed,
                 onApplyLauncherIcon = onApplyLauncherIcon,
+                onPreviewNotifications = onPreviewNotifications,
                 dockMood = dockMood,
                 onDashboardFirstDataReady = { isDashboardHydrated = true }
             )
@@ -343,6 +345,7 @@ private fun SubTrackMainNavigation(
     pendingTransferPayload: String? = null,
     onTransferPayloadConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
+    onPreviewNotifications: () -> Unit = {},
     dockMood: DockMoodState = DockMoodState(),
     onDashboardFirstDataReady: () -> Unit = {}
 ) {
@@ -474,6 +477,7 @@ private fun SubTrackMainNavigation(
                         onAddSubscriptionConsumed = { pendingAddSubscription = false },
                         onNavigateToSavings = { navigateToTab(AnalyticsDestination) },
                         onApplyLauncherIcon = onApplyLauncherIcon,
+                        onPreviewNotifications = onPreviewNotifications,
                         onFirstDataReady = onDashboardFirstDataReady
                     )
                 }

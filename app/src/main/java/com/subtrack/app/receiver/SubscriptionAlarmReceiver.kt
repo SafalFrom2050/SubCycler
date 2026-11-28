@@ -5,6 +5,20 @@ import android.content.Context
 import android.content.Intent
 import com.subtrack.app.notification.NotificationHelper
 import com.subtrack.app.notification.ReminderDeduplicator
+import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.data.local.AppDatabase
+import com.subtrack.core.data.local.mapper.toDomain
+import com.subtrack.core.data.preferences.UserPreferencesRepositoryImpl
+import com.subtrack.core.data.preferences.userDataStore
+import com.subtrack.core.domain.engine.RotationEngine
+import com.subtrack.core.domain.model.AppLauncherIcon
+import com.subtrack.core.domain.model.AppThemeMode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class SubscriptionAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -18,15 +32,55 @@ class SubscriptionAlarmReceiver : BroadcastReceiver() {
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 1001)
         val subscriptionId = intent.getLongExtra(EXTRA_SUBSCRIPTION_ID, -1L).takeIf { it > 0L }
 
-        NotificationHelper.showNotification(
-            context = context,
-            notificationId = notificationId,
-            title = title,
-            message = message,
-            subscriptionId = subscriptionId
-        )
-        if (!dedupKey.isNullOrBlank()) {
-            ReminderDeduplicator.markFired(context, dedupKey)
+        val pendingResult = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                val prefs = runCatching {
+                    UserPreferencesRepositoryImpl(
+                        dataStore = context.userDataStore,
+                        defaultCurrencyCode = MoneyFormatter.currencyCodeForLocale()
+                    ).userPreferences.first()
+                }.getOrNull()
+                val launcherIcon = prefs?.launcherIcon ?: AppLauncherIcon.BOTANICAL
+                val themeMode = prefs?.themeMode ?: AppThemeMode.SYSTEM
+
+                val sub = if (subscriptionId != null) {
+                    runCatching {
+                        AppDatabase.getDatabase(context).subscriptionDao().getSubscriptionById(subscriptionId)?.toDomain()
+                    }.getOrNull()
+                } else {
+                    null
+                }
+
+                if (sub != null) {
+                    val status = RotationEngine.calculateCycleStatus(sub, LocalDate.now())
+                    NotificationHelper.showCycleReminderNotification(
+                        context = context,
+                        cycleStatus = status,
+                        notificationId = notificationId,
+                        title = title,
+                        message = message,
+                        launcherIcon = launcherIcon,
+                        themeMode = themeMode
+                    )
+                } else {
+                    NotificationHelper.showNotification(
+                        context = context,
+                        notificationId = notificationId,
+                        title = title,
+                        message = message,
+                        subscriptionId = subscriptionId,
+                        launcherIcon = launcherIcon,
+                        themeMode = themeMode
+                    )
+                }
+
+                if (!dedupKey.isNullOrBlank()) {
+                    ReminderDeduplicator.markFired(context, dedupKey)
+                }
+            } finally {
+                pendingResult.finish()
+            }
         }
     }
 

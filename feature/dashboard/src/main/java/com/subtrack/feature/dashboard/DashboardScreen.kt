@@ -180,6 +180,7 @@ fun DashboardRoute(
     onAddSubscriptionConsumed: () -> Unit = {},
     onNavigateToSavings: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
+    onPreviewNotifications: () -> Unit = {},
     onFirstDataReady: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -423,6 +424,7 @@ fun DashboardRoute(
         pendingAddSubscription = pendingAddSubscription,
         onAddSubscriptionConsumed = onAddSubscriptionConsumed,
         onApplyLauncherIcon = onApplyLauncherIcon,
+        onPreviewNotifications = onPreviewNotifications,
         modifier = modifier
     )
 }
@@ -455,6 +457,7 @@ fun DashboardScreen(
     pendingAddSubscription: Boolean = false,
     onAddSubscriptionConsumed: () -> Unit = {},
     onApplyLauncherIcon: (AppLauncherIcon) -> Unit = {},
+    onPreviewNotifications: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -1403,6 +1406,14 @@ fun DashboardScreen(
                     }
                     context.startActivity(intent)
                 }
+            },
+            onPreviewNotifications = {
+                onPreviewNotifications()
+                snackHostState.show(
+                    message = "Sample alerts sent — pull down your notification shade",
+                    icon = Icons.Default.Check,
+                    dedupeKey = "preview_notif"
+                )
             },
             onShareStack = {
                 showSettings = false

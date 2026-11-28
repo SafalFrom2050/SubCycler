@@ -119,6 +119,7 @@ fun CalendarSettingsSheet(
     onUseStackHeroMoodChanged: ((Boolean) -> Unit)? = null,
     onLauncherIconSelected: ((AppLauncherIcon) -> Unit)? = null,
     onOpenNotificationSettings: (() -> Unit)? = null,
+    onPreviewNotifications: (() -> Unit)? = null,
     onShareStack: (() -> Unit)? = null,
     onImportStack: (() -> Unit)? = null,
     backupMessage: String? = null
@@ -577,6 +578,7 @@ fun CalendarSettingsSheet(
                             val reminderRows = buildList {
                                 if (!notificationsAvailable) add("notif_off")
                                 if (onNotificationLeadDaysSelected != null) add("lead_days")
+                                if (onPreviewNotifications != null) add("preview_notif")
                             }
                             if (reminderRows.isNotEmpty()) {
                                 ExpressiveSectionStack(eyebrow = "RENEWAL REMINDERS") {
@@ -649,6 +651,17 @@ fun CalendarSettingsSheet(
                                                     )
                                                 }
                                             }
+
+                                            "preview_notif" -> SettingsVaultActionRow(
+                                                index = idx,
+                                                count = reminderRows.size,
+                                                title = "Preview expressive alerts",
+                                                subtitle = "Send a sample Cycle Rhythm card & 2-step progress alert",
+                                                icon = Icons.Default.NotificationsActive,
+                                                badgeShape = ExpressiveCookie8Shape,
+                                                palette = skyPalette,
+                                                onClick = onPreviewNotifications!!
+                                            )
                                         }
                                     }
                                 }
