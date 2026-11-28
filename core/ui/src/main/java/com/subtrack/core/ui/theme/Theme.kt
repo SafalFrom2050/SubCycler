@@ -248,9 +248,10 @@ fun launcherAccentTokensFor(
 
 fun buildSubCyclerColorScheme(
     darkTheme: Boolean,
-    accentIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL
+    accentIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
+    accentTokensOverride: LauncherAccentTokens? = null
 ): ColorScheme {
-    val accent = launcherAccentTokensFor(accentIcon, darkTheme)
+    val accent = accentTokensOverride ?: launcherAccentTokensFor(accentIcon, darkTheme)
     return if (darkTheme) {
         darkColorScheme(
             primary = accent.primary,
@@ -322,12 +323,17 @@ fun buildSubCyclerColorScheme(
 fun SubTrackTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     accentIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
+    accentTokensOverride: LauncherAccentTokens? = null,
     content: @Composable () -> Unit
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
     val colorSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion)
-    val baseAccent = launcherAccentTokensFor(accentIcon, darkTheme)
-    val baseScheme = buildSubCyclerColorScheme(darkTheme = darkTheme, accentIcon = accentIcon)
+    val baseAccent = accentTokensOverride ?: launcherAccentTokensFor(accentIcon, darkTheme)
+    val baseScheme = buildSubCyclerColorScheme(
+        darkTheme = darkTheme,
+        accentIcon = accentIcon,
+        accentTokensOverride = accentTokensOverride
+    )
 
     val primary by animateColorAsState(baseScheme.primary, colorSpec, label = "themePrimary")
     val onPrimary by animateColorAsState(baseScheme.onPrimary, colorSpec, label = "themeOnPrimary")

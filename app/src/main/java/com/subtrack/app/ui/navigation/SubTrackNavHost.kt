@@ -543,39 +543,15 @@ private fun SubTrackMainNavigation(
         }
     }
 
-    // Subtle Living Stack Mood harmonizing for the active dock indicator pill when enabled
-    val useLivingMoodTint = dockMood.useStackHeroMood && dockMood.activeSubscriptions.isNotEmpty()
-    val heroMoodPalette = remember(dockMood.activeSubscriptions, dockMood.useStackHeroMood, dockMood.launcherIcon, isDark) {
-        if (useLivingMoodTint) {
-            BrandColorHarmonizer.resolveHeroMoodPalette(
-                activeSubscriptions = dockMood.activeSubscriptions,
-                useStackMood = true,
-                isDark = isDark,
-                fallbackIcon = dockMood.launcherIcon
-            )
-        } else {
-            null
-        }
-    }
-
-    val targetIndicatorBg = if (heroMoodPalette != null) {
-        heroMoodPalette.baseColor
-    } else {
-        MaterialTheme.colorScheme.primary
-    }
-    val targetIndicatorInk = if (heroMoodPalette != null) {
-        heroMoodPalette.contentColor
-    } else {
-        MaterialTheme.colorScheme.onPrimary
-    }
-
+    // Active dock indicator reads directly from app-wide MaterialTheme (which already reflects
+    // Living Stack Mood when enabled or the selected launcher theme when off).
     val animatedIndicatorBg by animateColorAsState(
-        targetValue = targetIndicatorBg,
+        targetValue = MaterialTheme.colorScheme.primary,
         animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
         label = "dockIndicatorBg"
     )
     val animatedIndicatorInk by animateColorAsState(
-        targetValue = targetIndicatorInk,
+        targetValue = MaterialTheme.colorScheme.onPrimary,
         animationSpec = ExpressiveMotion.effectsFastColor().orSnapIfReduced(reducedMotion),
         label = "dockIndicatorInk"
     )
@@ -729,8 +705,8 @@ private fun SubTrackMainNavigation(
                         label = "detachedFabRot"
                     )
                     val accentTokens = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
-                    val fabPopBg = heroMoodPalette?.sealColor ?: accentTokens.heroPop
-                    val fabPopInk = heroMoodPalette?.onSealColor ?: accentTokens.onHeroPop
+                    val fabPopBg = accentTokens.heroPop
+                    val fabPopInk = accentTokens.onHeroPop
                     val fabBgColor by animateColorAsState(
                         targetValue = if (isOnDashboard) {
                             fabPopBg

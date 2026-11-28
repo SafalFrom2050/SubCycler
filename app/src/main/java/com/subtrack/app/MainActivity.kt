@@ -38,6 +38,7 @@ import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.ui.components.decodeQrFromBitmap
+import com.subtrack.core.ui.theme.BrandColorHarmonizer
 import com.subtrack.core.ui.theme.SubTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -127,9 +128,29 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val effectiveAccentTokens = remember(
+                dockMood.isLoaded,
+                dockMood.activeSubscriptions,
+                dockMood.useStackHeroMood,
+                launcherIcon,
+                useDarkTheme
+            ) {
+                if (dockMood.isLoaded && dockMood.useStackHeroMood && dockMood.activeSubscriptions.isNotEmpty()) {
+                    BrandColorHarmonizer.resolveEffectiveAccentTokens(
+                        activeSubscriptions = dockMood.activeSubscriptions,
+                        useStackMood = true,
+                        isDark = useDarkTheme,
+                        fallbackIcon = launcherIcon
+                    )
+                } else {
+                    null
+                }
+            }
+
             SubTrackTheme(
                 darkTheme = useDarkTheme,
-                accentIcon = launcherIcon
+                accentIcon = launcherIcon,
+                accentTokensOverride = effectiveAccentTokens
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
