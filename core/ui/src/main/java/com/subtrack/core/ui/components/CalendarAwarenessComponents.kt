@@ -397,9 +397,24 @@ fun CalendarSettingsSheet(
                                                     )
                                                     val themeOptions = remember {
                                                         listOf(
-                                                            ExpressiveSegmentOption(AppThemeMode.SYSTEM, AppThemeMode.SYSTEM.displayName, Icons.Default.BrightnessAuto),
-                                                            ExpressiveSegmentOption(AppThemeMode.LIGHT, AppThemeMode.LIGHT.displayName, Icons.Default.LightMode),
-                                                            ExpressiveSegmentOption(AppThemeMode.DARK, AppThemeMode.DARK.displayName, Icons.Default.DarkMode)
+                                                            ExpressiveSegmentOption(
+                                                                AppThemeMode.SYSTEM,
+                                                                AppThemeMode.SYSTEM.displayName,
+                                                                Icons.Default.BrightnessAuto,
+                                                                ReactiveMotionType.POP_BOUNCE
+                                                            ),
+                                                            ExpressiveSegmentOption(
+                                                                AppThemeMode.LIGHT,
+                                                                AppThemeMode.LIGHT.displayName,
+                                                                Icons.Default.LightMode,
+                                                                ReactiveMotionType.CYCLE_SPIN
+                                                            ),
+                                                            ExpressiveSegmentOption(
+                                                                AppThemeMode.DARK,
+                                                                AppThemeMode.DARK.displayName,
+                                                                Icons.Default.DarkMode,
+                                                                ReactiveMotionType.PALETTE_WIGGLE
+                                                            )
                                                         )
                                                     }
                                                     ExpressiveSegmentedGroup(

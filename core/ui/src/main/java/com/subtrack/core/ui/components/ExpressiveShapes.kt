@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -753,7 +754,8 @@ fun ExpressiveStepDots(
 data class ExpressiveSegmentOption<T>(
     val value: T,
     val label: String,
-    val icon: ImageVector? = null
+    val icon: ImageVector? = null,
+    val iconMotion: ReactiveMotionType = ReactiveMotionType.POP_BOUNCE
 )
 
 @Composable
@@ -787,6 +789,7 @@ fun <T> ExpressiveSegmentedGroup(
 
             val interactionSource = remember { MutableInteractionSource() }
             val isPressed by interactionSource.collectIsPressedAsState()
+            var iconTriggerCount by remember { mutableIntStateOf(0) }
 
             val targetStartRadius = when {
                 isSelected -> outerRadius
@@ -849,6 +852,7 @@ fun <T> ExpressiveSegmentedGroup(
 
             Surface(
                 onClick = {
+                    iconTriggerCount++
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onSelect(option.value)
                 },
@@ -870,11 +874,14 @@ fun <T> ExpressiveSegmentedGroup(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (option.icon != null) {
-                        Icon(
+                        ReactiveIcon(
                             imageVector = option.icon,
                             contentDescription = null,
                             tint = contentColor,
-                            modifier = Modifier.size(15.dp)
+                            size = 16.dp,
+                            motion = option.iconMotion,
+                            isPressed = isPressed,
+                            triggerKey = iconTriggerCount
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                     }

@@ -48,7 +48,8 @@ enum class ReactiveMotionType {
     NUDGE_RIGHT,
     PIGGY_BOUNCE,
     PAUSE_SETTLE,
-    POP_BOUNCE
+    POP_BOUNCE,
+    PALETTE_WIGGLE
 }
 
 /**
@@ -84,6 +85,8 @@ fun ReactiveIcon(
             motion == ReactiveMotionType.NUDGE_LEFT -> -6f
             motion == ReactiveMotionType.NUDGE_RIGHT -> 6f
             motion == ReactiveMotionType.BELL_RING -> -12f
+            motion == ReactiveMotionType.PALETTE_WIGGLE -> -14f
+            motion == ReactiveMotionType.CYCLE_SPIN -> -24f
             else -> -6f
         },
         animationSpec = spring(
@@ -232,6 +235,20 @@ fun ReactiveIcon(
                 bounceUniformScale(0.78f, peak = 1.14f)
                 launch {
                     animRotation.snapTo(-10f)
+                    animRotation.animateTo(0f, bouncySpring)
+                }
+            }
+
+            ReactiveMotionType.PALETTE_WIGGLE -> {
+                bounceUniformScale(0.84f, peak = 1.16f)
+                launch {
+                    animOffsetY.animateTo(-7f, spring(stiffness = Spring.StiffnessHigh))
+                    animOffsetY.animateTo(0f, livelySpring)
+                }
+                launch {
+                    animRotation.animateTo(-18f, spring(stiffness = Spring.StiffnessHigh))
+                    animRotation.animateTo(16f, spring(stiffness = Spring.StiffnessHigh))
+                    animRotation.animateTo(-8f, spring(stiffness = Spring.StiffnessMedium))
                     animRotation.animateTo(0f, bouncySpring)
                 }
             }

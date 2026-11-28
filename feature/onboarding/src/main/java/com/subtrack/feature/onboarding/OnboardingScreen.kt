@@ -411,6 +411,21 @@ private fun WelcomeStep(
     val themeModeFadeSpec = remember(reducedMotion) {
         ExpressiveMotion.effectsFast<Float>().orSnapIfReduced(reducedMotion)
     }
+    var brandSpinCount by remember { mutableIntStateOf(0) }
+    val brandSwirlSpin = remember { Animatable(0f) }
+    LaunchedEffect(useStackHeroMood, selectedLauncherIcon, brandSpinCount, reducedMotion) {
+        if (reducedMotion) return@LaunchedEffect
+        if (brandSpinCount == 0 && useStackHeroMood && selectedLauncherIcon == AppLauncherIcon.BOTANICAL) {
+            return@LaunchedEffect
+        }
+        brandSwirlSpin.animateTo(
+            targetValue = brandSwirlSpin.value + 360f,
+            animationSpec = spring(
+                dampingRatio = 0.58f,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // 1. Minimal Top Bar: Unified Brand Mark + Compact Currency Pill + Skip/Close
@@ -420,6 +435,15 @@ private fun WelcomeStep(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        brandSpinCount++
+                    },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)
             ) {
@@ -427,6 +451,7 @@ private fun WelcomeStep(
                     colors = liveSwirl,
                     size = 32.dp,
                     cornerRadius = 10.dp,
+                    rotationDegreesProvider = { brandSwirlSpin.value },
                     contentDescriptionText = "SubCycler logo"
                 )
                 ExpressiveBrandWordmark(fontSize = 20.sp)
@@ -586,8 +611,18 @@ private fun WelcomeStep(
 
                     val themeStyleOptions = remember {
                         listOf(
-                            ExpressiveSegmentOption(true, "Auto", Icons.Default.AutoAwesome),
-                            ExpressiveSegmentOption(false, "Custom", Icons.Default.Palette)
+                            ExpressiveSegmentOption(
+                                value = true,
+                                label = "Auto",
+                                icon = Icons.Default.Autorenew,
+                                iconMotion = ReactiveMotionType.CYCLE_SPIN
+                            ),
+                            ExpressiveSegmentOption(
+                                value = false,
+                                label = "Custom",
+                                icon = Icons.Default.Palette,
+                                iconMotion = ReactiveMotionType.PALETTE_WIGGLE
+                            )
                         )
                     }
                     ExpressiveSegmentedGroup(
@@ -610,6 +645,18 @@ private fun WelcomeStep(
                         label = "welcomeThemeSelectionBody"
                     ) { adaptiveOn ->
                         if (adaptiveOn) {
+                            val autoSwirlSpin = remember { Animatable(0f) }
+                            LaunchedEffect(reducedMotion) {
+                                if (!reducedMotion) {
+                                    autoSwirlSpin.animateTo(
+                                        targetValue = 360f,
+                                        animationSpec = spring(
+                                            dampingRatio = 0.58f,
+                                            stiffness = Spring.StiffnessMediumLow
+                                        )
+                                    )
+                                }
+                            }
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -629,6 +676,7 @@ private fun WelcomeStep(
                                         colors = liveSwirl,
                                         size = 38.dp,
                                         cornerRadius = 11.dp,
+                                        rotationDegreesProvider = { autoSwirlSpin.value },
                                         contentDescriptionText = "Adaptive mood icon"
                                     )
                                     Column(modifier = Modifier.weight(1f)) {
@@ -651,11 +699,14 @@ private fun WelcomeStep(
                                             .background(MaterialTheme.colorScheme.surfaceContainer),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
+                                        ReactiveIcon(
                                             imageVector = Icons.Default.Lock,
                                             contentDescription = "App icon locked to mood",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(14.dp)
+                                            size = 14.dp,
+                                            motion = ReactiveMotionType.POP_BOUNCE,
+                                            triggerKey = adaptiveOn,
+                                            animateOnFirstComposition = true
                                         )
                                     }
                                 }
@@ -671,10 +722,37 @@ private fun WelcomeStep(
                                     val swirlPreview = remember(iconOption) {
                                         BrandColorHarmonizer.swirlColorsForLauncherIcon(iconOption)
                                     }
+                                    val swatchInteraction = remember { MutableInteractionSource() }
+                                    val swatchPressed by swatchInteraction.collectIsPressedAsState()
+                                    val swatchScale by animateFloatAsState(
+                                        targetValue = if (swatchPressed) 0.93f else 1f,
+                                        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat()
+                                            .orSnapIfReduced(reducedMotion),
+                                        label = "welcomeSwatchScale"
+                                    )
+                                    var swatchSpinTick by remember { mutableIntStateOf(0) }
+                                    val swatchSwirlRotation = remember { Animatable(0f) }
+                                    LaunchedEffect(swatchSpinTick, reducedMotion) {
+                                        if (swatchSpinTick > 0 && !reducedMotion) {
+                                            swatchSwirlRotation.animateTo(
+                                                targetValue = swatchSwirlRotation.value + 360f,
+                                                animationSpec = spring(
+                                                    dampingRatio = 0.56f,
+                                                    stiffness = Spring.StiffnessMediumLow
+                                                )
+                                            )
+                                        }
+                                    }
                                     Surface(
                                         onClick = {
+                                            swatchSpinTick++
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                             onLauncherIconSelected(iconOption)
+                                        },
+                                        interactionSource = swatchInteraction,
+                                        modifier = Modifier.graphicsLayer {
+                                            scaleX = swatchScale
+                                            scaleY = swatchScale
                                         },
                                         shape = RoundedCornerShape(20.dp),
                                         color = if (isSelected) {
@@ -703,6 +781,7 @@ private fun WelcomeStep(
                                                     colors = swirlPreview,
                                                     size = 42.dp,
                                                     cornerRadius = 13.dp,
+                                                    rotationDegreesProvider = { swatchSwirlRotation.value },
                                                     contentDescriptionText = "${iconOption.displayName} theme and icon"
                                                 )
                                                 if (isSelected) {
@@ -713,11 +792,14 @@ private fun WelcomeStep(
                                                             .background(MaterialTheme.colorScheme.primary),
                                                         contentAlignment = Alignment.Center
                                                     ) {
-                                                        Icon(
+                                                        ReactiveIcon(
                                                             imageVector = Icons.Default.Check,
                                                             contentDescription = "Selected",
                                                             tint = MaterialTheme.colorScheme.onPrimary,
-                                                            modifier = Modifier.size(10.dp)
+                                                            size = 10.dp,
+                                                            motion = ReactiveMotionType.POP_BOUNCE,
+                                                            triggerKey = isSelected,
+                                                            animateOnFirstComposition = true
                                                         )
                                                     }
                                                 }
