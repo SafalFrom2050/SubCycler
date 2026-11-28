@@ -65,15 +65,18 @@ import com.subtrack.core.ui.theme.HeroMoodPalette
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * Material 3 Expressive v4.0 Hero Bento Card with masked silk-waves backdrop,
+ * Material 3 Expressive v5.0 Hero Bento Card with Pure Flat Color-Block backdrop,
  * scroll-parallax off-corner `Clover8` polygon watermark, crystal-clear "Effective Monthly"
- * reconciliation, active/paused pill, and interactive topological morphing savings seal.
+ * reconciliation, active/paused pill with stack-mood dots, curly spend/savings efficiency wave,
+ * and interactive topological morphing savings seal.
  */
 @Composable
 fun FinancialEfficiencyHud(
@@ -83,6 +86,7 @@ fun FinancialEfficiencyHud(
     incompleteCount: Int = 0,
     scrollProgress: Float = 0f,
     heroMood: HeroMoodPalette? = null,
+    isEntranceReady: Boolean = true,
     onSavingsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -93,6 +97,36 @@ fun FinancialEfficiencyHud(
     val stickerPressed by stickerInteraction.collectIsPressedAsState()
     var stickerWiggleCount by remember { mutableIntStateOf(0) }
     val wiggleRotation = remember { Animatable(-6f) }
+
+    // One-shot launch choreography gated on splash dissolve so the Hero unfurls visibly
+    val skipEntrance = isEntranceReady || reducedMotion
+    val cardReveal = remember { Animatable(if (skipEntrance) 1f else 0f) }
+    val waveReveal = remember { Animatable(if (skipEntrance) 1f else 0f) }
+    val sealReveal = remember { Animatable(if (skipEntrance) 1f else 0f) }
+
+    LaunchedEffect(isEntranceReady, reducedMotion) {
+        if (!isEntranceReady) return@LaunchedEffect
+        if (reducedMotion) {
+            cardReveal.snapTo(1f)
+            waveReveal.snapTo(1f)
+            sealReveal.snapTo(1f)
+            return@LaunchedEffect
+        }
+        if (cardReveal.value >= 0.99f && waveReveal.value >= 0.99f && sealReveal.value >= 0.99f) {
+            return@LaunchedEffect
+        }
+        launch {
+            cardReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+        }
+        launch {
+            delay(60L)
+            waveReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialDefaultFloat())
+        }
+        launch {
+            delay(90L)
+            sealReveal.animateTo(1f, ExpressiveMotion.expressiveSpatialFastFloat())
+        }
+    }
 
     LaunchedEffect(stickerWiggleCount, reducedMotion) {
         if (stickerWiggleCount == 0 || reducedMotion) return@LaunchedEffect
@@ -137,17 +171,28 @@ fun FinancialEfficiencyHud(
     val stackDots = heroMood?.stackAccentDots.orEmpty()
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                val raw = cardReveal.value
+                val clamped = ExpressiveMotion.clampEffectProgress(raw * 1.45f)
+                alpha = clamped
+                val s = 0.96f + 0.04f * raw
+                scaleX = s
+                scaleY = s
+                translationY = (1f - raw) * 14.dp.toPx()
+            },
         shape = RoundedCornerShape(28.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
+        val watermarkSettle = if (reducedMotion) 0f else (1f - ExpressiveMotion.clampEffectProgress(cardReveal.value)) * 14f
         ExpressiveHeroCardBackdrop(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp)),
             watermarkPolygon = ExpressiveMaterialPolygons.Clover8,
-            watermarkRotationDegrees = if (reducedMotion) 0f else clampedScroll * 20f,
+            watermarkRotationDegrees = if (reducedMotion) 0f else (clampedScroll * 20f + watermarkSettle),
             watermarkAlpha = 0.09f * (1f - clampedScroll * 0.6f),
             heroMood = heroMood
         ) {
@@ -211,49 +256,60 @@ fun FinancialEfficiencyHud(
 
                             val waveVisualEndX = (size.width - visualGap) * animatedSpendFraction
                             val waveStartX = halfStroke
-                            val waveEndX = (waveVisualEndX - halfStroke).coerceAtLeast(waveStartX + 1f)
+                            val targetWaveEndX = (waveVisualEndX - halfStroke).coerceAtLeast(waveStartX + 1f)
+                            val revealRaw = waveReveal.value
+                            val waveProgress = ExpressiveMotion.clampEffectProgress(revealRaw * 1.12f)
+                            val waveEndX = (waveStartX + (targetWaveEndX - waveStartX) * waveProgress)
+                                .coerceAtLeast(waveStartX + 1f)
 
-                            // 1. Sculptural Material 3 Expressive curly Spend wave
-                            val wavePath = Path()
-                            val stepPx = 1.5f
-                            val rampPx = 8.dp.toPx()
-                            var x = waveStartX
-                            var first = true
-                            while (x <= waveEndX) {
-                                val distStart = x - waveStartX
-                                val distEnd = waveEndX - x
-                                val envelope = min(1f, min(distStart, distEnd) / rampPx).coerceIn(0f, 1f)
-                                val angle = (distStart / wavelength) * (2.0 * PI).toFloat()
-                                val y = centerY + amplitude * envelope * sin(angle)
-                                if (first) {
-                                    wavePath.moveTo(x, y)
-                                    first = false
-                                } else {
-                                    wavePath.lineTo(x, y)
+                            // 1. Sculptural Material 3 Expressive curly Spend wave (draws across smoothly on launch)
+                            if (waveProgress > 0.02f) {
+                                val wavePath = Path()
+                                val stepPx = 1.5f
+                                val rampPx = 8.dp.toPx()
+                                val phaseShift = (1f - waveProgress) * 1.6f
+                                var x = waveStartX
+                                var first = true
+                                while (x <= waveEndX) {
+                                    val distStart = x - waveStartX
+                                    val distEnd = waveEndX - x
+                                    val envelope = min(1f, min(distStart, distEnd) / rampPx).coerceIn(0f, 1f)
+                                    val angle = (distStart / wavelength) * (2.0 * PI).toFloat() + phaseShift
+                                    val y = centerY + amplitude * envelope * sin(angle)
+                                    if (first) {
+                                        wavePath.moveTo(x, y)
+                                        first = false
+                                    } else {
+                                        wavePath.lineTo(x, y)
+                                    }
+                                    x += stepPx
                                 }
-                                x += stepPx
-                            }
-                            wavePath.lineTo(waveEndX, centerY)
-                            drawPath(
-                                path = wavePath,
-                                color = spendWaveColor,
-                                style = Stroke(
-                                    width = strokeW,
-                                    cap = StrokeCap.Round,
-                                    join = StrokeJoin.Round
+                                wavePath.lineTo(waveEndX, centerY)
+                                drawPath(
+                                    path = wavePath,
+                                    color = spendWaveColor,
+                                    style = Stroke(
+                                        width = strokeW,
+                                        cap = StrokeCap.Round,
+                                        join = StrokeJoin.Round
+                                    )
                                 )
-                            )
+                            }
 
-                            // 2. Matching chunky theme-accent Saved pill linked to the SAVE seal
-                            val savedStartX = (waveVisualEndX + visualGap).coerceAtMost(size.width - savedPillH)
-                            val savedW = (size.width - savedStartX).coerceAtLeast(savedPillH)
-                            val savedRadius = CornerRadius(savedPillH / 2f, savedPillH / 2f)
-                            drawRoundRect(
-                                color = savedBarColor,
-                                topLeft = Offset(savedStartX, centerY - savedPillH / 2f),
-                                size = Size(savedW, savedPillH),
-                                cornerRadius = savedRadius
-                            )
+                            // 2. Matching chunky Triadic-accent Saved pill springs in after the Spend wave lands
+                            val savedReveal = ((revealRaw - 0.42f) / 0.58f).coerceIn(0f, 1.06f)
+                            if (savedReveal > 0.02f) {
+                                val savedStartX = (waveVisualEndX + visualGap).coerceAtMost(size.width - savedPillH)
+                                val targetSavedW = (size.width - savedStartX).coerceAtLeast(savedPillH)
+                                val animatedSavedW = (targetSavedW * savedReveal).coerceIn(savedPillH * 0.6f, size.width - savedStartX)
+                                val savedRadius = CornerRadius(savedPillH / 2f, savedPillH / 2f)
+                                drawRoundRect(
+                                    color = savedBarColor.copy(alpha = ExpressiveMotion.clampEffectProgress(savedReveal * 1.5f)),
+                                    topLeft = Offset(savedStartX, centerY - savedPillH / 2f),
+                                    size = Size(animatedSavedW, savedPillH),
+                                    cornerRadius = savedRadius
+                                )
+                            }
                         }
                     }
                     if (summary.totalSubscriptions > 0) {
@@ -353,9 +409,13 @@ fun FinancialEfficiencyHud(
                         modifier = Modifier
                             .size(98.dp)
                             .graphicsLayer {
-                                scaleX = badgeScale
-                                scaleY = badgeScale
-                                rotationZ = wiggleRotation.value
+                                val sr = sealReveal.value
+                                val revealScale = 0.72f + 0.28f * sr
+                                val clampedSr = ExpressiveMotion.clampEffectProgress(sr * 1.4f)
+                                alpha = clampedSr
+                                scaleX = badgeScale * revealScale
+                                scaleY = badgeScale * revealScale
+                                rotationZ = wiggleRotation.value - (1f - ExpressiveMotion.clampEffectProgress(sr)) * 12f
                             }
                             .expressivePolygonSurface(
                                 shape = stampShape,
