@@ -126,7 +126,8 @@ fun SubTrackApp(
                         if (requestNotificationPermission) {
                             onRequestNotificationPermission()
                         }
-                    }
+                    },
+                    onApplyLauncherIcon = onApplyLauncherIcon
                 )
             }
             AppLaunchState.MAIN_CONTENT -> SubTrackMainNavigation(

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.subtrack.core.common.time.TimeProvider
 import com.subtrack.core.domain.engine.RotationEngine
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.BillingPeriod
 import com.subtrack.core.domain.model.PresetLibrary
 import com.subtrack.core.domain.model.RegionalPriceCatalog
@@ -81,6 +82,8 @@ data class OnboardingUiState(
     val searchQuery: String = "",
     val selectedCategory: OnboardingCategory = OnboardingCategory.POPULAR,
     val currencyCode: String = "USD",
+    val useStackHeroMood: Boolean = true,
+    val selectedLauncherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
     val remindersEnabled: Boolean = true,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
@@ -136,6 +139,8 @@ sealed interface OnboardingAction {
     data class SetSearchQuery(val query: String) : OnboardingAction
     data class SetCategory(val category: OnboardingCategory) : OnboardingAction
     data class SetCurrency(val currencyCode: String) : OnboardingAction
+    data class SetUseStackHeroMood(val enabled: Boolean) : OnboardingAction
+    data class SetLauncherIcon(val icon: AppLauncherIcon) : OnboardingAction
     data class ToggleService(val serviceName: String) : OnboardingAction
     data class AddCustomService(
         val serviceName: String,
@@ -169,9 +174,10 @@ class OnboardingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
     private var hasExplicitCurrencySelection = false
+    private var hasExplicitThemeSelection = false
 
     init {
-        loadPreferredCurrency()
+        loadInitialPreferences()
     }
 
     fun onAction(action: OnboardingAction) {
@@ -186,6 +192,8 @@ class OnboardingViewModel @Inject constructor(
                 it.copy(selectedCategory = action.category, errorMessage = null)
             }
             is OnboardingAction.SetCurrency -> setCurrency(action.currencyCode)
+            is OnboardingAction.SetUseStackHeroMood -> setUseStackHeroMood(action.enabled)
+            is OnboardingAction.SetLauncherIcon -> setLauncherIcon(action.icon)
             is OnboardingAction.ToggleService -> updateService(action.serviceName) { draft ->
                 draft.copy(isSelected = !draft.isSelected)
             }
@@ -230,17 +238,57 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    private fun loadPreferredCurrency() {
+    private fun loadInitialPreferences() {
         viewModelScope.launch {
-            val currencyCode = userPreferencesRepository.userPreferences.first().currency
-            if (!hasExplicitCurrencySelection) {
-                _uiState.update { state ->
+            val prefs = userPreferencesRepository.userPreferences.first()
+            _uiState.update { state ->
+                val withCurrency = if (!hasExplicitCurrencySelection) {
                     state.copy(
-                        currencyCode = currencyCode,
-                        services = state.services.forCurrency(currencyCode)
+                        currencyCode = prefs.currency,
+                        services = state.services.forCurrency(prefs.currency)
                     )
+                } else {
+                    state
+                }
+                if (!hasExplicitThemeSelection) {
+                    withCurrency.copy(
+                        useStackHeroMood = prefs.useStackHeroMood,
+                        selectedLauncherIcon = prefs.launcherIcon
+                    )
+                } else {
+                    withCurrency
                 }
             }
+        }
+    }
+
+    private fun setUseStackHeroMood(enabled: Boolean) {
+        hasExplicitThemeSelection = true
+        _uiState.update { state ->
+            state.copy(
+                useStackHeroMood = enabled,
+                selectedLauncherIcon = if (enabled) AppLauncherIcon.BOTANICAL else state.selectedLauncherIcon
+            )
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.setUseStackHeroMood(enabled)
+            if (enabled) {
+                userPreferencesRepository.setLauncherIcon(AppLauncherIcon.BOTANICAL)
+            }
+        }
+    }
+
+    private fun setLauncherIcon(icon: AppLauncherIcon) {
+        hasExplicitThemeSelection = true
+        _uiState.update { state ->
+            state.copy(
+                useStackHeroMood = false,
+                selectedLauncherIcon = icon
+            )
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.setUseStackHeroMood(false)
+            userPreferencesRepository.setLauncherIcon(icon)
         }
     }
 
@@ -386,6 +434,10 @@ class OnboardingViewModel @Inject constructor(
                 }
 
                 userPreferencesRepository.setCurrency(currency)
+                userPreferencesRepository.setUseStackHeroMood(state.useStackHeroMood)
+                if (!state.useStackHeroMood) {
+                    userPreferencesRepository.setLauncherIcon(state.selectedLauncherIcon)
+                }
                 manageSubscriptionUseCase.addSubscriptionsIfMissing(subscriptions)
                 userPreferencesRepository.setOnboardingCompleted(true)
                 _uiState.update {
@@ -414,7 +466,12 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
             try {
-                userPreferencesRepository.setCurrency(_uiState.value.currencyCode)
+                val state = _uiState.value
+                userPreferencesRepository.setCurrency(state.currencyCode)
+                userPreferencesRepository.setUseStackHeroMood(state.useStackHeroMood)
+                if (!state.useStackHeroMood) {
+                    userPreferencesRepository.setLauncherIcon(state.selectedLauncherIcon)
+                }
                 userPreferencesRepository.setOnboardingCompleted(true)
                 _uiState.update {
                     it.copy(
