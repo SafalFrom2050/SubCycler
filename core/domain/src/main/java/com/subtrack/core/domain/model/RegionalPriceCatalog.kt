@@ -351,6 +351,41 @@ object RegionalPriceCatalog {
                 ServicePlanTier("Monthly", 29000.0, isDefault = true)
             )
         ),
+        "Google AI (Gemini)" to mapOf(
+            "USD" to listOf(
+                ServicePlanTier("Plus", 9.99),
+                ServicePlanTier("Pro", 19.99, isDefault = true),
+                ServicePlanTier("Pro Yearly", 199.99, BillingPeriod.YEARLY),
+                ServicePlanTier("Ultra", 249.99)
+            ),
+            "JPY" to listOf(
+                ServicePlanTier("Plus", 1200.0),
+                ServicePlanTier("Pro", 2900.0, isDefault = true),
+                ServicePlanTier("Ultra", 36400.0)
+            ),
+            "EUR" to listOf(
+                ServicePlanTier("Plus", 9.99),
+                ServicePlanTier("Pro", 21.99, isDefault = true),
+                ServicePlanTier("Ultra", 274.99)
+            ),
+            "GBP" to listOf(
+                ServicePlanTier("Plus", 8.99),
+                ServicePlanTier("Pro", 18.99, isDefault = true),
+                ServicePlanTier("Ultra", 234.99)
+            ),
+            "CAD" to listOf(
+                ServicePlanTier("Pro", 26.99, isDefault = true)
+            ),
+            "AUD" to listOf(
+                ServicePlanTier("Pro", 32.99, isDefault = true)
+            ),
+            "INR" to listOf(
+                ServicePlanTier("Pro", 1950.0, isDefault = true)
+            ),
+            "KRW" to listOf(
+                ServicePlanTier("Pro", 29000.0, isDefault = true)
+            )
+        ),
         "Google AI Plus" to mapOf(
             "USD" to listOf(
                 ServicePlanTier("Monthly", 9.99, isDefault = true)
@@ -546,6 +581,114 @@ object RegionalPriceCatalog {
                 ServicePlanTier("2TB", 11100.0)
             )
         ),
+        "Hulu" to mapOf(
+            "USD" to listOf(
+                ServicePlanTier("With Ads", 9.99, isDefault = true),
+                ServicePlanTier("No Ads", 18.99),
+                ServicePlanTier("With Ads Yearly", 99.99, BillingPeriod.YEARLY)
+            ),
+            "JPY" to listOf(
+                ServicePlanTier("Monthly", 1026.0, isDefault = true)
+            )
+        ),
+        "Crunchyroll" to mapOf(
+            "USD" to listOf(
+                ServicePlanTier("Fan", 7.99, isDefault = true),
+                ServicePlanTier("Mega Fan", 11.99),
+                ServicePlanTier("Mega Fan Yearly", 119.99, BillingPeriod.YEARLY)
+            ),
+            "EUR" to listOf(
+                ServicePlanTier("Fan", 6.99, isDefault = true),
+                ServicePlanTier("Mega Fan", 9.99)
+            ),
+            "GBP" to listOf(
+                ServicePlanTier("Fan", 4.99, isDefault = true),
+                ServicePlanTier("Mega Fan", 5.99)
+            ),
+            "CAD" to listOf(
+                ServicePlanTier("Fan", 9.99, isDefault = true),
+                ServicePlanTier("Mega Fan", 12.49)
+            ),
+            "AUD" to listOf(
+                ServicePlanTier("Fan", 10.99, isDefault = true),
+                ServicePlanTier("Mega Fan", 13.99)
+            ),
+            "INR" to listOf(
+                ServicePlanTier("Fan", 79.0, isDefault = true),
+                ServicePlanTier("Mega Fan", 99.0)
+            )
+        ),
+        "Microsoft 365" to mapOf(
+            "USD" to listOf(
+                ServicePlanTier("Personal", 9.99, isDefault = true),
+                ServicePlanTier("Personal Yearly", 99.99, BillingPeriod.YEARLY),
+                ServicePlanTier("Family", 12.99)
+            ),
+            "JPY" to listOf(
+                ServicePlanTier("Personal", 2130.0, isDefault = true),
+                ServicePlanTier("Personal Yearly", 21300.0, BillingPeriod.YEARLY),
+                ServicePlanTier("Family", 2740.0)
+            ),
+            "EUR" to listOf(
+                ServicePlanTier("Personal", 10.00, isDefault = true),
+                ServicePlanTier("Personal Yearly", 99.00, BillingPeriod.YEARLY),
+                ServicePlanTier("Family", 13.00)
+            ),
+            "GBP" to listOf(
+                ServicePlanTier("Personal", 8.49, isDefault = true),
+                ServicePlanTier("Personal Yearly", 84.99, BillingPeriod.YEARLY),
+                ServicePlanTier("Family", 10.49)
+            ),
+            "CAD" to listOf(
+                ServicePlanTier("Personal", 11.50, isDefault = true),
+                ServicePlanTier("Personal Yearly", 115.00, BillingPeriod.YEARLY)
+            ),
+            "AUD" to listOf(
+                ServicePlanTier("Personal", 16.00, isDefault = true),
+                ServicePlanTier("Personal Yearly", 159.00, BillingPeriod.YEARLY)
+            ),
+            "INR" to listOf(
+                ServicePlanTier("Personal", 689.0, isDefault = true),
+                ServicePlanTier("Personal Yearly", 6899.0, BillingPeriod.YEARLY)
+            )
+        ),
+        "Nintendo Switch Online" to mapOf(
+            "USD" to listOf(
+                ServicePlanTier("Monthly", 3.99),
+                ServicePlanTier("Yearly", 19.99, BillingPeriod.YEARLY, isDefault = true),
+                ServicePlanTier("Expansion Pack", 49.99, BillingPeriod.YEARLY)
+            ),
+            "JPY" to listOf(
+                ServicePlanTier("Monthly", 306.0),
+                ServicePlanTier("Yearly", 2400.0, BillingPeriod.YEARLY, isDefault = true),
+                ServicePlanTier("Expansion Pack", 4900.0, BillingPeriod.YEARLY)
+            ),
+            "EUR" to listOf(
+                ServicePlanTier("Monthly", 3.99),
+                ServicePlanTier("Yearly", 19.99, BillingPeriod.YEARLY, isDefault = true),
+                ServicePlanTier("Expansion Pack", 39.99, BillingPeriod.YEARLY)
+            ),
+            "GBP" to listOf(
+                ServicePlanTier("Monthly", 3.49),
+                ServicePlanTier("Yearly", 17.99, BillingPeriod.YEARLY, isDefault = true),
+                ServicePlanTier("Expansion Pack", 34.99, BillingPeriod.YEARLY)
+            ),
+            "CAD" to listOf(
+                ServicePlanTier("Monthly", 4.99),
+                ServicePlanTier("Yearly", 24.99, BillingPeriod.YEARLY, isDefault = true),
+                ServicePlanTier("Expansion Pack", 63.99, BillingPeriod.YEARLY)
+            ),
+            "AUD" to listOf(
+                ServicePlanTier("Monthly", 5.95),
+                ServicePlanTier("Yearly", 29.95, BillingPeriod.YEARLY, isDefault = true),
+                ServicePlanTier("Expansion Pack", 59.95, BillingPeriod.YEARLY)
+            ),
+            "KRW" to listOf(
+                ServicePlanTier("Monthly", 4900.0),
+                ServicePlanTier("Yearly", 19900.0, BillingPeriod.YEARLY, isDefault = true),
+                ServicePlanTier("Expansion Pack", 39900.0, BillingPeriod.YEARLY)
+            )
+        ),
         "Google One" to mapOf(
             "USD" to listOf(
                 ServicePlanTier("100GB", 1.99, isDefault = true),
@@ -592,7 +735,11 @@ object RegionalPriceCatalog {
 
     fun tiersFor(serviceName: String, currencyCode: String): List<ServicePlanTier> {
         val normalizedCurrency = currencyCode.trim().uppercase(Locale.US)
-        return tiersByServiceAndCurrency[serviceName]?.get(normalizedCurrency).orEmpty()
+        val canonicalKey = when (serviceName.trim()) {
+            "Xbox Game Pass" -> "Xbox Game Pass Ultimate"
+            else -> serviceName.trim()
+        }
+        return tiersByServiceAndCurrency[canonicalKey]?.get(normalizedCurrency).orEmpty()
     }
 
     fun defaultTierFor(serviceName: String, currencyCode: String): ServicePlanTier? {

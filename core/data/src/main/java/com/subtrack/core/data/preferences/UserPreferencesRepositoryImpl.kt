@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.domain.model.PendingSubscriptionAction
 import com.subtrack.core.domain.model.SubscriptionActionProgressType
@@ -27,6 +28,8 @@ class UserPreferencesRepositoryImpl(
         val AUTO_CANCEL_APPROVAL = booleanPreferencesKey("auto_cancel_approval")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val USE_STACK_HERO_MOOD = booleanPreferencesKey("use_stack_hero_mood")
+        val LAUNCHER_ICON = stringPreferencesKey("launcher_icon")
         val PENDING_ACTION_SUB_ID = longPreferencesKey("pending_action_subscription_id")
         val PENDING_ACTION_SUB_NAME = stringPreferencesKey("pending_action_subscription_name")
         val PENDING_ACTION_TYPE = stringPreferencesKey("pending_action_type")
@@ -65,13 +68,19 @@ class UserPreferencesRepositoryImpl(
                 ?.let { runCatching { AppThemeMode.valueOf(it) }.getOrNull() }
                 ?: AppThemeMode.SYSTEM
 
+            val launcherIcon = preferences[PreferencesKeys.LAUNCHER_ICON]
+                ?.let { runCatching { AppLauncherIcon.valueOf(it) }.getOrNull() }
+                ?: AppLauncherIcon.BOTANICAL
+
             UserPreferences(
                 currency = preferences[PreferencesKeys.CURRENCY] ?: defaultCurrencyCode,
                 notificationLeadDays = preferences[PreferencesKeys.NOTIFICATION_LEAD_DAYS] ?: 3,
                 isAutoCancelApprovalRequired = preferences[PreferencesKeys.AUTO_CANCEL_APPROVAL] ?: true,
                 isOnboardingCompleted = preferences[PreferencesKeys.ONBOARDING_COMPLETED] ?: false,
                 pendingSubscriptionAction = pendingAction,
-                themeMode = themeMode
+                themeMode = themeMode,
+                useStackHeroMood = preferences[PreferencesKeys.USE_STACK_HERO_MOOD] ?: true,
+                launcherIcon = launcherIcon
             )
         }
 
@@ -118,6 +127,18 @@ class UserPreferencesRepositoryImpl(
     override suspend fun setThemeMode(themeMode: AppThemeMode) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.THEME_MODE] = themeMode.name
+        }
+    }
+
+    override suspend fun setUseStackHeroMood(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.USE_STACK_HERO_MOOD] = enabled
+        }
+    }
+
+    override suspend fun setLauncherIcon(icon: AppLauncherIcon) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LAUNCHER_ICON] = icon.name
         }
     }
 }

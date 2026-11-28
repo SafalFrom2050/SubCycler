@@ -1,10 +1,17 @@
 package com.subtrack.core.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,20 +22,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
@@ -52,19 +65,36 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.domain.model.CalendarAccessIssue
 import com.subtrack.core.domain.model.CalendarAwareSuggestion
 import com.subtrack.core.domain.model.DeviceCalendar
-import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.BrandColorHarmonizer
+import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.SwirlLogoColors
+import com.subtrack.core.ui.theme.orSnapIfReduced
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+
+private enum class SettingsPage(val title: String) {
+    ROOT("Settings"),
+    APPEARANCE("Appearance & Icon"),
+    NOTIFICATIONS("Notifications & Calendar"),
+    TRANSFER("Transfer & Backup")
+}
 
 /**
- * Full Offline Settings Sheet (preserves backward-compatible signature & Calendar toggle as
- * the sheet's single Switch so CalendarAwarenessComponentsTest stays 100% compatible).
+ * Multi-Level Nested Offline Settings Sheet using Material 3 Expressive Connected Card Stacks
+ * (`28dp` outer radii, `4dp` inner seams, `2dp` gaps, press-blooming `14dp` inner corners).
+ * Keeps the root screen compact and zero-scroll while drilling cleanly into Appearance & Icon,
+ * Notifications & Calendar, and Transfer & Backup sub-pages.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,20 +110,42 @@ fun CalendarSettingsSheet(
     hasExistingSubscriptions: Boolean = false,
     notificationLeadDays: Int = 3,
     themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    useStackHeroMood: Boolean = true,
+    selectedLauncherIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL,
+    recommendedLauncherIcon: AppLauncherIcon? = null,
     onCurrencySelected: ((String) -> Unit)? = null,
     onNotificationLeadDaysSelected: ((Int) -> Unit)? = null,
     onThemeModeSelected: ((AppThemeMode) -> Unit)? = null,
+    onUseStackHeroMoodChanged: ((Boolean) -> Unit)? = null,
+    onLauncherIconSelected: ((AppLauncherIcon) -> Unit)? = null,
     onOpenNotificationSettings: (() -> Unit)? = null,
-    onExportJson: (() -> Unit)? = null,
-    onImportJson: (() -> Unit)? = null,
-    onExportCsv: (() -> Unit)? = null,
+    onPreviewNotifications: (() -> Unit)? = null,
+    onShareStack: (() -> Unit)? = null,
+    onImportStack: (() -> Unit)? = null,
     backupMessage: String? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val reducedMotion = rememberReducedMotionEnabled()
     val skyPalette = ExpressivePalettes.softSky()
-    val cardBorder = expressiveCardBorder()
+    val oceanPalette = ExpressivePalettes.softOcean()
+    val stonePalette = ExpressivePalettes.softStone()
+    val rosePalette = ExpressivePalettes.softRose()
+
+    var currentPage by remember { mutableStateOf(SettingsPage.ROOT) }
     var showCurrencyPicker by remember { mutableStateOf(false) }
     var pendingCurrencyChange by remember { mutableStateOf<String?>(null) }
+
+    val hasAppearanceSection = onThemeModeSelected != null ||
+        onUseStackHeroMoodChanged != null ||
+        onLauncherIconSelected != null
+    val hasTransferSection = onShareStack != null || onImportStack != null
+
+    val pageSlideSpec = remember(reducedMotion) {
+        ExpressiveMotion.standardSpatialFast<IntOffset>().orSnapIfReduced(reducedMotion)
+    }
+    val pageFadeSpec = remember(reducedMotion) {
+        ExpressiveMotion.effectsFast<Float>().orSnapIfReduced(reducedMotion)
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -107,355 +159,658 @@ fun CalendarSettingsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 22.dp)
-                .padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 26.dp)
         ) {
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            // 1. Calendar-Aware Suggestions Card (Single Switch in sheet!)
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                border = cardBorder
+            // Top Bar: Root "Settings" title OR Sub-page back arrow + sub-page title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                if (currentPage != SettingsPage.ROOT) {
+                    Surface(
+                        onClick = { currentPage = SettingsPage.ROOT },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(ExpressiveCookie8Shape)
-                                .background(skyPalette.container, ExpressiveCookie8Shape),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = Icons.Default.CalendarMonth,
-                                contentDescription = null,
-                                tint = skyPalette.content,
-                                modifier = Modifier.size(19.dp)
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back to Settings",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(18.dp)
                             )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Calendar-aware suggestions",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                "Use selected device calendars for timely subscription suggestions.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Switch(
-                            checked = enabled,
-                            onCheckedChange = onEnabledChange
-                        )
-                    }
-
-                    if (enabled) {
-                        Spacer(Modifier.height(14.dp))
-                        Surface(
-                            onClick = onOpenCalendars,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(
-                                        "Calendars",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        "$selectedCalendarCount selected",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.Default.ChevronRight,
-                                    contentDescription = "Change calendars",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
                         }
                     }
+                    Spacer(Modifier.width(12.dp))
                 }
-            }
-
-            accessIssue?.let {
                 Text(
-                    text = when (it) {
-                        CalendarAccessIssue.PERMISSION_DENIED -> "Calendar permission was not granted. The feature remains off."
-                        CalendarAccessIssue.PERMISSION_REVOKED -> "Calendar access was removed. The feature was turned off."
-                        CalendarAccessIssue.NO_ACCESSIBLE_CALENDARS -> "No selected device calendars are currently accessible."
-                        CalendarAccessIssue.PROVIDER_UNAVAILABLE -> "Calendar data is currently unavailable. The feature was turned off."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = currentPage.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.5).sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
-            // 2. Notification Permission & Reminder Lead Time
-            if (onNotificationLeadDaysSelected != null || !notificationsAvailable) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    border = cardBorder
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        ExpressiveEyebrow(text = "LOCAL REMINDERS")
+            Spacer(Modifier.height(16.dp))
 
-                        if (!notificationsAvailable) {
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.NotificationsOff,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(Modifier.width(10.dp))
-                                        Text(
-                                            text = "Notifications are off for SubCycler.",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onErrorContainer
+            AnimatedContent(
+                targetState = currentPage,
+                transitionSpec = {
+                    val forward = targetState != SettingsPage.ROOT
+                    val dir = if (forward) 1 else -1
+                    (slideInHorizontally(pageSlideSpec) { dir * (it / 5) } + fadeIn(pageFadeSpec))
+                        .togetherWith(
+                            slideOutHorizontally(pageSlideSpec) { -dir * (it / 6) } + fadeOut(pageFadeSpec)
+                        )
+                },
+                label = "settingsNestedPage"
+            ) { page ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    when (page) {
+                        SettingsPage.ROOT -> {
+                            // 1. Personalize Stack (Appearance & Icon · App Currency)
+                            val personalizeRows = buildList {
+                                if (hasAppearanceSection) add("appearance")
+                                if (onCurrencySelected != null) add("currency")
+                            }
+                            if (personalizeRows.isNotEmpty()) {
+                                ExpressiveSectionStack(eyebrow = "PERSONALIZE") {
+                                    personalizeRows.forEachIndexed { idx, key ->
+                                        when (key) {
+                                            "appearance" -> {
+                                                val moodText = if (useStackHeroMood) "Living mood on" else "Static accent"
+                                                val summary = "${themeMode.displayName} · ${selectedLauncherIcon.displayName} · $moodText"
+                                                SettingsVaultActionRow(
+                                                    index = idx,
+                                                    count = personalizeRows.size,
+                                                    title = "Appearance & Icon",
+                                                    subtitle = summary,
+                                                    icon = Icons.Default.Palette,
+                                                    badgeShape = ExpressiveCookie8Shape,
+                                                    palette = skyPalette,
+                                                    onClick = { currentPage = SettingsPage.APPEARANCE }
+                                                )
+                                            }
+                                            "currency" -> ExpressiveSectionRow(
+                                                index = idx,
+                                                count = personalizeRows.size,
+                                                onClick = { showCurrencyPicker = true }
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(38.dp)
+                                                                .expressivePolygonSurface(
+                                                                    shape = ExpressiveClover4Shape,
+                                                                    color = oceanPalette.container
+                                                                ),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Text(
+                                                                text = MoneyFormatter.symbol(currencyCode),
+                                                                fontWeight = FontWeight.Black,
+                                                                fontSize = 14.sp,
+                                                                color = oceanPalette.content
+                                                            )
+                                                        }
+                                                        Spacer(Modifier.width(12.dp))
+                                                        Column {
+                                                            Text(
+                                                                text = "App currency",
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 14.sp,
+                                                                color = MaterialTheme.colorScheme.onSurface
+                                                            )
+                                                            Text(
+                                                                text = "${MoneyFormatter.symbol(currencyCode)} $currencyCode · ${MoneyFormatter.displayName(currencyCode)}",
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
+                                                    }
+                                                    Icon(
+                                                        imageVector = Icons.Default.ChevronRight,
+                                                        contentDescription = "Change currency",
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Alerts & Data Stack (Notifications & Calendar · Transfer & Backup)
+                            val utilityRows = buildList {
+                                add("notifications")
+                                if (hasTransferSection) add("transfer")
+                            }
+                            ExpressiveSectionStack(eyebrow = "ALERTS & DATA") {
+                                utilityRows.forEachIndexed { idx, key ->
+                                    when (key) {
+                                        "notifications" -> {
+                                            val calendarPart = if (enabled) {
+                                                "Calendar on ($selectedCalendarCount)"
+                                            } else {
+                                                "Calendar off"
+                                            }
+                                            val notifSummary = if (!notificationsAvailable) {
+                                                "Notifications off · $calendarPart"
+                                            } else if (onNotificationLeadDaysSelected != null) {
+                                                "${notificationLeadDays}d before renewal · $calendarPart"
+                                            } else {
+                                                calendarPart
+                                            }
+                                            SettingsVaultActionRow(
+                                                index = idx,
+                                                count = utilityRows.size,
+                                                title = "Notifications & Calendar",
+                                                subtitle = notifSummary,
+                                                icon = if (!notificationsAvailable) {
+                                                    Icons.Default.NotificationsOff
+                                                } else {
+                                                    Icons.Default.NotificationsActive
+                                                },
+                                                badgeShape = ExpressiveArchShape,
+                                                palette = if (!notificationsAvailable) rosePalette else skyPalette,
+                                                onClick = { currentPage = SettingsPage.NOTIFICATIONS }
+                                            )
+                                        }
+                                        "transfer" -> SettingsVaultActionRow(
+                                            index = idx,
+                                            count = utilityRows.size,
+                                            title = "Transfer & Backup",
+                                            subtitle = "QR Stack Card, short link, or backup file",
+                                            icon = Icons.Default.Share,
+                                            badgeShape = ExpressiveCookie8Shape,
+                                            palette = stonePalette,
+                                            onClick = { currentPage = SettingsPage.TRANSFER }
                                         )
                                     }
-                                    if (onOpenNotificationSettings != null) {
-                                        TextButton(onClick = onOpenNotificationSettings) {
-                                            Text(
-                                                "Enable",
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onErrorContainer
-                                            )
+                                }
+                            }
+
+                            if (!backupMessage.isNullOrBlank()) {
+                                Text(
+                                    text = backupMessage,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 6.dp)
+                                )
+                            }
+                        }
+
+                        SettingsPage.APPEARANCE -> {
+                            val appearanceRows = buildList {
+                                if (onThemeModeSelected != null) add("theme")
+                                if (onLauncherIconSelected != null) add("app_icon")
+                                if (onUseStackHeroMoodChanged != null) add("hero_mood")
+                            }
+                            if (appearanceRows.isNotEmpty()) {
+                                ExpressiveSectionStack(eyebrow = "THEME & ACCENT") {
+                                    appearanceRows.forEachIndexed { index, key ->
+                                        when (key) {
+                                            "theme" -> ExpressiveSectionRow(index = index, count = appearanceRows.size) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(16.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Appearance",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 14.sp,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    val themeOptions = remember {
+                                                        listOf(
+                                                            ExpressiveSegmentOption(AppThemeMode.SYSTEM, AppThemeMode.SYSTEM.displayName, Icons.Default.BrightnessAuto),
+                                                            ExpressiveSegmentOption(AppThemeMode.LIGHT, AppThemeMode.LIGHT.displayName, Icons.Default.LightMode),
+                                                            ExpressiveSegmentOption(AppThemeMode.DARK, AppThemeMode.DARK.displayName, Icons.Default.DarkMode)
+                                                        )
+                                                    }
+                                                    ExpressiveSegmentedGroup(
+                                                        options = themeOptions,
+                                                        selectedValue = themeMode,
+                                                        onSelect = onThemeModeSelected!!,
+                                                        height = 42.dp,
+                                                        fontSize = 12.sp
+                                                    )
+                                                }
+                                            }
+
+                                            "app_icon" -> ExpressiveSectionRow(index = index, count = appearanceRows.size) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(vertical = 15.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(11.dp)
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 16.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Column(modifier = Modifier.weight(1f)) {
+                                                            Text(
+                                                                text = "App icon & accent",
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 14.sp,
+                                                                color = MaterialTheme.colorScheme.onSurface
+                                                            )
+                                                            Text(
+                                                                text = "Sets your home screen icon and app accent color.",
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
+                                                        if (recommendedLauncherIcon != null && recommendedLauncherIcon != selectedLauncherIcon) {
+                                                            Spacer(Modifier.width(8.dp))
+                                                            Surface(
+                                                                onClick = { onLauncherIconSelected!!(recommendedLauncherIcon) },
+                                                                shape = RoundedCornerShape(999.dp),
+                                                                color = MaterialTheme.colorScheme.primaryContainer
+                                                            ) {
+                                                                Text(
+                                                                    text = "Match ${recommendedLauncherIcon.displayName}",
+                                                                    fontSize = 11.sp,
+                                                                    fontWeight = FontWeight.ExtraBold,
+                                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    LazyRow(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                    ) {
+                                                        items(AppLauncherIcon.entries, key = { it.name }) { iconOption ->
+                                                            val isSelected = iconOption == selectedLauncherIcon
+                                                            val isStackMatch = iconOption == recommendedLauncherIcon
+                                                            val swirlPreviewColors = remember(iconOption) {
+                                                                BrandColorHarmonizer.swirlColorsForLauncherIcon(iconOption)
+                                                            }
+                                                            Surface(
+                                                                onClick = { onLauncherIconSelected!!(iconOption) },
+                                                                shape = RoundedCornerShape(20.dp),
+                                                                color = if (isSelected) {
+                                                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+                                                                } else {
+                                                                    MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f)
+                                                                },
+                                                                border = BorderStroke(
+                                                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                                                    color = if (isSelected) {
+                                                                        MaterialTheme.colorScheme.primary
+                                                                    } else {
+                                                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                                                                    }
+                                                                )
+                                                            ) {
+                                                                Column(
+                                                                    modifier = Modifier
+                                                                        .width(84.dp)
+                                                                        .padding(horizontal = 6.dp, vertical = 10.dp),
+                                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                                                                ) {
+                                                                    Box(contentAlignment = Alignment.BottomEnd) {
+                                                                        SubCyclerSwirlLogo(
+                                                                            colors = swirlPreviewColors,
+                                                                            size = 44.dp,
+                                                                            cornerRadius = 13.dp,
+                                                                            contentDescriptionText = "${iconOption.displayName} app icon"
+                                                                        )
+                                                                        if (isSelected) {
+                                                                            Box(
+                                                                                modifier = Modifier
+                                                                                    .size(18.dp)
+                                                                                    .clip(CircleShape)
+                                                                                    .background(MaterialTheme.colorScheme.primary),
+                                                                                contentAlignment = Alignment.Center
+                                                                            ) {
+                                                                                Icon(
+                                                                                    imageVector = Icons.Default.Check,
+                                                                                    contentDescription = "Selected",
+                                                                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                                                                    modifier = Modifier.size(11.dp)
+                                                                                )
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    Text(
+                                                                        text = iconOption.displayName,
+                                                                        fontSize = 11.sp,
+                                                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                                                        color = if (isSelected) {
+                                                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                                                        } else {
+                                                                            MaterialTheme.colorScheme.onSurface
+                                                                        },
+                                                                        maxLines = 1
+                                                                    )
+                                                                    Box(
+                                                                        modifier = Modifier.height(18.dp),
+                                                                        contentAlignment = Alignment.Center
+                                                                    ) {
+                                                                        if (isStackMatch) {
+                                                                            Text(
+                                                                                text = "Stack fit",
+                                                                                fontSize = 9.5.sp,
+                                                                                lineHeight = 12.sp,
+                                                                                fontWeight = FontWeight.Bold,
+                                                                                color = MaterialTheme.colorScheme.primary,
+                                                                                maxLines = 1
+                                                                            )
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            "hero_mood" -> ExpressiveSectionRow(index = index, count = appearanceRows.size) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = "Living stack mood",
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 14.sp,
+                                                            color = MaterialTheme.colorScheme.onSurface
+                                                        )
+                                                        Text(
+                                                            text = "Softly tint the hero card, swirl logo & active dock pill from your active subscriptions.",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                    Spacer(Modifier.width(12.dp))
+                                                    Switch(
+                                                        checked = useStackHeroMood,
+                                                        onCheckedChange = onUseStackHeroMoodChanged!!
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
 
-                        if (onNotificationLeadDaysSelected != null) {
-                            Text(
-                                text = "Remind me before renewal",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.5.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            val leadOptions = remember {
-                                listOf(1, 3, 5, 7).map { ExpressiveSegmentOption(it, "${it}d") }
+                        SettingsPage.NOTIFICATIONS -> {
+                            val reminderRows = buildList {
+                                if (!notificationsAvailable) add("notif_off")
+                                if (onNotificationLeadDaysSelected != null) add("lead_days")
+                                if (onPreviewNotifications != null) add("preview_notif")
                             }
-                            ExpressiveSegmentedGroup(
-                                options = leadOptions,
-                                selectedValue = notificationLeadDays,
-                                onSelect = onNotificationLeadDaysSelected,
-                                height = 42.dp,
-                                fontSize = 12.5.sp
-                            )
-                        }
-                    }
-                }
-            }
+                            if (reminderRows.isNotEmpty()) {
+                                ExpressiveSectionStack(eyebrow = "RENEWAL REMINDERS") {
+                                    reminderRows.forEachIndexed { idx, key ->
+                                        when (key) {
+                                            "notif_off" -> ExpressiveSectionRow(
+                                                index = idx,
+                                                count = reminderRows.size,
+                                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.NotificationsOff,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Spacer(Modifier.width(10.dp))
+                                                        Text(
+                                                            text = "Notifications are off for SubCycler.",
+                                                            fontSize = 12.5.sp,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                                        )
+                                                    }
+                                                    if (onOpenNotificationSettings != null) {
+                                                        TextButton(onClick = onOpenNotificationSettings) {
+                                                            Text(
+                                                                "Enable",
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onErrorContainer
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
 
-            // 3. Default Currency & Appearance
-            if (onCurrencySelected != null || onThemeModeSelected != null) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    border = cardBorder
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        ExpressiveEyebrow(text = "PREFERENCES")
+                                            "lead_days" -> ExpressiveSectionRow(index = idx, count = reminderRows.size) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(16.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Remind me before renewal",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 14.sp,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    val leadOptions = remember {
+                                                        listOf(1, 3, 5, 7).map { ExpressiveSegmentOption(it, "${it}d") }
+                                                    }
+                                                    ExpressiveSegmentedGroup(
+                                                        options = leadOptions,
+                                                        selectedValue = notificationLeadDays,
+                                                        onSelect = onNotificationLeadDaysSelected!!,
+                                                        height = 42.dp,
+                                                        fontSize = 12.5.sp
+                                                    )
+                                                }
+                                            }
 
-                        if (onCurrencySelected != null) {
-                            Surface(
-                                onClick = { showCurrencyPicker = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = "App currency",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.5.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "${MoneyFormatter.symbol(currencyCode)} $currencyCode · ${MoneyFormatter.displayName(currencyCode)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            "preview_notif" -> SettingsVaultActionRow(
+                                                index = idx,
+                                                count = reminderRows.size,
+                                                title = "Preview expressive alerts",
+                                                subtitle = "Send a sample Cycle Rhythm card & 2-step progress alert",
+                                                icon = Icons.Default.NotificationsActive,
+                                                badgeShape = ExpressiveCookie8Shape,
+                                                palette = skyPalette,
+                                                onClick = onPreviewNotifications!!
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            val calendarRowCount = if (enabled) 2 else 1
+                            ExpressiveSectionStack(eyebrow = "CALENDAR AWARENESS") {
+                                ExpressiveSectionRow(index = 0, count = calendarRowCount) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .expressivePolygonSurface(
+                                                    shape = ExpressiveCookie8Shape,
+                                                    color = skyPalette.container
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CalendarMonth,
+                                                contentDescription = null,
+                                                tint = skyPalette.content,
+                                                modifier = Modifier.size(19.dp)
+                                            )
+                                        }
+                                        Spacer(Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                "Calendar-aware suggestions",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Spacer(Modifier.height(2.dp))
+                                            Text(
+                                                "Use selected device calendars for timely subscription suggestions.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Spacer(Modifier.width(12.dp))
+                                        Switch(
+                                            checked = enabled,
+                                            onCheckedChange = onEnabledChange
                                         )
                                     }
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronRight,
-                                        contentDescription = "Change currency",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                }
+
+                                if (enabled) {
+                                    ExpressiveSectionRow(
+                                        index = 1,
+                                        count = calendarRowCount,
+                                        onClick = onOpenCalendars
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    "Calendars",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.5.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    "$selectedCalendarCount selected",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.ChevronRight,
+                                                contentDescription = "Change calendars",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                        }
 
-                        if (onThemeModeSelected != null) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            accessIssue?.let {
                                 Text(
-                                    text = "Appearance",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                val themeOptions = remember {
-                                    listOf(
-                                        ExpressiveSegmentOption(AppThemeMode.SYSTEM, AppThemeMode.SYSTEM.displayName, Icons.Default.BrightnessAuto),
-                                        ExpressiveSegmentOption(AppThemeMode.LIGHT, AppThemeMode.LIGHT.displayName, Icons.Default.LightMode),
-                                        ExpressiveSegmentOption(AppThemeMode.DARK, AppThemeMode.DARK.displayName, Icons.Default.DarkMode)
-                                    )
-                                }
-                                ExpressiveSegmentedGroup(
-                                    options = themeOptions,
-                                    selectedValue = themeMode,
-                                    onSelect = onThemeModeSelected,
-                                    height = 42.dp,
-                                    fontSize = 12.sp
+                                    text = when (it) {
+                                        CalendarAccessIssue.PERMISSION_DENIED -> "Calendar permission was not granted. The feature remains off."
+                                        CalendarAccessIssue.PERMISSION_REVOKED -> "Calendar access was removed. The feature was turned off."
+                                        CalendarAccessIssue.NO_ACCESSIBLE_CALENDARS -> "No selected device calendars are currently accessible."
+                                        CalendarAccessIssue.PROVIDER_UNAVAILABLE -> "Calendar data is currently unavailable. The feature was turned off."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
                                 )
                             }
                         }
-                    }
-                }
-            }
 
-            // 4. Offline Data Portability (JSON Backup/Restore & CSV Export — Zero Permissions)
-            if (onExportJson != null || onImportJson != null || onExportCsv != null) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    border = cardBorder
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        ExpressiveEyebrow(text = "OFFLINE BACKUP & EXPORT")
-                        Text(
-                            text = "Keep a local copy of your subscriptions and earned savings on device storage — no cloud required.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            if (onExportJson != null) {
-                                FilledTonalButton(
-                                    onClick = onExportJson,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(999.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                ) {
-                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Backup JSON", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        SettingsPage.TRANSFER -> {
+                            val transferActions = buildList {
+                                if (onShareStack != null) {
+                                    add(Triple("Share stack", "QR Stack Card, short link, or backup file", onShareStack))
+                                }
+                                if (onImportStack != null) {
+                                    add(Triple("Import stack", "From a Stack Card image, short link, or file", onImportStack))
                                 }
                             }
-                            if (onImportJson != null) {
-                                FilledTonalButton(
-                                    onClick = onImportJson,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(999.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                    )
-                                ) {
-                                    Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Restore", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            if (transferActions.isNotEmpty()) {
+                                ExpressiveSectionStack(eyebrow = "OFFLINE TRANSFER") {
+                                    transferActions.forEachIndexed { index, (title, subtitle, onClick) ->
+                                        val (icon, shape, palette) = if (title == "Share stack") {
+                                            Triple(Icons.Default.Share, ExpressiveCookie8Shape, skyPalette)
+                                        } else {
+                                            Triple(Icons.Default.Download, ExpressiveArchShape, oceanPalette)
+                                        }
+                                        SettingsVaultActionRow(
+                                            index = index,
+                                            count = transferActions.size,
+                                            title = title,
+                                            subtitle = subtitle,
+                                            icon = icon,
+                                            badgeShape = shape,
+                                            palette = palette,
+                                            onClick = onClick
+                                        )
+                                    }
                                 }
                             }
-                        }
-                        if (onExportCsv != null) {
-                            FilledTonalButton(
-                                onClick = onExportCsv,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(44.dp),
-                                shape = RoundedCornerShape(999.dp),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
+                            if (!backupMessage.isNullOrBlank()) {
+                                Text(
+                                    text = backupMessage,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 6.dp)
                                 )
-                            ) {
-                                Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Export spreadsheet (.csv)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
-                        }
-                        if (!backupMessage.isNullOrBlank()) {
                             Text(
-                                text = backupMessage,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
+                                text = "100% offline — SubCycler never uses internet permission or cloud accounts.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp)
                             )
                         }
                     }
@@ -534,6 +889,69 @@ fun CalendarSettingsSheet(
     }
 }
 
+@Composable
+private fun SettingsVaultActionRow(
+    index: Int,
+    count: Int,
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    badgeShape: Shape,
+    palette: ExpressiveTonalPalette,
+    onClick: () -> Unit
+) {
+    ExpressiveSectionRow(
+        index = index,
+        count = count,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .expressivePolygonSurface(
+                        shape = badgeShape,
+                        color = palette.container
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = palette.content,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(19.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarSelectionSheet(
@@ -580,17 +998,21 @@ fun CalendarSelectionSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 360.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                items(calendars, key = { it.id }) { calendar ->
+                itemsIndexed(calendars, key = { _, cal -> cal.id }) { index, calendar ->
                     val selected = calendar.id in selectedIds
-                    Surface(
+                    ExpressiveSectionRow(
+                        index = index,
+                        count = calendars.size,
                         onClick = {
                             selectedIds = if (selected) selectedIds - calendar.id else selectedIds + calendar.id
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
+                        containerColor = if (selected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainer
+                        }
                     ) {
                         Row(
                             modifier = Modifier
@@ -683,8 +1105,10 @@ fun CalendarSuggestionCard(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(ExpressiveClover4Shape)
-                        .background(lavenderPalette.selectedContainer, ExpressiveClover4Shape),
+                        .expressivePolygonSurface(
+                            shape = ExpressiveClover4Shape,
+                            color = lavenderPalette.selectedContainer
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     ReactiveIcon(

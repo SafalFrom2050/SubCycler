@@ -49,11 +49,19 @@ import com.subtrack.core.ui.components.ExpressiveHeroCardBackdrop
 import com.subtrack.core.ui.components.ExpressiveMoneyText
 import com.subtrack.core.ui.components.ExpressivePalettes
 import com.subtrack.core.ui.components.ExpressiveScreenTitle
+import com.subtrack.core.ui.components.ExpressiveSectionRow
+import com.subtrack.core.ui.components.ExpressiveSectionStack
 import com.subtrack.core.ui.components.ExpressiveServiceBadge
 import com.subtrack.core.ui.components.ExpressiveTonalPalette
+import com.subtrack.core.ui.components.ShapeBloomBackdrop
 import com.subtrack.core.ui.components.expressiveCardBorder
+import com.subtrack.core.ui.components.expressivePolygonSurface
+import com.subtrack.core.ui.components.progressiveEdgeFade
 import com.subtrack.core.ui.theme.DisplayFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.orSnapIfReduced
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 import kotlin.math.roundToInt
 
 @Composable
@@ -125,14 +133,21 @@ fun AnalyticsScreen(
         containerColor = Color.Transparent
     ) { innerPadding ->
         val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        LazyColumn(
+        val reducedMotion = rememberReducedMotionEnabled()
+        Box(
             modifier = modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp + navBarBottom)
         ) {
+            ShapeBloomBackdrop()
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+                    .progressiveEdgeFade(bottomFadeHeight = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp + navBarBottom)
+            ) {
             if (uiState.excludedCurrencyCount > 0) {
                 item(key = "currency_scope_notice", contentType = "notice") {
                     CurrencyScopeNotice(
@@ -157,8 +172,10 @@ fun AnalyticsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(56.dp)
-                                    .clip(ExpressiveCookie8Shape)
-                                    .background(boldPalette.container, ExpressiveCookie8Shape),
+                                    .expressivePolygonSurface(
+                                        shape = ExpressiveCookie8Shape,
+                                        color = boldPalette.container
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -202,55 +219,59 @@ fun AnalyticsScreen(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(28.dp))
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 22.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .padding(horizontal = 20.dp, vertical = 20.dp)
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    ExpressiveEyebrow(
-                                        text = "PROJECTED 5-YEAR SAVINGS",
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f)
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    ExpressiveMoneyText(
-                                        formattedAmount = MoneyFormatter.format(
-                                            uiState.fiveYearSavings,
-                                            uiState.currencyCode,
-                                            maximumFractionDigits = 0
-                                        ),
-                                        heroFontSize = 46.sp,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    if (hasSavings) {
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(999.dp),
-                                            color = heroPillBg
-                                        ) {
-                                            Text(
-                                                text = "$savingsPct% cut · $rotatingCount rotating",
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontSize = 11.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-                                            )
+                                ExpressiveEyebrow(
+                                    text = "PROJECTED 5-YEAR SAVINGS",
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        ExpressiveMoneyText(
+                                            formattedAmount = MoneyFormatter.format(
+                                                uiState.fiveYearSavings,
+                                                uiState.currencyCode,
+                                                maximumFractionDigits = 0
+                                            ),
+                                            heroFontSize = 46.sp,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        if (hasSavings) {
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(999.dp),
+                                                color = heroPillBg
+                                            ) {
+                                                Text(
+                                                    text = "$savingsPct% cut · $rotatingCount rotating",
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                                                )
+                                            }
                                         }
                                     }
-                                }
 
-                                if (hasSavings) {
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    CompoundingGrowthArc(
-                                        strokeColor = MaterialTheme.colorScheme.primary,
-                                        nodeColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier
-                                            .width(96.dp)
-                                            .height(78.dp)
-                                    )
+                                    if (hasSavings) {
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        CompoundingGrowthArc(
+                                            strokeColor = MaterialTheme.colorScheme.primary,
+                                            nodeColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier
+                                                .width(96.dp)
+                                                .height(74.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -307,41 +328,40 @@ fun AnalyticsScreen(
                     }
                 }
 
-                // 3. Per-Service Savings Breakdown Card (eliminates blank lower void with gratifying attribution!)
+                // 3. Per-Service Connected Vessel Savings Stack (28dp outer / 4dp inner seams + proportional tonal vessel!)
                 if (uiState.rotatingContributions.isNotEmpty()) {
                     item(key = "savings_breakdown", contentType = "card") {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(26.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            border = cardBorder
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(18.dp),
-                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    ExpressiveEyebrow(text = "SAVINGS BREAKDOWN")
-                                    Text(
-                                        text = "${MoneyFormatter.format(uiState.summary.totalAnnualSavings, uiState.currencyCode, maximumFractionDigits = 0)}/yr",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                                ExpressiveEyebrow(
+                                    text = "SAVINGS BREAKDOWN",
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "${MoneyFormatter.format(uiState.summary.totalAnnualSavings, uiState.currencyCode, maximumFractionDigits = 0)}/yr",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
 
-                                uiState.rotatingContributions.forEach { item ->
+                            ExpressiveSectionStack {
+                                val vesselColor = MaterialTheme.colorScheme.primaryContainer.copy(
+                                    alpha = if (isDark) 0.42f else 0.56f
+                                )
+                                val vesselSeam = MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
+                                uiState.rotatingContributions.forEachIndexed { index, item ->
                                     val sub = item.subscription
                                     val animatedShare by animateFloatAsState(
-                                        targetValue = item.shareFraction,
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioLowBouncy,
-                                            stiffness = Spring.StiffnessMediumLow
-                                        ),
+                                        targetValue = item.shareFraction.coerceIn(0.06f, 1f),
+                                        animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
+                                            .orSnapIfReduced(reducedMotion),
                                         label = "breakdownShare"
                                     )
                                     val cycleNote = when (sub.strategy) {
@@ -350,67 +370,68 @@ fun AnalyticsScreen(
                                         RotationStrategy.CUSTOM -> "${sub.activeDays}d on · ${sub.blackoutDays}d off"
                                         else -> "Rotating"
                                     }
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
+
+                                    ExpressiveSectionRow(
+                                        index = index,
+                                        count = uiState.rotatingContributions.size,
+                                        outerRadius = 24.dp,
+                                        innerRadius = 4.dp
                                     ) {
-                                        ExpressiveServiceBadge(
-                                            serviceName = sub.name,
-                                            size = 38.dp,
-                                            fontSize = 12.sp
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
+                                        // Proportional horizontal tonal vessel sweeping behind the service row
+                                        Canvas(modifier = Modifier.matchParentSize()) {
+                                            val fillW = (size.width * animatedShare).coerceIn(0f, size.width)
+                                            drawRect(
+                                                color = vesselColor,
+                                                topLeft = Offset.Zero,
+                                                size = androidx.compose.ui.geometry.Size(fillW, size.height)
+                                            )
+                                            if (fillW in 4f..(size.width - 4f)) {
+                                                drawLine(
+                                                    color = vesselSeam,
+                                                    start = Offset(fillW, 0f),
+                                                    end = Offset(fillW, size.height),
+                                                    strokeWidth = 1.dp.toPx()
+                                                )
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            ExpressiveServiceBadge(
+                                                serviceName = sub.name,
+                                                size = 38.dp,
+                                                fontSize = 12.sp
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
                                                 Text(
                                                     text = sub.name,
                                                     style = MaterialTheme.typography.titleSmall,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f)
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
-                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Spacer(modifier = Modifier.height(2.dp))
                                                 Text(
-                                                    text = "${MoneyFormatter.format(item.annualSavings, sub.currency, maximumFractionDigits = 0)}/yr",
-                                                    fontFamily = DisplayFontFamily,
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    fontSize = 14.sp,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .weight(1f)
-                                                        .height(6.dp)
-                                                        .clip(CircleShape)
-                                                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                                                ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth(animatedShare)
-                                                            .fillMaxHeight()
-                                                            .clip(CircleShape)
-                                                            .background(MaterialTheme.colorScheme.primary)
-                                                    )
-                                                }
-                                                Text(
-                                                    text = cycleNote,
+                                                    text = "$cycleNote · ${(item.shareFraction * 100).roundToInt()}% of savings",
                                                     fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Medium,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "${MoneyFormatter.format(item.annualSavings, sub.currency, maximumFractionDigits = 0)}/yr",
+                                                fontFamily = DisplayFontFamily,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 15.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
                                         }
                                     }
                                 }
@@ -434,8 +455,10 @@ fun AnalyticsScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(42.dp)
-                                            .clip(ExpressiveClover4Shape)
-                                            .background(sagePalette.container, ExpressiveClover4Shape),
+                                            .expressivePolygonSurface(
+                                                shape = ExpressiveClover4Shape,
+                                                color = sagePalette.container
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
@@ -593,24 +616,22 @@ fun AnalyticsScreen(
                     }
                 }
 
-                // 5. Actionable Opportunity Breakdown (1-Tap "Use 45d" for Continuous Monthly plans)
+                // 5. Actionable Opportunity Connected Stack (1-Tap "Use 45d" for Continuous Monthly plans)
                 if (uiState.opportunities.isNotEmpty()) {
                     item(key = "opportunities_card", contentType = "card") {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(26.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            border = cardBorder
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(18.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                ExpressiveEyebrow(text = "SAVINGS OPPORTUNITIES")
-                                uiState.opportunities.forEach { opportunity ->
-                                    val sub = opportunity.subscription
+                        ExpressiveSectionStack(eyebrow = "SAVINGS OPPORTUNITIES") {
+                            uiState.opportunities.forEachIndexed { index, opportunity ->
+                                val sub = opportunity.subscription
+                                ExpressiveSectionRow(
+                                    index = index,
+                                    count = uiState.opportunities.size,
+                                    outerRadius = 24.dp,
+                                    innerRadius = 4.dp
+                                ) {
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 13.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
@@ -662,6 +683,7 @@ fun AnalyticsScreen(
                     }
                 }
             }
+        }
         }
     }
 }

@@ -4,7 +4,50 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- SubCycler 3-petal organic swirl silhouette around a transparent calendar-wave center -->
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="0">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M9.4,7.5 C9.1,2.5 14.3,1.5 18.0,4.5 C20.4,6.5 21.0,9.8 19.6,11.3 C18.3,12.1 17.2,10.9 16.6,9.6 A5.2,5.2 0 0,0 9.4,7.5 Z" />
+    </group>
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="120">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M9.4,7.5 C9.1,2.5 14.3,1.5 18.0,4.5 C20.4,6.5 21.0,9.8 19.6,11.3 C18.3,12.1 17.2,10.9 16.6,9.6 A5.2,5.2 0 0,0 9.4,7.5 Z" />
+    </group>
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="240">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M9.4,7.5 C9.1,2.5 14.3,1.5 18.0,4.5 C20.4,6.5 21.0,9.8 19.6,11.3 C18.3,12.1 17.2,10.9 16.6,9.6 A5.2,5.2 0 0,0 9.4,7.5 Z" />
+    </group>
+
+    <!-- Center calendar-cycle rounded mark (2 lugs + rounded frame + wave bar) -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M12,6v3l4,-4 -4,-4v3c-4.42,0 -8,3.58 -8,8 0,1.57 0.46,3.03 1.24,4.26L6.7,14.8c-0.45,-0.83 -0.7,-1.79 -0.7,-2.8 0,-3.31 2.69,-6 6,-6zM18.76,7.74L17.3,9.2c0.44,0.84 0.7,1.79 0.7,2.8 0,3.31 -2.69,6 -6,6v-3l-4,4 4,4v-3c4.42,0 8,-3.58 8,-8 0,-1.57 -0.46,-3.03 -1.24,-4.26z" />
+        android:pathData="M10.4,8.9 m-0.65,0 a0.65,0.65 0 1,0 1.3,0 a0.65,0.65 0 1,0 -1.3,0" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M13.6,8.9 m-0.65,0 a0.65,0.65 0 1,0 1.3,0 a0.65,0.65 0 1,0 -1.3,0" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M9.8,9.8 L14.2,9.8 Q15.2,9.8 15.2,10.8 L15.2,13.6 Q15.2,14.6 14.2,14.6 L9.8,14.6 Q8.8,14.6 8.8,13.6 L8.8,10.8 Q8.8,9.8 9.8,9.8 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.2" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M10.4,12.35 C11.1,11.65 11.7,12.95 12.4,12.25 C12.9,11.8 13.3,12.0 13.6,12.2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.0" />
 </vector>

@@ -142,7 +142,15 @@ fun AddEditSubscriptionDialog(
             (initialSubscription?.customBlackoutDays ?: initialPreset?.suggestedBlackoutDays ?: 15).coerceAtLeast(0)
         )
     }
-    var colorHex by remember { mutableStateOf(initialSubscription?.colorHex ?: initialPreset?.colorHex ?: "#0C6B4E") }
+    var colorHex by remember {
+        mutableStateOf(
+            com.subtrack.core.ui.theme.BrandColorHarmonizer.resolveEffectiveBrandHex(
+                serviceName = initialNameSeed,
+                storedColorHex = initialSubscription?.colorHex ?: initialPreset?.colorHex
+            )
+        )
+    }
+    var userPickedColor by remember { mutableStateOf(false) }
     var notes by remember { mutableStateOf(initialSubscription?.notes ?: "") }
 
     val initialCycleStatus = remember(initialSubscription) {
@@ -351,7 +359,7 @@ fun AddEditSubscriptionDialog(
                 .imePadding()
                 .navigationBarsPadding()
         ) {
-            // Clean Header Row: Organic Badge + Title & Subtle Auto-Save Status + Close Button
+            // Clean Header Row: Organic Badge + Title + Close Button (auto-save status shows cleanly in the home app bar)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -361,53 +369,23 @@ fun AddEditSubscriptionDialog(
                 ExpressiveServiceBadge(
                     serviceName = previewName,
                     initials = if (name.isBlank()) "+" else ExpressivePalettes.initialsForService(name),
+                    colorHex = colorHex,
                     size = 42.dp,
                     fontSize = if (name.isBlank()) 17.sp else 13.5.sp,
                     isSelected = name.isNotBlank()
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isEditing) "Edit subscription" else "New subscription",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp,
-                        letterSpacing = (-0.5).sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        val isSavedComplete = hasAutoSaved && canSave && previewMissingItems.isEmpty()
-                        if (isSavedComplete) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
-                        Text(
-                            text = when {
-                                !canSave && name.isBlank() -> "Saves automatically"
-                                hasInvalidCostFormat -> "Check price format"
-                                previewMissingItems.isNotEmpty() && hasAutoSaved -> "Saved · Incomplete"
-                                isSavedComplete -> "Saved automatically"
-                                else -> "Saving…"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 11.5.sp,
-                            color = if (hasInvalidCostFormat) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                    }
-                }
+                Text(
+                    text = if (isEditing) "Edit subscription" else "New subscription",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 20.sp,
+                    letterSpacing = (-0.5).sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
 
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(
@@ -427,7 +405,16 @@ fun AddEditSubscriptionDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Spring-expanding stadium progress dots (8dp -> 28dp) above whisper-quiet capsule switcher
+            ExpressiveStepDots(
+                totalSteps = SubscriptionFormStep.entries.size,
+                currentStep = currentStep,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 10.dp)
+            )
 
             // Whisper-Quiet Neutral Capsule Step Switcher (calm, tappable, zero loud bars)
             Surface(
@@ -572,6 +559,7 @@ fun AddEditSubscriptionDialog(
                                                     }
                                                     category = preset.category
                                                     colorHex = preset.colorHex
+                                                    userPickedColor = false
                                                     strategy = if (billingPeriod == BillingPeriod.YEARLY) {
                                                         RotationStrategy.CONTINUOUS
                                                     } else {
@@ -593,6 +581,7 @@ fun AddEditSubscriptionDialog(
                                                 ) {
                                                     ExpressiveServiceBadge(
                                                         serviceName = preset.name,
+                                                        colorHex = preset.colorHex,
                                                         size = 22.dp,
                                                         fontSize = 8.5.sp,
                                                         isSelected = isPresetSelected
@@ -628,7 +617,15 @@ fun AddEditSubscriptionDialog(
                                 ) {
                                     OutlinedTextField(
                                         value = name,
-                                        onValueChange = { name = it.take(60) },
+                                        onValueChange = { nextName ->
+                                            val clipped = nextName.take(60)
+                                            name = clipped
+                                            if (!userPickedColor) {
+                                                PresetLibrary.brandColorHexForName(clipped)?.let { matched ->
+                                                    colorHex = matched
+                                                }
+                                            }
+                                        },
                                         label = { Text("Service name") },
                                         placeholder = { Text("e.g. Netflix") },
                                         isError = attemptedAdvance && name.trim().isEmpty(),
@@ -659,7 +656,14 @@ fun AddEditSubscriptionDialog(
                                     )
                                 }
 
-                                if (hasLegacyCurrencyMismatch) {
+                                if (hasInvalidCostFormat) {
+                                    Text(
+                                        text = "Check price format — enter a positive number.",
+                                        fontSize = 11.5.sp,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(start = 2.dp)
+                                    )
+                                } else if (hasLegacyCurrencyMismatch) {
                                     Text(
                                         text = "App currency is $currencyCode — confirm the price in $currencyCode.",
                                         fontSize = 11.5.sp,
@@ -776,6 +780,67 @@ fun AddEditSubscriptionDialog(
                                                 fontSize = 11.5.sp,
                                                 modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)
                                             )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Curated Soft-Pastel Accent Color Swatch Row
+                            Column {
+                                ExpressiveEyebrow(
+                                    text = "BRAND TINT",
+                                    modifier = Modifier.padding(horizontal = 20.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                val isDark = com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme.current
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 20.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                                ) {
+                                    items(PresetLibrary.customColorSwatches, key = { it.second }) { (swatchLabel, swatchHex) ->
+                                        val isSwatchSelected = colorHex.equals(swatchHex, ignoreCase = true)
+                                        val swatchPalette = remember(swatchHex, isDark) {
+                                            com.subtrack.core.ui.theme.BrandColorHarmonizer.harmonizedTonalPaletteFromHex(
+                                                hex = swatchHex,
+                                                isDark = isDark
+                                            )
+                                        }
+                                        Surface(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                colorHex = swatchHex
+                                                userPickedColor = true
+                                            },
+                                            modifier = Modifier.size(34.dp),
+                                            shape = CircleShape,
+                                            color = swatchPalette.container,
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                width = if (isSwatchSelected) 2.dp else 1.dp,
+                                                color = if (isSwatchSelected) {
+                                                    swatchPalette.content
+                                                } else {
+                                                    swatchPalette.border.copy(alpha = 0.5f)
+                                                }
+                                            )
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                if (isSwatchSelected) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = "$swatchLabel selected",
+                                                        tint = swatchPalette.content,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(10.dp)
+                                                            .clip(CircleShape)
+                                                            .background(swatchPalette.accent)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }

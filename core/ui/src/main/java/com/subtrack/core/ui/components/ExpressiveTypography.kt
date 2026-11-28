@@ -1,8 +1,22 @@
 package com.subtrack.core.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
@@ -14,10 +28,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.subtrack.core.ui.theme.BodyFontFamily
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
 
 internal data class ParsedMoneyParts(
     val prefix: String,
@@ -223,6 +240,76 @@ fun ExpressiveBrandWordmark(
         textAlign = textAlign,
         style = TextStyle(lineHeight = (sizeValue * 1.08f).sp)
     )
+}
+
+/**
+ * Kinetic Top-Bar Brand Header:
+ * Pairs SubCycler's botanical swirl brand emblem (which performs a smooth spring rotation
+ * whenever [statusTicker] reports a local confirmation) beside a vertical slot-ticker.
+ */
+@Composable
+fun ExpressiveKineticBrandHeader(
+    modifier: Modifier = Modifier,
+    statusTicker: String? = null,
+    swirlColors: com.subtrack.core.ui.theme.SwirlLogoColors = com.subtrack.core.ui.theme.BrandColorHarmonizer.DefaultBotanicalSwirl,
+    fontSize: TextUnit = 28.sp
+) {
+    val reducedMotion = rememberReducedMotionEnabled()
+    val spinAngle = remember { Animatable(0f) }
+
+    LaunchedEffect(statusTicker, reducedMotion) {
+        if (statusTicker == null) return@LaunchedEffect
+        if (!reducedMotion) {
+            spinAngle.animateTo(
+                targetValue = spinAngle.value + 360f,
+                animationSpec = ExpressiveMotion.expressiveSpatialDefaultFloat()
+            )
+        }
+    }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SubCyclerSwirlLogo(
+            colors = swirlColors,
+            size = 34.dp,
+            cornerRadius = 10.dp,
+            rotationDegrees = spinAngle.value,
+            contentDescriptionText = "SubCycler logo"
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        AnimatedContent(
+            targetState = statusTicker,
+            transitionSpec = {
+                if (reducedMotion) {
+                    fadeIn(tween(0)).togetherWith(fadeOut(tween(0)))
+                } else {
+                    val enteringStatus = targetState != null
+                    (slideInVertically(tween(210)) { h -> if (enteringStatus) h else -h } + fadeIn(tween(180)))
+                        .togetherWith(
+                            slideOutVertically(tween(180)) { h -> if (enteringStatus) -h else h } + fadeOut(tween(140))
+                        )
+                }
+            },
+            label = "kineticBrandTicker"
+        ) { ticker ->
+            if (ticker == null) {
+                ExpressiveBrandWordmark(fontSize = fontSize)
+            } else {
+                Text(
+                    text = ticker,
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 21.sp,
+                    letterSpacing = (-0.4).sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
 }
 
 /**

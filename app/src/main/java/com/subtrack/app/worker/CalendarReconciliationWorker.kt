@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.subtrack.app.notification.NotificationHelper
 import com.subtrack.core.common.time.TimeProvider
+import com.subtrack.core.domain.model.CyclePhase
 import com.subtrack.core.domain.repository.CalendarAwarenessRepository
 import com.subtrack.core.domain.repository.UserPreferencesRepository
 import com.subtrack.core.domain.usecase.GetSubscriptionCycleStatusesUseCase
@@ -40,14 +41,25 @@ class CalendarReconciliationWorker @AssistedInject constructor(
         // Ordinary reminders own the configured lead window. Calendar-only notices are used
         // only earlier, avoiding two notifications for the same decision.
             if (NotificationManagerCompat.from(applicationContext).areNotificationsEnabled()) {
-                val ordinaryLeadDays = userPreferencesRepository.userPreferences.first().notificationLeadDays
+                val userPrefs = userPreferencesRepository.userPreferences.first()
+                val ordinaryLeadDays = userPrefs.notificationLeadDays
                 val candidate = suggestions.firstOrNull {
                     ChronoUnit.DAYS.between(today, it.decisionDate) > ordinaryLeadDays
                 }
                 if (candidate != null && calendarRepository.claimNotification(candidate.identity, timeProvider.nowInstant())) {
+                    val matchedSub = statuses.firstOrNull { it.subscription.id == candidate.identity.subscriptionId }?.subscription
+                    val activeForMood = statuses
+                        .filter { !it.subscription.isIncomplete && it.phase == CyclePhase.ACTIVE }
+                        .map { it.subscription }
                     NotificationHelper.showCalendarSuggestion(
                         context = applicationContext,
-                        subscriptionId = candidate.identity.subscriptionId
+                        subscriptionId = candidate.identity.subscriptionId,
+                        subscriptionName = matchedSub?.name,
+                        colorHex = matchedSub?.colorHex,
+                        launcherIcon = userPrefs.launcherIcon,
+                        themeMode = userPrefs.themeMode,
+                        useStackMood = userPrefs.useStackHeroMood,
+                        activeSubscriptions = activeForMood
                     )
                 }
             }

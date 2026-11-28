@@ -48,22 +48,30 @@ object CancellationLinks {
     private val xbox = account("Microsoft subscriptions", "https://account.microsoft.com/services")
     private val playstation = help("https://www.playstation.com/en-us/support/store/cancel-ps-store-subscription/")
     private val icloud = help("https://support.apple.com/108318")
+    private val hulu = account("Hulu account", "https://secure.hulu.com/account")
+    private val crunchyroll = account("Crunchyroll membership", "https://www.crunchyroll.com/account/membership")
+    private val nintendo = account("Nintendo Switch Online", "https://ec.nintendo.com/my/membership")
 
     private val services = mapOf(
         "netflix" to netflix,
         "disney+" to disney, "disney plus" to disney,
         "max (hbo)" to max, "max" to max, "hbo max" to max,
+        "hulu" to hulu,
+        "crunchyroll" to crunchyroll,
         "youtube premium" to youtube, "youtube music premium" to youtube,
         "spotify" to spotify, "spotify premium" to spotify,
         "apple music" to apple, "apple tv+" to apple, "apple tv plus" to apple,
         "amazon prime video" to prime, "prime video" to prime,
         "chatgpt plus" to chatgpt, "chatgpt pro" to chatgpt, "chatgpt" to chatgpt,
         "claude pro" to claude, "claude max" to claude, "claude" to claude,
+        "google ai (gemini)" to googleOne, "google ai" to googleOne,
         "google ai plus" to googleOne, "google ai pro" to googleOne,
         "google ai ultra" to googleOne, "google one" to googleOne,
         "notion plus" to notion, "notion" to notion,
+        "microsoft 365" to xbox, "office 365" to xbox,
         "xbox game pass ultimate" to xbox, "xbox game pass" to xbox,
         "playstation plus" to playstation, "ps plus" to playstation,
+        "nintendo switch online" to nintendo, "nintendo online" to nintendo,
         "icloud+" to icloud, "icloud plus" to icloud
     )
 

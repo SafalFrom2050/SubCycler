@@ -1,15 +1,25 @@
 package com.subtrack.core.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -27,7 +37,11 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -44,13 +58,20 @@ import com.subtrack.core.common.currency.MoneyFormatter
 import com.subtrack.core.domain.model.PortfolioSummary
 import com.subtrack.core.ui.theme.BodyFontFamily
 import com.subtrack.core.ui.theme.DisplayHeroFontFamily
+import com.subtrack.core.ui.theme.ExpressiveMotion
+import com.subtrack.core.ui.theme.HeroMoodPalette
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
+import com.subtrack.core.ui.theme.orSnapIfReduced
+import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+import kotlin.math.PI
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
- * Material 3 Expressive Hero Bento Card with masked silk-waves backdrop,
- * crystal-clear "Effective Monthly" vs full-price reconciliation, active/paused pill,
- * and an interactive 12-petal scalloped savings badge that opens the Savings tab.
+ * Material 3 Expressive v4.0 Hero Bento Card with masked silk-waves backdrop,
+ * scroll-parallax off-corner `Clover8` polygon watermark, crystal-clear "Effective Monthly"
+ * reconciliation, active/paused pill, and interactive topological morphing savings seal.
  */
 @Composable
 fun FinancialEfficiencyHud(
@@ -58,27 +79,24 @@ fun FinancialEfficiencyHud(
     currencyCode: String = "USD",
     excludedCurrencyCount: Int = 0,
     incompleteCount: Int = 0,
+    scrollProgress: Float = 0f,
+    heroMood: HeroMoodPalette? = null,
     onSavingsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val reducedMotion = rememberReducedMotionEnabled()
     val hasSavings = summary.totalAnnualSavings > 0.0
     val stickerInteraction = remember { MutableInteractionSource() }
     val stickerPressed by stickerInteraction.collectIsPressedAsState()
     var stickerWiggleCount by remember { mutableIntStateOf(0) }
     val wiggleRotation = remember { Animatable(-6f) }
 
-    LaunchedEffect(stickerWiggleCount) {
-        if (stickerWiggleCount == 0) return@LaunchedEffect
-        wiggleRotation.animateTo(10f, spring(stiffness = Spring.StiffnessHigh))
-        wiggleRotation.animateTo(-14f, spring(stiffness = Spring.StiffnessMedium))
-        wiggleRotation.animateTo(
-            -6f,
-            spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMediumLow
-            )
-        )
+    LaunchedEffect(stickerWiggleCount, reducedMotion) {
+        if (stickerWiggleCount == 0 || reducedMotion) return@LaunchedEffect
+        wiggleRotation.animateTo(10f, ExpressiveMotion.expressiveSpatialFastFloat())
+        wiggleRotation.animateTo(-14f, ExpressiveMotion.expressiveSpatialFastFloat())
+        wiggleRotation.animateTo(-6f, ExpressiveMotion.expressiveSpatialDefaultFloat())
     }
 
     val badgeScale by animateFloatAsState(
@@ -87,14 +105,17 @@ fun FinancialEfficiencyHud(
             stickerPressed -> 0.89f
             else -> 1f
         },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
+        animationSpec = ExpressiveMotion.expressiveSpatialFastFloat().orSnapIfReduced(reducedMotion),
         label = "savingsBadgeScale"
     )
 
+    val clampedScroll = ExpressiveMotion.clampEffectProgress(scrollProgress)
     val boldBadgePalette = ExpressivePalettes.boldPrimary()
+    val heroInkColor by animateColorAsState(
+        targetValue = heroMood?.contentColor ?: MaterialTheme.colorScheme.onPrimaryContainer,
+        animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
+        label = "heroInkColor"
+    )
     val heroPillColor = if (LocalSubCyclerDarkTheme.current) {
         MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.72f)
     } else {
@@ -104,13 +125,17 @@ fun FinancialEfficiencyHud(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
-        color = androidx.compose.ui.graphics.Color.Transparent,
+        color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
         ExpressiveHeroCardBackdrop(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(28.dp)),
+            watermarkPolygon = ExpressiveMaterialPolygons.Clover8,
+            watermarkRotationDegrees = if (reducedMotion) 0f else clampedScroll * 20f,
+            watermarkAlpha = 0.09f * (1f - clampedScroll * 0.6f),
+            heroMood = heroMood
         ) {
             Row(
                 modifier = Modifier
@@ -122,13 +147,13 @@ fun FinancialEfficiencyHud(
                 Column(modifier = Modifier.weight(1f)) {
                     ExpressiveEyebrow(
                         text = if (hasSavings) "EFFECTIVE MONTHLY" else "MONTHLY SPEND",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.74f)
+                        color = heroInkColor.copy(alpha = 0.74f)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     ExpressiveMoneyText(
                         formattedAmount = MoneyFormatter.format(summary.totalMonthlyOptimizedCost, currencyCode),
                         heroFontSize = 44.sp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = heroInkColor
                     )
                     if (hasSavings && summary.totalMonthlyStandardCost > summary.totalMonthlyOptimizedCost) {
                         Spacer(modifier = Modifier.height(3.dp))
@@ -136,45 +161,89 @@ fun FinancialEfficiencyHud(
                         val pctOff = summary.overallSavingsPercentage.roundToInt()
                         Text(
                             text = "Down from $fullMonthly/mo · -$pctOff%",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                            color = heroInkColor.copy(alpha = 0.78f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.height(7.dp))
-                        // Duotone Spend-vs-Saved Micro Proportion Bar
-                        val spendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost)
+                        Spacer(modifier = Modifier.height(5.dp))
+                        val targetSpendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost)
                             .toFloat()
-                            .coerceIn(0.18f, 0.92f)
-                        val spendBarColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.70f)
+                            .coerceIn(0.22f, 0.88f)
+                        val animatedSpendFraction by animateFloatAsState(
+                            targetValue = targetSpendFraction,
+                            animationSpec = ExpressiveMotion.standardSpatialDefaultFloat().orSnapIfReduced(reducedMotion),
+                            label = "heroSpendWaveFraction"
+                        )
+                        val spendWaveColor = heroInkColor.copy(alpha = 0.84f)
                         val savedBarColor = MaterialTheme.colorScheme.primary
                         Canvas(
                             modifier = Modifier
-                                .width(148.dp)
-                                .height(5.dp)
+                                .fillMaxWidth()
+                                .widthIn(max = 172.dp)
+                                .height(16.dp)
+                                .semantics {
+                                    contentDescription = "Effective monthly spend reduced by $pctOff percent"
+                                }
                         ) {
-                            val gap = 3.dp.toPx()
-                            val usable = (size.width - gap).coerceAtLeast(1f)
-                            val spendW = usable * spendFraction
-                            val savedW = (usable - spendW).coerceAtLeast(size.height)
-                            val r = CornerRadius(size.height / 2f, size.height / 2f)
-                            drawRoundRect(
-                                color = spendBarColor,
-                                topLeft = Offset.Zero,
-                                size = Size(spendW, size.height),
-                                cornerRadius = r
+                            val strokeW = 4.6.dp.toPx()
+                            val halfStroke = strokeW / 2f
+                            val savedPillH = 5.6.dp.toPx()
+                            val visualGap = 6.5.dp.toPx()
+                            val amplitude = 3.0.dp.toPx()
+                            val wavelength = 21.dp.toPx()
+                            val centerY = size.height / 2f
+
+                            val waveVisualEndX = (size.width - visualGap) * animatedSpendFraction
+                            val waveStartX = halfStroke
+                            val waveEndX = (waveVisualEndX - halfStroke).coerceAtLeast(waveStartX + 1f)
+
+                            // 1. Sculptural Material 3 Expressive curly Spend wave
+                            val wavePath = Path()
+                            val stepPx = 1.5f
+                            val rampPx = 8.dp.toPx()
+                            var x = waveStartX
+                            var first = true
+                            while (x <= waveEndX) {
+                                val distStart = x - waveStartX
+                                val distEnd = waveEndX - x
+                                val envelope = min(1f, min(distStart, distEnd) / rampPx).coerceIn(0f, 1f)
+                                val angle = (distStart / wavelength) * (2.0 * PI).toFloat()
+                                val y = centerY + amplitude * envelope * sin(angle)
+                                if (first) {
+                                    wavePath.moveTo(x, y)
+                                    first = false
+                                } else {
+                                    wavePath.lineTo(x, y)
+                                }
+                                x += stepPx
+                            }
+                            wavePath.lineTo(waveEndX, centerY)
+                            drawPath(
+                                path = wavePath,
+                                color = spendWaveColor,
+                                style = Stroke(
+                                    width = strokeW,
+                                    cap = StrokeCap.Round,
+                                    join = StrokeJoin.Round
+                                )
                             )
+
+                            // 2. Matching chunky theme-accent Saved pill linked to the SAVE seal
+                            val savedStartX = (waveVisualEndX + visualGap).coerceAtMost(size.width - savedPillH)
+                            val savedW = (size.width - savedStartX).coerceAtLeast(savedPillH)
+                            val savedRadius = CornerRadius(savedPillH / 2f, savedPillH / 2f)
                             drawRoundRect(
                                 color = savedBarColor,
-                                topLeft = Offset(spendW + gap, 0f),
-                                size = Size(savedW, size.height),
-                                cornerRadius = r
+                                topLeft = Offset(savedStartX, centerY - savedPillH / 2f),
+                                size = Size(savedW, savedPillH),
+                                cornerRadius = savedRadius
                             )
                         }
                     }
                     if (summary.totalSubscriptions > 0) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         val completeActiveCount = (summary.activeCount - incompleteCount).coerceAtLeast(0)
                         val statusSummary = buildList {
                             if (completeActiveCount > 0) {
@@ -226,17 +295,13 @@ fun FinancialEfficiencyHud(
                         currencyCode,
                         maximumFractionDigits = 0
                     )
-                    val stampGroove by animateFloatAsState(
-                        targetValue = if (stickerPressed) 0.11f else 0.075f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        ),
-                        label = "savingsStampGroove"
+                    val stampShape = rememberMorphingPolygonShape(
+                        targetPolygon = if (stickerPressed) {
+                            ExpressiveMaterialPolygons.Sunny
+                        } else {
+                            ExpressiveMaterialPolygons.Cookie12
+                        }
                     )
-                    val stampShape = remember(stampGroove) {
-                        ScallopedCookieShape(lobes = 12, grooveDepthFraction = stampGroove)
-                    }
                     val amountFontSize = when {
                         formattedAmountOnly.length >= 9 -> 13.5.sp
                         formattedAmountOnly.length >= 7 -> 15.5.sp
@@ -253,8 +318,10 @@ fun FinancialEfficiencyHud(
                                 scaleY = badgeScale
                                 rotationZ = wiggleRotation.value
                             }
-                            .clip(stampShape)
-                            .background(boldBadgePalette.container, stampShape)
+                            .expressivePolygonSurface(
+                                shape = stampShape,
+                                color = boldBadgePalette.container
+                            )
                             .drawBehind {
                                 val inset = 9.dp.toPx()
                                 drawCircle(
@@ -317,6 +384,112 @@ fun FinancialEfficiencyHud(
                                 letterSpacing = 0.1.sp
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Scroll-Collapsed Pinned Mini-Ledger Capsule (inspired by BunPod's `FeedNowPlayingCard` collapse):
+ * Springs cleanly beneath the Dashboard top bar when the user scrolls past [FinancialEfficiencyHud]
+ * so monthly spend and annual savings stay glanceable across large portfolios.
+ */
+@Composable
+fun CompactEfficiencyCapsule(
+    summary: PortfolioSummary,
+    currencyCode: String,
+    onSavingsClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    val isDark = LocalSubCyclerDarkTheme.current
+    val hasSavings = summary.totalAnnualSavings > 0.0
+    val pctOff = summary.overallSavingsPercentage.roundToInt()
+
+    Surface(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onSavingsClick?.invoke()
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.55f else 0.75f)
+        ),
+        shadowElevation = if (isDark) 4.dp else 8.dp,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                ExpressiveMoneyText(
+                    formattedAmount = MoneyFormatter.format(summary.totalMonthlyOptimizedCost, currencyCode),
+                    heroFontSize = 20.sp,
+                    cadenceSuffix = "/mo",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    elevateCurrencySymbol = false
+                )
+                if (hasSavings && pctOff > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "-$pctOff%",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+
+            if (hasSavings) {
+                val formattedSave = MoneyFormatter.format(
+                    summary.totalAnnualSavings,
+                    currencyCode,
+                    maximumFractionDigits = 0
+                )
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .expressivePolygonSurface(
+                                    shape = ExpressiveCookie12Shape,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                        )
+                        Text(
+                            text = "Save $formattedSave/yr",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            maxLines = 1
+                        )
                     }
                 }
             }

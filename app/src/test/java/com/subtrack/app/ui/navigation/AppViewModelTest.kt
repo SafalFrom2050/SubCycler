@@ -115,4 +115,53 @@ class AppViewModelTest {
 
         assertEquals(AppLaunchState.MAIN_CONTENT, viewModel.launchState.value)
     }
+
+    @Test
+    fun navigationItemsUseCompactSubsPlannerSavingsOrder() {
+        assertEquals(
+            listOf("Subs", "Planner", "Savings"),
+            NavigationItems.items.map { it.title }
+        )
+    }
+
+    @Test
+    fun dockMoodTracksActiveSubscriptionsAndPreferenceToggle() = runTest(dispatcher) {
+        val subscriptions = FakeSubscriptionRepository().apply {
+            setSubscriptions(
+                listOf(
+                    Subscription(
+                        id = 1L,
+                        name = "Netflix",
+                        cost = 15.49,
+                        startDate = LocalDate.now(),
+                        isBillingDateConfirmed = true,
+                        isStrategyConfirmed = true
+                    ),
+                    Subscription(
+                        id = 2L,
+                        name = "Incomplete Draft",
+                        cost = 0.0,
+                        startDate = LocalDate.now(),
+                        isBillingDateConfirmed = false,
+                        isStrategyConfirmed = false
+                    )
+                )
+            )
+        }
+        val preferences = FakeUserPreferencesRepository(
+            initialPreferences = UserPreferences(
+                isOnboardingCompleted = true,
+                useStackHeroMood = true
+            )
+        )
+        val viewModel = AppViewModel(
+            subscriptionRepository = subscriptions,
+            userPreferencesRepository = preferences,
+            appLaunchConfig = AppLaunchConfig(forceOnboardingOnEveryLaunch = false)
+        )
+
+        val state = viewModel.dockMood.first { it.activeSubscriptions.isNotEmpty() }
+        assertTrue(state.useStackHeroMood)
+        assertEquals(listOf("Netflix"), state.activeSubscriptions.map { it.name })
+    }
 }

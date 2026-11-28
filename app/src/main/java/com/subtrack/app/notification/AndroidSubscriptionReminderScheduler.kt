@@ -1,7 +1,7 @@
 package com.subtrack.app.notification
 
 import android.content.Context
-import com.subtrack.app.widget.SubCyclerWidgetProvider
+import com.subtrack.app.widget.SubCyclerWidgets
 import com.subtrack.core.domain.model.Subscription
 import com.subtrack.core.domain.repository.SubscriptionReminderScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,6 +28,6 @@ class AndroidSubscriptionReminderScheduler @Inject constructor(
     }
 
     override fun notifyPortfolioChanged() {
-        SubCyclerWidgetProvider.requestUpdate(context)
+        SubCyclerWidgets.requestUpdateAll(context)
     }
 }

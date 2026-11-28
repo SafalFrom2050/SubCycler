@@ -3,7 +3,9 @@ package com.subtrack.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -21,19 +23,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.subtrack.app.notification.NotificationHelper
+import com.subtrack.app.ui.LauncherIconController
 import com.subtrack.app.ui.navigation.AppViewModel
 import com.subtrack.app.ui.navigation.SubTrackApp
+import com.subtrack.app.widget.SubCyclerWidgets
+import com.subtrack.core.common.currency.MoneyFormatter
+import com.subtrack.core.domain.backup.SubscriptionBackupCodec
 import com.subtrack.core.domain.model.AppThemeMode
+import com.subtrack.core.ui.components.decodeQrFromBitmap
 import com.subtrack.core.ui.theme.SubTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var openSubscriptionId by mutableStateOf<Long?>(null)
+    private var pendingTransferPayload by mutableStateOf<String?>(null)
+    private var pendingLauncherIcon: com.subtrack.core.domain.model.AppLauncherIcon? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -44,11 +59,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        openSubscriptionId = intent.calendarSubscriptionId()
+        handleIncomingIntent(intent)
 
         setContent {
             val appViewModel: AppViewModel = hiltViewModel()
             val themeMode by appViewModel.themeMode.collectAsStateWithLifecycle()
+            val launcherIcon by appViewModel.launcherIcon.collectAsStateWithLifecycle()
+            val dockMood by appViewModel.dockMood.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
             val useDarkTheme = when (themeMode) {
                 AppThemeMode.SYSTEM -> systemDark
@@ -56,19 +73,48 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.DARK -> true
             }
 
-            LaunchedEffect(useDarkTheme) {
-                val barStyle = if (useDarkTheme) {
-                    SystemBarStyle.dark(Color.TRANSPARENT)
-                } else {
-                    SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+            // Keep all home-screen widgets live-synced whenever theme, icon accent, stack mood, or active stack changes
+            LaunchedEffect(themeMode, launcherIcon, dockMood.useStackHeroMood, dockMood.activeSubscriptions) {
+                if (dockMood.isLoaded) {
+                    SubCyclerWidgets.requestUpdateAll(this@MainActivity)
                 }
-                enableEdgeToEdge(
-                    statusBarStyle = barStyle,
-                    navigationBarStyle = barStyle
-                )
             }
 
-            SubTrackTheme(darkTheme = useDarkTheme) {
+            LaunchedEffect(useDarkTheme) {
+                // On Android 8.0-9 (API 26-28, notably Huawei EMUI 8.0), a pure 0x00000000
+                // status bar color can prevent OEM dark-icon luminance detection in Light mode.
+                // Using a whisper-subtle ~5% alabaster scrim below API 29 plus explicitly syncing
+                // WindowInsetsControllerCompat guarantees readable status & nav bar glyphs.
+                val lightStatusScrim = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    Color.argb(0x0D, 0xF5, 0xF6, 0xF5)
+                } else {
+                    Color.TRANSPARENT
+                }
+                val darkFallbackScrim = Color.argb(0x66, 0x10, 0x12, 0x13)
+                val statusStyle = if (useDarkTheme) {
+                    SystemBarStyle.dark(Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(lightStatusScrim, darkFallbackScrim)
+                }
+                val navStyle = if (useDarkTheme) {
+                    SystemBarStyle.dark(Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(Color.TRANSPARENT, darkFallbackScrim)
+                }
+                enableEdgeToEdge(
+                    statusBarStyle = statusStyle,
+                    navigationBarStyle = navStyle
+                )
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !useDarkTheme
+                    isAppearanceLightNavigationBars = !useDarkTheme
+                }
+            }
+
+            SubTrackTheme(
+                darkTheme = useDarkTheme,
+                accentIcon = launcherIcon
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -77,6 +123,35 @@ class MainActivity : ComponentActivity() {
                         onRequestNotificationPermission = ::checkAndRequestNotificationPermission,
                         openSubscriptionId = openSubscriptionId,
                         onOpenSubscriptionConsumed = { openSubscriptionId = null },
+                        pendingTransferPayload = pendingTransferPayload,
+                        onTransferPayloadConsumed = { pendingTransferPayload = null },
+                        onApplyLauncherIcon = { icon ->
+                            // Defer PackageManager alias toggle to onStop() so switching icons
+                            // in Settings previews the new accent palette live without Android
+                            // tearing down the foreground activity mid-session.
+                            pendingLauncherIcon = icon
+                        },
+                        onPreviewNotifications = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                ContextCompat.checkSelfPermission(
+                                    this@MainActivity,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                ) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                checkAndRequestNotificationPermission()
+                            } else {
+                                val sampleSub = dockMood.activeSubscriptions.firstOrNull()
+                                NotificationHelper.showExpressiveNotificationPreview(
+                                    context = this@MainActivity,
+                                    sampleSubscription = sampleSub,
+                                    currencyCode = sampleSub?.currency ?: MoneyFormatter.currencyCodeForLocale(),
+                                    launcherIcon = launcherIcon,
+                                    themeMode = themeMode,
+                                    useStackMood = dockMood.useStackHeroMood,
+                                    activeSubscriptions = dockMood.activeSubscriptions
+                                )
+                            }
+                        },
                         appViewModel = appViewModel
                     )
                 }
@@ -84,10 +159,103 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        pendingLauncherIcon?.let { icon ->
+            pendingLauncherIcon = null
+            LauncherIconController.applyLauncherIcon(this, icon)
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        openSubscriptionId = intent.calendarSubscriptionId()
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(incoming: Intent?) {
+        if (incoming == null) return
+        incoming.calendarSubscriptionId()?.let { openSubscriptionId = it }
+
+        when (incoming.action) {
+            Intent.ACTION_VIEW -> {
+                val uri = incoming.data ?: return
+                if (uri.scheme.equals(SubscriptionBackupCodec.DEEP_LINK_SCHEME, ignoreCase = true)) {
+                    pendingTransferPayload = uri.toString()
+                } else if (uri.scheme.equals("content", ignoreCase = true)) {
+                    readIncomingTransferUri(uri)
+                }
+            }
+            Intent.ACTION_SEND -> {
+                val streamUri = IntentCompat.getParcelableExtra(incoming, Intent.EXTRA_STREAM, Uri::class.java)
+                val mimeType = incoming.type.orEmpty()
+                if (streamUri != null && mimeType.startsWith("image/", ignoreCase = true)) {
+                    readIncomingQrImageUri(streamUri)
+                    return
+                }
+                val sharedText = incoming.getStringExtra(Intent.EXTRA_TEXT)
+                if (!sharedText.isNullOrBlank() && SubscriptionBackupCodec.containsTransferLink(sharedText)) {
+                    pendingTransferPayload = sharedText
+                    return
+                }
+                if (streamUri != null) {
+                    readIncomingTransferUri(streamUri)
+                    return
+                }
+                if (!sharedText.isNullOrBlank()) {
+                    pendingTransferPayload = sharedText
+                }
+            }
+        }
+    }
+
+    private fun readIncomingQrImageUri(uri: Uri) {
+        lifecycleScope.launch {
+            val decoded = withContext(Dispatchers.Default) {
+                runCatching {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                    val maxDim = maxOf(bounds.outWidth, bounds.outHeight).coerceAtLeast(1)
+                    var sample = 1
+                    while (maxDim / sample > 1600) sample *= 2
+                    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+                    val bmp = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+                        ?: return@runCatching null
+                    try {
+                        decodeQrFromBitmap(bmp)
+                    } finally {
+                        bmp.recycle()
+                    }
+                }.getOrNull()
+            }
+            pendingTransferPayload = decoded ?: "invalid-card-image"
+        }
+    }
+
+    private fun readIncomingTransferUri(uri: Uri) {
+        lifecycleScope.launch {
+            val content = withContext(Dispatchers.IO) {
+                runCatching {
+                    contentResolver.openInputStream(uri)?.use { stream ->
+                        val maxBytes = 512 * 1024
+                        val buffer = ByteArray(4096)
+                        val out = java.io.ByteArrayOutputStream()
+                        var total = 0
+                        while (true) {
+                            val read = stream.read(buffer)
+                            if (read <= 0) break
+                            total += read
+                            if (total > maxBytes) error("File too large")
+                            out.write(buffer, 0, read)
+                        }
+                        out.toString(Charsets.UTF_8.name())
+                    }
+                }.getOrNull()
+            }
+            if (!content.isNullOrBlank()) {
+                pendingTransferPayload = content
+            }
+        }
     }
 
     private fun Intent.calendarSubscriptionId(): Long? =

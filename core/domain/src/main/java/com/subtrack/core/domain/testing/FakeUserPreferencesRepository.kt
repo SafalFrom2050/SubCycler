@@ -1,5 +1,6 @@
 package com.subtrack.core.domain.testing
 
+import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.AppThemeMode
 import com.subtrack.core.domain.model.PendingSubscriptionAction
 import com.subtrack.core.domain.model.UserPreferences
@@ -38,5 +39,13 @@ class FakeUserPreferencesRepository(
 
     override suspend fun setThemeMode(themeMode: AppThemeMode) {
         preferencesFlow.value = preferencesFlow.value.copy(themeMode = themeMode)
+    }
+
+    override suspend fun setUseStackHeroMood(enabled: Boolean) {
+        preferencesFlow.value = preferencesFlow.value.copy(useStackHeroMood = enabled)
+    }
+
+    override suspend fun setLauncherIcon(icon: AppLauncherIcon) {
+        preferencesFlow.value = preferencesFlow.value.copy(launcherIcon = icon)
     }
 }

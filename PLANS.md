@@ -14,6 +14,7 @@
 | **Optional Calendar Awareness** | Reminders & Recommendations | v1.1.0 | `Implemented; device QA ongoing` | [OPTIONAL_CALENDAR_AWARENESS_FEATURE.md](plans/features/OPTIONAL_CALENDAR_AWARENESS_FEATURE.md) |
 | **Minimal Home UX & Subscribe/Unsubscribe Progress Notification** | Core UX & Notifications | v1.2.0 | `Implemented` | [MINIMAL_UX_AND_ACTION_NOTIFICATION_FEATURE.md](plans/features/MINIMAL_UX_AND_ACTION_NOTIFICATION_FEATURE.md) |
 | **Material 3 Expressive Redesign, Auto-Saving Multi-Step UX & Offline Resilience** | Design System, Core UX & Backup | v1.3.0 | `Implemented & Device-Verified` | [MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md](plans/features/MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md) |
+| **Material 3 Expressive v4.0 ("Botanical Kinetic Architecture II")** | Design System, Motion & Craft | v1.4.0 | `Implemented & Device-Verified` | [MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md) |
 
 ---
 
@@ -51,8 +52,17 @@
   * **Botanical Kinetic Architecture (`DESIGN.md` v3.5.0)**: Adaptive 70% Neutral / 30% Botanical Emerald Light & Dark theme, bundled offline OFL variable fonts (`Bricolage Grotesque` + `Plus Jakarta Sans`), masked silk-waves hero backdrop, scalloped shape primitives, and spring-reactive icons.
   * **Auto-Saving 3-Step Form & Incomplete State**: Compact `Basics / Cycle / Notes` sheet with whisper-quiet capsule navigation, automatic debounced + `Mutex`-guarded saving (zero Save buttons), swipe-down dismissal protection, and first-class `Incomplete` setup tracking (`Finish setup` jumps to first missing step).
   * **Single App-Wide Currency & Interactive Cycle Strategy Studio**: Upfront currency selection with explicit offline manual-conversion warning in Settings, plus an interactive 90-day live rhythm ribbon and tactile `0d–45d` break slider.
-  * **Offline Backup, Deduplicated Reminders & Widget**: Local JSON/CSV export & import (`SubscriptionBackupCodec`), Room v1→v5 migrations, inexact `AlarmManager` + `WorkManager` + `ReminderDeduplicator` (zero `USE_EXACT_ALARM`), and `SubCyclerWidgetProvider`.
+  * **Offline QR Stack Cards, Short Deep Links, Deduplicated Reminders & Widget**: Branded offline `1080×1350` QR Stack Cards (`StackShareCardRenderer`, ZXing Core — zero camera/internet permissions), compact binary `subcycler://s/...` deep links (`SubscriptionBackupCodec` v3), `ACTION_SEND` (`image/*`, `text/plain`, `.subcycler`) receivers, in-app Import Preview with optional personal-history stripping, Room v1→v5 migrations, inexact `AlarmManager` + `WorkManager` + `ReminderDeduplicator` (zero `USE_EXACT_ALARM`), and `SubCyclerWidgetProvider`.
 * **Full Specification**: [Read the complete implementation plan & decision log](plans/features/MATERIAL_EXPRESSIVE_AND_UX_REVISION_FEATURE.md).
+
+### 5. [Material 3 Expressive v4.0 — "Botanical Kinetic Architecture II"](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md)
+* **Goal**: Push SubCycler from expressively styled cards to tactile, physically alive financial instruments inspired by [`kamranbekirovyz/bunpod`](https://github.com/kamranbekirovyz/bunpod) and Android 16 Material 3 Expressive, with zero network permissions and full reduced-motion compliance.
+* **Key Components**:
+  * **Topological Polygon Morphing & Role-Split Springs (`ExpressiveShapes.kt`, `Motion.kt`)**: Jetpack `androidx.graphics:graphics-shapes` cubic-Bézier morphing across 6 subscription lifecycle phases, anticipatory press-preview geometry, and `ExpressiveMotion` spring tokens with `ANIMATOR_DURATION_SCALE` compliance.
+  * **Cycle Vessel Cards, Collapsible HUD & Time-Machine Scrubbing (`DashboardScreen.kt`, `FinancialEfficiencyHud.kt`, `SubscriptionDetailBottomSheet.kt`)**: Pinned `CompactEfficiencyCapsule` over 6-stop `progressiveEdgeFade`, 70/30 horizontal Cycle Vessel cards + dual-clip `NextActionBanner`, interactive drag-to-scrub `WavyProgressIndicator`, and a 50/50 asymmetric `1+(2×2)` Command Deck.
+  * **Choreographed Feedback, Connected Stacks & Kinetic Surfaces (`ExpressiveSnackHost.kt`, `ExpressiveListPhysics.kt`, `CycleCheckInDeck.kt`, `PlannerScreen.kt`, `AnalyticsScreen.kt`, `OnboardingScreen.kt`, `SubCyclerWidgetProvider.kt`)**: 3D stacked stadium snacks, two-beat `ExpressiveRemovalCollapse`, positional `ExpressiveSectionStack` slabs, inline `CycleCheckInDeck`, kinetic Baton-Pass swap tracks, interactive `BotanicalVaultMosaic`, and a scalloped `Cookie12` home-screen widget.
+  * **Brand-Color Harmonization, Dynamic 3-Petal Swirl & Curated App Icons (`BrandColorHarmonizer.kt`, `SubCyclerSwirlLogo.kt`, `LauncherIconController.kt`)**: Top 20 presets with distinct brand colors & regional tiers, soft WCAG AAA (≥ 7:1) Material pastel harmonization for active cards/badges/Stack Cards, toggleable **Living stack mood** hero backdrop + 3-petal swirl logo, custom brand-tint swatch picker, and 6 selectable `<activity-alias>` launcher icon colorways (+ Android 13+ `<monochrome>` layer & stack-fit hint).
+* **Design Study & Blueprint**: [BunPod Design Study](docs/BUNPOD_DESIGN_INSPIRATION.md) · [v4.0 Specification](docs/MATERIAL_EXPRESSIVE_UPGRADES_PROPOSAL.md).
 
 ---
 

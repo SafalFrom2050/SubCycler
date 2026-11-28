@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_container"
+    android:clipToOutline="true"
+    android:foreground="?android:attr/selectableItemBackground">
+
+    <!-- Subtle ambient silk-waves + Living Stack Mood surface clipped to system widget corners -->
+    <ImageView
+        android:id="@+id/widget_hero_backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:scaleType="centerCrop" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="13dp">
+
+        <!-- Top row: 3-petal swirl + active count pill -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/widget_swirl"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@null"
+                android:scaleType="fitCenter" />
+
+            <RelativeLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="7dp">
+
+                <ImageView
+                    android:id="@+id/widget_status_pill_bg"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_alignStart="@id/widget_status_pill_text"
+                    android:layout_alignTop="@id/widget_status_pill_text"
+                    android:layout_alignEnd="@id/widget_status_pill_text"
+                    android:layout_alignBottom="@id/widget_status_pill_text"
+                    android:contentDescription="@null"
+                    android:scaleType="fitXY"
+                    android:src="@drawable/bg_widget_pill_mask" />
+
+                <TextView
+                    android:id="@+id/widget_status_pill_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:text="4 active"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+        </LinearLayout>
+
+        <!-- Eyebrow + Effective Monthly spend -->
+        <TextView
+            android:id="@+id/widget_eyebrow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="9dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.09"
+            android:maxLines="1"
+            android:text="EFFECTIVE MONTHLY"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_monthly_amount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-black"
+            android:fontFeatureSettings="tnum"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="¥3,632"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <!-- Bottom row: Next-up summary + slim rhythm strip on left, scalloped SAVE seal on right -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="4dp"
+            android:layout_weight="1"
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingBottom="2dp">
+
+                <TextView
+                    android:id="@+id/widget_next_caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:text="Disney+ · 2d"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/widget_rhythm_strip"
+                    android:layout_width="match_parent"
+                    android:layout_height="11dp"
+                    android:layout_marginTop="4dp"
+                    android:contentDescription="@null"
+                    android:scaleType="fitXY" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/widget_seal_box"
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:layout_marginStart="6dp">
+
+                <ImageView
+                    android:id="@+id/widget_seal_bg"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/widget_cookie12_seal" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="4dp">
+
+                    <TextView
+                        android:id="@+id/widget_seal_top"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:includeFontPadding="false"
+                        android:letterSpacing="0.06"
+                        android:text="SAVE"
+                        android:textColor="@color/widget_accent_on"
+                        android:textSize="7.5sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/widget_seal_amount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif-black"
+                        android:fontFeatureSettings="tnum"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:text="¥7,894"
+                        android:textColor="@color/widget_accent_on"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/widget_seal_sub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:includeFontPadding="false"
+                        android:text="/yr"
+                        android:textColor="@color/widget_accent_on"
+                        android:textSize="7.5sp" />
+                </LinearLayout>
+            </FrameLayout>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>
