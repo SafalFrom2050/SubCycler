@@ -3,78 +3,86 @@ package com.subtrack.core.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ============================================================
-// SubCycler Signature Material 3 Expressive Brand Palette (v3.1)
-// 70% Clean Architectural Neutral · 30% Botanical Emerald Focal Accent
+// SubCycler Material 3 Expressive Bold Color-Block Palette (v5.0)
+// Crisp Architectural Canvas · High-Chroma Focal Blocks · Triadic Pop
 // ============================================================
 
-// Light Theme — Crisp Neutral Alabaster Canvas, Pure White Bento Cards & Botanical Emerald Accent
-val BrandLightBackground = Color(0xFFF5F6F5)             // Calm neutral alabaster (1% organic warmth)
-val BrandLightSurface = Color(0xFFF5F6F5)
+// Light Theme — Crisp Paper Canvas, Pure White Bento Cards & Bold Emerald Focal Accents
+val BrandLightBackground = Color(0xFFF3F5F4)
+val BrandLightSurface = Color(0xFFF3F5F4)
 val BrandLightSurfaceContainerLowest = Color(0xFFFFFFFF)
-val BrandLightSurfaceContainerLow = Color(0xFFFAFBFA)    // Modal sheets & dialogs
-val BrandLightSurfaceContainer = Color(0xFFFFFFFF)       // Pure crisp white bento cards
-val BrandLightSurfaceContainerHigh = Color(0xFFECEFED)   // Neutral stone-mist inputs, chips & pills
-val BrandLightSurfaceContainerHighest = Color(0xFFE0E4E2)
+val BrandLightSurfaceContainerLow = Color(0xFFF8FAF9)
+val BrandLightSurfaceContainer = Color(0xFFFFFFFF)
+val BrandLightSurfaceContainerHigh = Color(0xFFE7ECEA)
+val BrandLightSurfaceContainerHighest = Color(0xFFD9E1DE)
 
-val BrandLightPrimary = Color(0xFF0C6B4E)                // Signature Deep Botanical Emerald
+val BrandLightPrimary = Color(0xFF007E54)                // Bold Electric Botanical Emerald
 val BrandLightOnPrimary = Color(0xFFFFFFFF)
-val BrandLightPrimaryContainer = Color(0xFFD2F2E3)       // Fresh Mint highlight container
-val BrandLightOnPrimaryContainer = Color(0xFF053324)
+val BrandLightPrimaryContainer = Color(0xFFAEF6D5)       // Crisp Vibrant Mint Container
+val BrandLightOnPrimaryContainer = Color(0xFF022B1C)
 
-val BrandLightSecondary = Color(0xFF196B64)              // Complementary Cool Jade
+val BrandLightSecondary = Color(0xFF00726C)              // Bold Cool Teal-Jade
 val BrandLightOnSecondary = Color(0xFFFFFFFF)
-val BrandLightSecondaryContainer = Color(0xFFD6F0ED)
-val BrandLightOnSecondaryContainer = Color(0xFF073633)
+val BrandLightSecondaryContainer = Color(0xFFB5F2ED)
+val BrandLightOnSecondaryContainer = Color(0xFF022D2B)
 
-val BrandLightTertiary = Color(0xFF4C5D6B)               // Calm Cool Slate (Paused / Rest states)
+val BrandLightTertiary = Color(0xFF425464)               // Crisp Architectural Slate (Paused / Rest states)
 val BrandLightOnTertiary = Color(0xFFFFFFFF)
-val BrandLightTertiaryContainer = Color(0xFFE3E9EE)
-val BrandLightOnTertiaryContainer = Color(0xFF1E2B36)
+val BrandLightTertiaryContainer = Color(0xFFDCE5EC)
+val BrandLightOnTertiaryContainer = Color(0xFF172531)
 
-val BrandLightError = Color(0xFFBA1A1A)
+val BrandLightError = Color(0xFFC8142E)
 val BrandLightOnError = Color(0xFFFFFFFF)
-val BrandLightErrorContainer = Color(0xFFFFDAD6)
-val BrandLightOnErrorContainer = Color(0xFF410002)
+val BrandLightErrorContainer = Color(0xFFFFD6DC)
+val BrandLightOnErrorContainer = Color(0xFF47000D)
 
-val BrandLightOnSurface = Color(0xFF151918)              // Crisp editorial charcoal ink
-val BrandLightOnSurfaceVariant = Color(0xFF5A6360)       // Balanced neutral slate ink
-val BrandLightOutline = Color(0xFF838C89)
-val BrandLightOutlineVariant = Color(0xFFD6DCDA)
+val BrandLightOnSurface = Color(0xFF0F1413)              // Deep editorial ink
+val BrandLightOnSurfaceVariant = Color(0xFF4B5753)       // Crisp slate secondary ink
+val BrandLightOutline = Color(0xFF77837F)
+val BrandLightOutlineVariant = Color(0xFFCDD6D2)
 
-// Hero Bento Duotone Backdrop Base
-val BrandLightHeroContainer = Color(0xFFCDEFE0)
-val BrandDarkHeroContainer = Color(0xFF133A2E)
+// Pure Flat Color-Block Hero Bases
+val BrandLightHeroContainer = Color(0xFF00764E)
+val BrandDarkHeroContainer = Color(0xFF066646)
 
-// Dark Theme — Deep Refined Obsidian-Graphite + Luminous Botanical Mint Focal Accents
-val BrandDarkBackground = Color(0xFF101213)              // Clean neutral obsidian-graphite
-val BrandDarkSurface = Color(0xFF101213)
-val BrandDarkSurfaceContainerLowest = Color(0xFF0B0D0E)
-val BrandDarkSurfaceContainerLow = Color(0xFF16191B)     // Modal sheets & dialogs
-val BrandDarkSurfaceContainer = Color(0xFF1B1F21)        // Velvet charcoal-graphite bento cards
-val BrandDarkSurfaceContainerHigh = Color(0xFF24292C)    // Neutral elevated dock, inputs & nested pills
-val BrandDarkSurfaceContainerHighest = Color(0xFF30363A)
+// Signature Triadic Material 3 Expressive Pop Accents (WCAG AAA >= 12:1 ink pairs)
+val BrandTriadicLime = Color(0xFFD4FF5E)
+val BrandOnTriadicLime = Color(0xFF162400)
+val BrandTriadicGold = Color(0xFFFFD84D)
+val BrandOnTriadicGold = Color(0xFF2B1C00)
+val BrandTriadicMint = Color(0xFF5EFFC4)
+val BrandOnTriadicMint = Color(0xFF00291B)
 
-val BrandDarkPrimary = Color(0xFF7CE6C1)                 // Luminous soft botanical mint
-val BrandDarkOnPrimary = Color(0xFF042C1F)
-val BrandDarkPrimaryContainer = Color(0xFF164636)        // Rich emerald tonal pill container
-val BrandDarkOnPrimaryContainer = Color(0xFFCCF7E7)
+// Dark Theme — Deep Crisp Obsidian Canvas + Electric Emerald Focal Accents
+val BrandDarkBackground = Color(0xFF0C0F11)
+val BrandDarkSurface = Color(0xFF0C0F11)
+val BrandDarkSurfaceContainerLowest = Color(0xFF07090A)
+val BrandDarkSurfaceContainerLow = Color(0xFF121619)
+val BrandDarkSurfaceContainer = Color(0xFF161A1D)        // Crisp dark bento cards
+val BrandDarkSurfaceContainerHigh = Color(0xFF21272B)    // Elevated dock, inputs & pills
+val BrandDarkSurfaceContainerHighest = Color(0xFF2D353B)
 
-val BrandDarkSecondary = Color(0xFF84DBD4)               // Cool seafoam jade
-val BrandDarkOnSecondary = Color(0xFF05302D)
-val BrandDarkSecondaryContainer = Color(0xFF164341)
-val BrandDarkOnSecondaryContainer = Color(0xFFC9F5F2)
+val BrandDarkPrimary = Color(0xFF22F09E)                 // Electric Luminous Emerald
+val BrandDarkOnPrimary = Color(0xFF022617)
+val BrandDarkPrimaryContainer = Color(0xFF0B5C40)        // Deep Jewel Emerald Container
+val BrandDarkOnPrimaryContainer = Color(0xFFDCFFF0)
 
-val BrandDarkTertiary = Color(0xFFB3C3CF)                // Calm Cool Slate (Paused / Rest states)
-val BrandDarkOnTertiary = Color(0xFF1D2A33)
-val BrandDarkTertiaryContainer = Color(0xFF28333B)
-val BrandDarkOnTertiaryContainer = Color(0xFFDBE5EC)
+val BrandDarkSecondary = Color(0xFF2CE6D8)               // Electric Cool Seafoam
+val BrandDarkOnSecondary = Color(0xFF022927)
+val BrandDarkSecondaryContainer = Color(0xFF0A5551)
+val BrandDarkOnSecondaryContainer = Color(0xFFD4FFFC)
 
-val BrandDarkError = Color(0xFFFFB4AB)
-val BrandDarkOnError = Color(0xFF690005)
-val BrandDarkErrorContainer = Color(0xFF5E1D21)
-val BrandDarkOnErrorContainer = Color(0xFFFFDAD6)
+val BrandDarkTertiary = Color(0xFFB4C8D8)                // Crisp Slate (Paused / Rest states)
+val BrandDarkOnTertiary = Color(0xFF17242E)
+val BrandDarkTertiaryContainer = Color(0xFF25323D)
+val BrandDarkOnTertiaryContainer = Color(0xFFE0ECF5)
 
-val BrandDarkOnSurface = Color(0xFFECEFEE)               // Crisp warm-white neutral ink
-val BrandDarkOnSurfaceVariant = Color(0xFF9AA4A0)        // Calm muted neutral grey ink
-val BrandDarkOutline = Color(0xFF6B7572)
-val BrandDarkOutlineVariant = Color(0xFF2D3337)
+val BrandDarkError = Color(0xFFFF6B7E)
+val BrandDarkOnError = Color(0xFF4A0010)
+val BrandDarkErrorContainer = Color(0xFF6B1422)
+val BrandDarkOnErrorContainer = Color(0xFFFFDCE1)
+
+val BrandDarkOnSurface = Color(0xFFF2F6F5)               // Crisp pure-white-warm ink
+val BrandDarkOnSurfaceVariant = Color(0xFF97A39F)        // Clean slate secondary ink
+val BrandDarkOutline = Color(0xFF64706D)
+val BrandDarkOutlineVariant = Color(0xFF283036)

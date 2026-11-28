@@ -26,8 +26,11 @@ data class SwirlLogoColors(
 )
 
 /**
- * Harmonized Living Hero Mood gradient palette for [com.subtrack.core.ui.components.ExpressiveHeroCardBackdrop].
- * Strictly bounded in lightness and chroma so hero typography maintains WCAG AAA contrast.
+ * Pure Flat Color-Block Living Hero Mood palette for [com.subtrack.core.ui.components.ExpressiveHeroCardBackdrop].
+ *
+ * Uses a single confident jewel hue from the dominant active service (zero multi-brand rainbow gradient),
+ * paired with a high-contrast contrasting triadic [sealColor]/[onSealColor] pop and up to 3 vivid
+ * [stackAccentDots] representing active stack variety cleanly inside the status pill.
  */
 data class HeroMoodPalette(
     val baseColor: Color,
@@ -36,21 +39,25 @@ data class HeroMoodPalette(
     val gradientEnd: Color,
     val watermarkTint: Color,
     val contentColor: Color,
-    val accentColor: Color
+    val accentColor: Color,
+    val sealColor: Color = BrandTriadicLime,
+    val onSealColor: Color = BrandOnTriadicLime,
+    val stackAccentDots: List<Color> = emptyList()
 )
 
 /**
- * Pure-Kotlin offline Material 3 Tonal Harmonizer for subscription brand colors.
+ * Pure-Kotlin offline Material 3 Expressive Bold Color-Block Engine for subscription brand colors.
  *
- * Converts raw brand hex codes (e.g. Netflix `#E50914`, Spotify `#1DB954`, Disney+ `#113CCF`,
- * Crunchyroll `#F47521`) into calm, studio-cohesive soft pastel tonal palettes with mathematically
- * guaranteed WCAG AAA (≥ 7:1) monogram contrast in both Light and Dark themes.
+ * Preserves true brand hues (zero muddy green-pull on reds/blues/oranges) while generating bold,
+ * vivid jewel badges, high-contrast flat color-block Hero moods, and WCAG-verified ink pairs
+ * across both Light and Dark themes.
  */
 object BrandColorHarmonizer {
 
     private const val BOTANICAL_ANCHOR_HUE = 159f
-    private const val HARMONIZE_PULL_FACTOR = 0.14f
-    private const val MIN_CONTRAST_RATIO = 7.0
+    private const val HARMONIZE_PULL_FACTOR = 0.0f
+    private const val MIN_BOLD_CONTRAST_RATIO = 5.0
+    private const val MIN_AAA_CONTRAST_RATIO = 7.0
 
     private val LEGACY_GENERIC_HEXES = setOf(
         "#10B981",
@@ -58,14 +65,14 @@ object BrandColorHarmonizer {
     )
 
     private val FALLBACK_CUSTOM_HEXES = listOf(
-        "#0D8F67",
-        "#00A8E1",
+        "#00A86B",
+        "#0095E8",
         "#6366F1",
-        "#D97757",
-        "#FA243C",
+        "#EA580C",
+        "#E11D48",
         "#1DB954",
-        "#5822B4",
-        "#5C544B"
+        "#7C3AED",
+        "#3B4752"
     )
 
     val DefaultBotanicalSwirl = SwirlLogoColors(
@@ -87,7 +94,7 @@ object BrandColorHarmonizer {
         return normalized.toIntOrNull(16)
     }
 
-    fun colorFromHex(hex: String?, fallback: Color = Color(0xFF0D8F67)): Color {
+    fun colorFromHex(hex: String?, fallback: Color = Color(0xFF008256)): Color {
         val rgb = parseHexRgb(hex) ?: return fallback
         return Color(0xFF000000L or (rgb.toLong() and 0xFFFFFFL))
     }
@@ -110,14 +117,16 @@ object BrandColorHarmonizer {
         PresetLibrary.brandColorHexForName(serviceName)?.let { return it.uppercase(Locale.US) }
         if (storedValid) return trimmedStored
         val normalizedName = serviceName.trim().lowercase(Locale.ROOT)
-        if (normalizedName.isEmpty()) return "#0D8F67"
+        if (normalizedName.isEmpty()) return "#008256"
         val idx = abs(normalizedName.hashCode()) % FALLBACK_CUSTOM_HEXES.size
         return FALLBACK_CUSTOM_HEXES[idx]
     }
 
     /**
-     * Builds a soft harmonized Material 3 pastel [ExpressiveTonalPalette] from a service's name
-     * and optional stored hex color, with guaranteed ≥ 7:1 contrast between container and content.
+     * Builds a Bold Color-Block true-hue [ExpressiveTonalPalette] from a service's name
+     * and optional stored hex color, guaranteeing crisp WCAG AA+/AAA legibility (`>= 5.0:1`)
+     * on saturated solid badges and providing a luminous [ExpressiveTonalPalette.accent] for
+     * 2-zone wave vessels and seam strokes.
      */
     fun harmonizedTonalPalette(
         serviceName: String,
@@ -132,69 +141,89 @@ object BrandColorHarmonizer {
         hex: String,
         isDark: Boolean
     ): ExpressiveTonalPalette {
-        val rgb = parseHexRgb(hex) ?: 0x0D8F67
-        val (rawHue, rawSat, _) = rgbToHsl(rgb)
+        val rgb = parseHexRgb(hex) ?: 0x008256
+        val (rawHue, rawSat, rawLight) = rgbToHsl(rgb)
         val isNeutral = rawSat < 0.11f
-        val harmonizedHue = if (isNeutral) rawHue else pullHueToward(rawHue, BOTANICAL_ANCHOR_HUE, HARMONIZE_PULL_FACTOR)
+        val trueHue = if (isNeutral) rawHue else pullHueToward(rawHue, BOTANICAL_ANCHOR_HUE, HARMONIZE_PULL_FACTOR)
 
-        return if (!isDark) {
-            val containerSat = if (isNeutral) rawSat.coerceAtMost(0.10f) else (rawSat * 0.56f).coerceIn(0.28f, 0.52f)
-            val containerLight = when {
-                isNeutral -> 0.90f
-                harmonizedHue in 42f..92f -> 0.91f // keep warm yellows/limes crisp & airy
-                else -> 0.89f
-            }
-            val selectedSat = if (isNeutral) (containerSat + 0.03f).coerceAtMost(0.14f) else (containerSat + 0.08f).coerceAtMost(0.62f)
-            val selectedLight = (containerLight - 0.06f).coerceAtLeast(0.80f)
+        // Naturally luminous hues (tangerine, amber, lime, emerald, electric cyan) pop best with
+        // bright vivid fills + deep dark ink in Dark mode; deep jewel hues (crimson, sapphire, violet)
+        // pop best as solid saturated jewel badges with crisp pure-white ink.
+        val prefersDarkInkOnBrightFill = !isNeutral && trueHue in 26f..198f && (isDark || trueHue in 44f..178f)
 
-            val containerRgb = hslToRgb(harmonizedHue, containerSat, containerLight)
-            val selectedRgb = hslToRgb(harmonizedHue, selectedSat, selectedLight)
-
-            val contentSat = if (isNeutral) rawSat.coerceAtMost(0.14f) else (rawSat * 0.68f).coerceIn(0.42f, 0.68f)
-            var contentLight = if (isNeutral) 0.21f else 0.23f
-            var contentRgb = hslToRgb(harmonizedHue, contentSat, contentLight)
-            while (contrastRatio(containerRgb, contentRgb) < MIN_CONTRAST_RATIO && contentLight > 0.08f) {
-                contentLight = (contentLight - 0.025f).coerceAtLeast(0.08f)
-                contentRgb = hslToRgb(harmonizedHue, contentSat, contentLight)
-            }
-
-            val accentSat = if (isNeutral) rawSat.coerceAtMost(0.14f) else (rawSat * 0.62f).coerceIn(0.38f, 0.60f)
-            val accentRgb = hslToRgb(harmonizedHue, accentSat, if (isNeutral) 0.36f else 0.39f)
-            val borderRgb = hslToRgb(harmonizedHue, containerSat * 0.85f, if (isNeutral) 0.66f else 0.68f)
-
-            ExpressiveTonalPalette(
+        if (isNeutral) {
+            val containerRgb = if (isDark) hslToRgb(trueHue, rawSat.coerceAtMost(0.10f), 0.28f) else hslToRgb(trueHue, rawSat.coerceAtMost(0.10f), 0.18f)
+            val selectedRgb = if (isDark) hslToRgb(trueHue, rawSat.coerceAtMost(0.12f), 0.34f) else hslToRgb(trueHue, rawSat.coerceAtMost(0.12f), 0.24f)
+            val contentRgb = 0xFFFFFF
+            val accentRgb = if (isDark) hslToRgb(trueHue, 0.12f, 0.68f) else hslToRgb(trueHue, 0.12f, 0.36f)
+            val borderRgb = if (isDark) hslToRgb(trueHue, 0.10f, 0.48f) else hslToRgb(trueHue, 0.10f, 0.34f)
+            return ExpressiveTonalPalette(
                 container = rgbToComposeColor(containerRgb),
                 selectedContainer = rgbToComposeColor(selectedRgb),
                 border = rgbToComposeColor(borderRgb),
                 content = rgbToComposeColor(contentRgb),
                 accent = rgbToComposeColor(accentRgb)
             )
-        } else {
-            val containerSat = if (isNeutral) rawSat.coerceAtMost(0.12f) else (rawSat * 0.44f).coerceIn(0.24f, 0.46f)
-            val containerLight = if (isNeutral) 0.24f else 0.23f
-            val selectedSat = if (isNeutral) (containerSat + 0.03f).coerceAtMost(0.16f) else (containerSat + 0.07f).coerceAtMost(0.54f)
-            val selectedLight = 0.30f
+        }
 
-            val containerRgb = hslToRgb(harmonizedHue, containerSat, containerLight)
-            val selectedRgb = hslToRgb(harmonizedHue, selectedSat, selectedLight)
-
-            val contentSat = if (isNeutral) rawSat.coerceAtMost(0.14f) else (rawSat * 0.66f).coerceIn(0.46f, 0.76f)
-            var contentLight = 0.88f
-            var contentRgb = hslToRgb(harmonizedHue, contentSat, contentLight)
-            while (contrastRatio(containerRgb, contentRgb) < MIN_CONTRAST_RATIO && contentLight < 0.96f) {
-                contentLight = (contentLight + 0.02f).coerceAtMost(0.96f)
-                contentRgb = hslToRgb(harmonizedHue, contentSat, contentLight)
+        val vividSat = (rawSat * 0.96f).coerceIn(0.76f, 0.94f)
+        return if (prefersDarkInkOnBrightFill) {
+            val startLight = if (isDark) {
+                when {
+                    trueHue in 46f..100f -> 0.56f
+                    trueHue in 100f..170f -> 0.50f
+                    else -> 0.54f
+                }
+            } else {
+                when {
+                    trueHue in 46f..95f -> 0.54f
+                    trueHue in 100f..170f -> 0.48f
+                    else -> 0.50f
+                }
             }
-
-            val accentSat = if (isNeutral) rawSat.coerceAtMost(0.16f) else (rawSat * 0.60f).coerceIn(0.44f, 0.70f)
-            val accentRgb = hslToRgb(harmonizedHue, accentSat, 0.72f)
-            val borderRgb = hslToRgb(harmonizedHue, containerSat * 0.85f, 0.44f)
-
+            val deepInkRgb = hslToRgb(trueHue, 0.72f, 0.08f)
+            var light = startLight
+            var containerRgb = hslToRgb(trueHue, vividSat, light)
+            while (contrastRatio(containerRgb, deepInkRgb) < MIN_AAA_CONTRAST_RATIO && light < 0.72f) {
+                light = (light + 0.025f).coerceAtMost(0.72f)
+                containerRgb = hslToRgb(trueHue, vividSat, light)
+            }
+            val selectedRgb = hslToRgb(trueHue, (vividSat + 0.04f).coerceAtMost(0.98f), (light + 0.05f).coerceAtMost(0.76f))
+            val accentRgb = hslToRgb(trueHue, vividSat, if (isDark) (light + 0.06f).coerceAtMost(0.66f) else (light - 0.10f).coerceAtLeast(0.36f))
+            val borderRgb = hslToRgb(trueHue, vividSat * 0.85f, if (isDark) 0.66f else 0.36f)
             ExpressiveTonalPalette(
                 container = rgbToComposeColor(containerRgb),
                 selectedContainer = rgbToComposeColor(selectedRgb),
                 border = rgbToComposeColor(borderRgb),
-                content = rgbToComposeColor(contentRgb),
+                content = rgbToComposeColor(deepInkRgb),
+                accent = rgbToComposeColor(accentRgb)
+            )
+        } else {
+            // Bold jewel fill (crimson, ruby, royal blue, indigo, violet, deep orange in Light) + crisp pure white ink
+            val whiteInkRgb = 0xFFFFFF
+            val initialLight = when {
+                trueHue in 205f..265f -> if (isDark) 0.50f else 0.45f // royal blue stays punchy & luminous
+                trueHue in 265f..315f -> if (isDark) 0.49f else 0.44f // vivid violet
+                else -> if (isDark) 0.45f else 0.42f                  // vivid crimson / scarlet / tangerine
+            }
+            var light = initialLight
+            var containerRgb = hslToRgb(trueHue, vividSat, light)
+            while (contrastRatio(containerRgb, whiteInkRgb) < MIN_BOLD_CONTRAST_RATIO && light > 0.24f) {
+                light = (light - 0.02f).coerceAtLeast(0.24f)
+                containerRgb = hslToRgb(trueHue, vividSat, light)
+            }
+            val selectedRgb = hslToRgb(trueHue, (vividSat + 0.04f).coerceAtMost(0.98f), (light - 0.05f).coerceAtLeast(0.20f))
+            val accentRgb = hslToRgb(
+                trueHue,
+                vividSat,
+                if (isDark) (light + 0.14f).coerceIn(0.56f, 0.68f) else light.coerceIn(0.42f, 0.50f)
+            )
+            val borderRgb = hslToRgb(trueHue, vividSat * 0.85f, if (isDark) 0.62f else 0.42f)
+            ExpressiveTonalPalette(
+                container = rgbToComposeColor(containerRgb),
+                selectedContainer = rgbToComposeColor(selectedRgb),
+                border = rgbToComposeColor(borderRgb),
+                content = rgbToComposeColor(whiteInkRgb),
                 accent = rgbToComposeColor(accentRgb)
             )
         }
@@ -234,36 +263,36 @@ object BrandColorHarmonizer {
 
         return when (distinctHues.size) {
             1 -> {
-                val (h, s, isNeutral) = harmonizedHueAndSat(distinctHues[0])
+                val (h, s, isNeutral) = trueHueAndSat(distinctHues[0])
                 SwirlLogoColors(
-                    lightPetal = petalColor(h, s, isNeutral, targetLightness = 0.84f, satScale = 0.76f),
-                    midPetal = petalColor(h, s, isNeutral, targetLightness = 0.62f, satScale = 0.72f),
-                    deepPetal = petalColor(h, s, isNeutral, targetLightness = 0.39f, satScale = 0.70f),
+                    lightPetal = petalColor(h, s, isNeutral, targetLightness = 0.82f, satScale = 0.88f),
+                    midPetal = petalColor(h, s, isNeutral, targetLightness = 0.60f, satScale = 0.88f),
+                    deepPetal = petalColor(h, s, isNeutral, targetLightness = 0.40f, satScale = 0.86f),
                     backdrop = fallbackSwirl.backdrop,
-                    centerGlyph = petalColor(h, s, isNeutral, targetLightness = 0.88f, satScale = 0.62f)
+                    centerGlyph = petalColor(h, s, isNeutral, targetLightness = 0.88f, satScale = 0.72f)
                 )
             }
             2 -> {
-                val (h1, s1, n1) = harmonizedHueAndSat(distinctHues[0])
-                val (h2, s2, n2) = harmonizedHueAndSat(distinctHues[1])
+                val (h1, s1, n1) = trueHueAndSat(distinctHues[0])
+                val (h2, s2, n2) = trueHueAndSat(distinctHues[1])
                 SwirlLogoColors(
-                    lightPetal = petalColor(h1, s1, n1, targetLightness = 0.84f, satScale = 0.76f),
-                    midPetal = petalColor(h2, s2, n2, targetLightness = 0.62f, satScale = 0.74f),
+                    lightPetal = petalColor(h1, s1, n1, targetLightness = 0.80f, satScale = 0.88f),
+                    midPetal = petalColor(h2, s2, n2, targetLightness = 0.60f, satScale = 0.88f),
                     deepPetal = fallbackSwirl.deepPetal,
                     backdrop = fallbackSwirl.backdrop,
                     centerGlyph = fallbackSwirl.centerGlyph
                 )
             }
             else -> {
-                val (h1, s1, n1) = harmonizedHueAndSat(distinctHues[0])
-                val (h2, s2, n2) = harmonizedHueAndSat(distinctHues[1])
-                val (h3, s3, n3) = harmonizedHueAndSat(distinctHues[2])
+                val (h1, s1, n1) = trueHueAndSat(distinctHues[0])
+                val (h2, s2, n2) = trueHueAndSat(distinctHues[1])
+                val (h3, s3, n3) = trueHueAndSat(distinctHues[2])
                 SwirlLogoColors(
-                    lightPetal = petalColor(h1, s1, n1, targetLightness = 0.84f, satScale = 0.76f),
-                    midPetal = petalColor(h2, s2, n2, targetLightness = 0.62f, satScale = 0.74f),
-                    deepPetal = petalColor(h3, s3, n3, targetLightness = 0.41f, satScale = 0.72f),
+                    lightPetal = petalColor(h1, s1, n1, targetLightness = 0.80f, satScale = 0.88f),
+                    midPetal = petalColor(h2, s2, n2, targetLightness = 0.60f, satScale = 0.88f),
+                    deepPetal = petalColor(h3, s3, n3, targetLightness = 0.42f, satScale = 0.86f),
                     backdrop = fallbackSwirl.backdrop,
-                    centerGlyph = Color(0xFFE6F9F1)
+                    centerGlyph = Color(0xFFECFFF6)
                 )
             }
         }
@@ -271,10 +300,9 @@ object BrandColorHarmonizer {
 
     /**
      * Resolves the active focal accent token set (`primary`, `onPrimary`, `primaryContainer`,
-     * `onPrimaryContainer`, etc.) linked to **Living Stack Mood** when [useStackMood] is enabled
-     * and active subscriptions exist, or falling back cleanly to [fallbackIcon]'s curated colorway.
-     *
-     * Enforces WCAG AAA (>= 7:1) contrast on both primary and container ink pairs across Light & Dark.
+     * `onPrimaryContainer`, flat `heroBase`, `heroContent`, and triadic `heroPop`) linked to
+     * **Living Stack Mood** when [useStackMood] is enabled and active subscriptions exist, or
+     * falling back cleanly to [fallbackIcon]'s curated Bold Color-Block colorway.
      */
     fun resolveEffectiveAccentTokens(
         activeSubscriptions: List<Subscription>,
@@ -288,63 +316,62 @@ object BrandColorHarmonizer {
         val activeRgbs = selectDistinctActiveBrandRgb(activeSubscriptions, maxCount = 3)
         if (activeRgbs.isEmpty()) return fallback
 
-        val (h1, s1, n1) = harmonizedHueAndSat(activeRgbs[0])
+        val (h1, s1, n1) = trueHueAndSat(activeRgbs[0])
         val (h2, s2, n2) = if (activeRgbs.size >= 2) {
-            harmonizedHueAndSat(activeRgbs[1])
+            trueHueAndSat(activeRgbs[1])
         } else {
             Triple(h1, s1, n1)
         }
-        val (h3, s3, n3) = if (activeRgbs.size >= 3) {
-            harmonizedHueAndSat(activeRgbs[2])
-        } else {
-            Triple(BOTANICAL_ANCHOR_HUE, 0.52f, false)
-        }
+        val (popColor, onPopColor) = triadicPopForHeroHue(h1, n1)
+        val flatHeroRgb = resolveFlatHeroBlockRgb(h1, s1, n1, isDark)
+        val flatHeroColor = rgbToComposeColor(flatHeroRgb)
+        val flatHeroInk = Color(0xFFFFFFFF)
 
         return if (!isDark) {
-            val primarySat = if (n1) 0.14f else (s1 * 0.66f).coerceIn(0.42f, 0.68f)
+            val primarySat = if (n1) 0.14f else (s1 * 0.90f).coerceIn(0.68f, 0.90f)
             val primaryRgb = ensureContrast(
                 backgroundRgb = 0xFFFFFF,
                 hue = h1,
                 sat = primarySat,
-                initialLight = 0.34f,
+                initialLight = 0.40f,
                 step = -0.02f,
-                minLimit = 0.16f
+                minLimit = 0.16f,
+                targetRatio = MIN_BOLD_CONTRAST_RATIO
             )
             val onPrimaryRgb = 0xFFFFFF
 
-            val containerSat = if (n1) 0.10f else (s1 * 0.52f).coerceIn(0.28f, 0.52f)
-            val containerRgb = hslToRgb(h1, containerSat, 0.89f)
+            val containerSat = if (n1) 0.10f else (s1 * 0.78f).coerceIn(0.56f, 0.84f)
+            val containerRgb = hslToRgb(h1, containerSat, 0.87f)
             val onContainerRgb = ensureContrast(
                 backgroundRgb = containerRgb,
                 hue = h1,
-                sat = if (n1) 0.14f else 0.58f,
-                initialLight = 0.20f,
+                sat = if (n1) 0.14f else 0.74f,
+                initialLight = 0.18f,
                 step = -0.02f,
-                minLimit = 0.08f
+                minLimit = 0.06f,
+                targetRatio = MIN_AAA_CONTRAST_RATIO
             )
 
-            val secSat = if (n2) 0.14f else (s2 * 0.56f).coerceIn(0.34f, 0.58f)
+            val secSat = if (n2) 0.14f else (s2 * 0.84f).coerceIn(0.60f, 0.86f)
             val secRgb = ensureContrast(
                 backgroundRgb = 0xFFFFFF,
                 hue = h2,
                 sat = secSat,
-                initialLight = 0.36f,
+                initialLight = 0.40f,
                 step = -0.02f,
-                minLimit = 0.18f
+                minLimit = 0.18f,
+                targetRatio = MIN_BOLD_CONTRAST_RATIO
             )
-            val secContainerRgb = hslToRgb(h2, if (n2) 0.10f else (s2 * 0.46f).coerceIn(0.24f, 0.46f), 0.90f)
+            val secContainerRgb = hslToRgb(h2, if (n2) 0.10f else (s2 * 0.72f).coerceIn(0.50f, 0.78f), 0.88f)
             val onSecContainerRgb = ensureContrast(
                 backgroundRgb = secContainerRgb,
                 hue = h2,
-                sat = if (n2) 0.14f else 0.52f,
-                initialLight = 0.21f,
+                sat = if (n2) 0.14f else 0.70f,
+                initialLight = 0.18f,
                 step = -0.02f,
-                minLimit = 0.08f
+                minLimit = 0.06f,
+                targetRatio = MIN_AAA_CONTRAST_RATIO
             )
-
-            val heroStart = softHeroStop(h1, s1, n1, lightness = 0.875f, maxSat = 0.42f)
-            val heroMid = softHeroStop(h2, s2, n2, lightness = 0.905f, maxSat = 0.36f)
-            val heroEnd = softHeroStop(h3, s3, n3, lightness = 0.925f, maxSat = 0.34f)
 
             LauncherAccentTokens(
                 primary = rgbToComposeColor(primaryRgb),
@@ -355,57 +382,73 @@ object BrandColorHarmonizer {
                 onSecondary = rgbToComposeColor(0xFFFFFF),
                 secondaryContainer = rgbToComposeColor(secContainerRgb),
                 onSecondaryContainer = rgbToComposeColor(onSecContainerRgb),
-                heroBase = heroMid,
-                heroGradientStart = heroStart,
-                heroGradientMid = heroMid,
-                heroGradientEnd = heroEnd
+                heroBase = flatHeroColor,
+                heroContent = flatHeroInk,
+                heroPop = popColor,
+                onHeroPop = onPopColor
             )
         } else {
-            val primarySat = if (n1) 0.16f else (s1 * 0.68f).coerceIn(0.46f, 0.76f)
-            val primaryRgb = hslToRgb(h1, primarySat, 0.76f)
+            val primarySat = if (n1) 0.16f else (s1 * 0.90f).coerceIn(0.68f, 0.94f)
+            val primaryRgb = hslToRgb(h1, primarySat, 0.70f)
             val onPrimaryRgb = ensureContrast(
                 backgroundRgb = primaryRgb,
                 hue = h1,
-                sat = if (n1) 0.14f else 0.56f,
-                initialLight = 0.15f,
+                sat = if (n1) 0.14f else 0.68f,
+                initialLight = 0.12f,
                 step = -0.02f,
-                minLimit = 0.06f
+                minLimit = 0.05f,
+                targetRatio = MIN_AAA_CONTRAST_RATIO
             )
 
-            val containerSat = if (n1) 0.12f else (s1 * 0.46f).coerceIn(0.26f, 0.46f)
-            val containerRgb = hslToRgb(h1, containerSat, 0.24f)
+            val containerSat = if (n1) 0.14f else (s1 * 0.78f).coerceIn(0.58f, 0.84f)
+            val containerRgb = ensureContrast(
+                backgroundRgb = 0xF5F7F6,
+                hue = h1,
+                sat = containerSat,
+                initialLight = 0.28f,
+                step = -0.02f,
+                minLimit = 0.16f,
+                targetRatio = MIN_AAA_CONTRAST_RATIO
+            )
             val onContainerRgb = ensureContrast(
                 backgroundRgb = containerRgb,
                 hue = h1,
-                sat = if (n1) 0.14f else 0.54f,
-                initialLight = 0.90f,
+                sat = if (n1) 0.12f else 0.42f,
+                initialLight = 0.94f,
                 step = 0.02f,
-                minLimit = 0.97f
+                minLimit = 0.98f,
+                targetRatio = MIN_AAA_CONTRAST_RATIO
             )
 
-            val secSat = if (n2) 0.16f else (s2 * 0.60f).coerceIn(0.40f, 0.68f)
-            val secRgb = hslToRgb(h2, secSat, 0.74f)
+            val secSat = if (n2) 0.16f else (s2 * 0.84f).coerceIn(0.60f, 0.88f)
+            val secRgb = hslToRgb(h2, secSat, 0.68f)
             val onSecRgb = ensureContrast(
                 backgroundRgb = secRgb,
                 hue = h2,
-                sat = if (n2) 0.14f else 0.50f,
-                initialLight = 0.15f,
+                sat = if (n2) 0.14f else 0.64f,
+                initialLight = 0.12f,
                 step = -0.02f,
-                minLimit = 0.06f
+                minLimit = 0.05f,
+                targetRatio = MIN_AAA_CONTRAST_RATIO
             )
-            val secContainerRgb = hslToRgb(h2, if (n2) 0.12f else (s2 * 0.42f).coerceIn(0.24f, 0.42f), 0.24f)
+            val secContainerRgb = ensureContrast(
+                backgroundRgb = 0xF5F7F6,
+                hue = h2,
+                sat = if (n2) 0.14f else (s2 * 0.72f).coerceIn(0.52f, 0.78f),
+                initialLight = 0.27f,
+                step = -0.02f,
+                minLimit = 0.16f,
+                targetRatio = MIN_AAA_CONTRAST_RATIO
+            )
             val onSecContainerRgb = ensureContrast(
                 backgroundRgb = secContainerRgb,
                 hue = h2,
-                sat = if (n2) 0.14f else 0.50f,
-                initialLight = 0.90f,
+                sat = if (n2) 0.12f else 0.40f,
+                initialLight = 0.94f,
                 step = 0.02f,
-                minLimit = 0.97f
+                minLimit = 0.98f,
+                targetRatio = MIN_AAA_CONTRAST_RATIO
             )
-
-            val heroStart = softHeroStop(h1, s1, n1, lightness = 0.215f, maxSat = 0.38f)
-            val heroMid = softHeroStop(h2, s2, n2, lightness = 0.185f, maxSat = 0.34f)
-            val heroEnd = softHeroStop(h3, s3, n3, lightness = 0.155f, maxSat = 0.32f)
 
             LauncherAccentTokens(
                 primary = rgbToComposeColor(primaryRgb),
@@ -416,18 +459,18 @@ object BrandColorHarmonizer {
                 onSecondary = rgbToComposeColor(onSecRgb),
                 secondaryContainer = rgbToComposeColor(secContainerRgb),
                 onSecondaryContainer = rgbToComposeColor(onSecContainerRgb),
-                heroBase = heroMid,
-                heroGradientStart = heroStart,
-                heroGradientMid = heroMid,
-                heroGradientEnd = heroEnd
+                heroBase = flatHeroColor,
+                heroContent = flatHeroInk,
+                heroPop = popColor,
+                onHeroPop = onPopColor
             )
         }
     }
 
     /**
-     * Builds the soft Living Hero Mood backdrop palette from the user's active subscriptions.
-     * Reverts cleanly to [fallbackIcon]'s accent palette when [useStackMood] is `false` or no services
-     * are currently active.
+     * Builds the **Pure Flat Color-Block** Living Hero Mood palette from the user's active stack.
+     * Uses ONE clean dominant jewel hue (zero multi-brand rainbow gradient), paired with a smart
+     * contrasting triadic `SAVE` seal pop and up to 3 vivid [HeroMoodPalette.stackAccentDots].
      */
     fun resolveHeroMoodPalette(
         activeSubscriptions: List<Subscription>,
@@ -435,82 +478,45 @@ object BrandColorHarmonizer {
         isDark: Boolean,
         fallbackIcon: AppLauncherIcon = AppLauncherIcon.BOTANICAL
     ): HeroMoodPalette {
-        val accent = resolveEffectiveAccentTokens(
-            activeSubscriptions = activeSubscriptions,
-            useStackMood = useStackMood,
-            isDark = isDark,
-            fallbackIcon = fallbackIcon
-        )
         val fallbackAccent = launcherAccentTokensFor(fallbackIcon, isDark)
         val defaultPalette = HeroMoodPalette(
             baseColor = fallbackAccent.heroBase,
-            gradientStart = fallbackAccent.heroGradientStart,
-            gradientMid = fallbackAccent.heroGradientMid,
-            gradientEnd = fallbackAccent.heroGradientEnd,
-            watermarkTint = fallbackAccent.onPrimaryContainer,
-            contentColor = fallbackAccent.onPrimaryContainer,
-            accentColor = fallbackAccent.primary
+            gradientStart = fallbackAccent.heroBase,
+            gradientMid = fallbackAccent.heroBase,
+            gradientEnd = fallbackAccent.heroBase,
+            watermarkTint = Color.White,
+            contentColor = fallbackAccent.heroContent,
+            accentColor = fallbackAccent.heroPop,
+            sealColor = fallbackAccent.heroPop,
+            onSealColor = fallbackAccent.onHeroPop,
+            stackAccentDots = emptyList()
         )
         if (!useStackMood || activeSubscriptions.isEmpty()) return defaultPalette
 
         val activeRgbs = selectDistinctActiveBrandRgb(activeSubscriptions, maxCount = 3)
         if (activeRgbs.isEmpty()) return defaultPalette
 
-        val (h1, s1, n1) = harmonizedHueAndSat(activeRgbs[0])
-        val (h2, s2, n2) = if (activeRgbs.size >= 2) {
-            harmonizedHueAndSat(activeRgbs[1])
-        } else {
-            Triple(BOTANICAL_ANCHOR_HUE, 0.56f, false)
-        }
-        val (h3, s3, n3) = if (activeRgbs.size >= 3) {
-            harmonizedHueAndSat(activeRgbs[2])
-        } else {
-            Triple(BOTANICAL_ANCHOR_HUE, 0.52f, false)
+        val (h1, s1, n1) = trueHueAndSat(activeRgbs[0])
+        val flatHeroRgb = resolveFlatHeroBlockRgb(h1, s1, n1, isDark)
+        val flatHeroColor = rgbToComposeColor(flatHeroRgb)
+        val (sealColor, onSealColor) = triadicPopForHeroHue(h1, n1)
+        val stackDots = activeRgbs.map { dotRgb ->
+            val (dh, ds, dn) = trueHueAndSat(dotRgb)
+            if (dn) Color(0xFFE2E8F0) else rgbToComposeColor(hslToRgb(dh, (ds * 0.96f).coerceIn(0.78f, 0.96f), 0.58f))
         }
 
-        return if (!isDark) {
-            val start = softHeroStop(h1, s1, n1, lightness = 0.875f, maxSat = 0.42f)
-            val mid = softHeroStop(h2, s2, n2, lightness = 0.905f, maxSat = 0.36f)
-            val end = softHeroStop(h3, s3, n3, lightness = 0.925f, maxSat = 0.34f)
-            val inkRgb = ensureContrast(
-                backgroundRgb = composeColorToRgb(start),
-                hue = h1,
-                sat = if (n1) 0.12f else 0.48f,
-                initialLight = 0.17f,
-                step = -0.02f,
-                minLimit = 0.08f
-            )
-            HeroMoodPalette(
-                baseColor = mid,
-                gradientStart = start,
-                gradientMid = mid,
-                gradientEnd = end,
-                watermarkTint = rgbToComposeColor(inkRgb),
-                contentColor = rgbToComposeColor(inkRgb),
-                accentColor = accent.primary
-            )
-        } else {
-            val start = softHeroStop(h1, s1, n1, lightness = 0.215f, maxSat = 0.38f)
-            val mid = softHeroStop(h2, s2, n2, lightness = 0.185f, maxSat = 0.34f)
-            val end = softHeroStop(h3, s3, n3, lightness = 0.155f, maxSat = 0.32f)
-            val inkRgb = ensureContrast(
-                backgroundRgb = composeColorToRgb(start),
-                hue = h1,
-                sat = if (n1) 0.14f else 0.45f,
-                initialLight = 0.90f,
-                step = 0.02f,
-                minLimit = 0.96f
-            )
-            HeroMoodPalette(
-                baseColor = mid,
-                gradientStart = start,
-                gradientMid = mid,
-                gradientEnd = end,
-                watermarkTint = rgbToComposeColor(inkRgb),
-                contentColor = rgbToComposeColor(inkRgb),
-                accentColor = accent.primary
-            )
-        }
+        return HeroMoodPalette(
+            baseColor = flatHeroColor,
+            gradientStart = flatHeroColor,
+            gradientMid = flatHeroColor,
+            gradientEnd = flatHeroColor,
+            watermarkTint = Color.White,
+            contentColor = Color(0xFFFFFFFF),
+            accentColor = sealColor,
+            sealColor = sealColor,
+            onSealColor = onSealColor,
+            stackAccentDots = stackDots
+        )
     }
 
     /**
@@ -578,11 +584,55 @@ object BrandColorHarmonizer {
         return chosen
     }
 
-    private fun harmonizedHueAndSat(rgb: Int): Triple<Float, Float, Boolean> {
+    private fun trueHueAndSat(rgb: Int): Triple<Float, Float, Boolean> {
         val (h, s, _) = rgbToHsl(rgb)
         val neutral = s < 0.11f
-        val harmonized = if (neutral) h else pullHueToward(h, BOTANICAL_ANCHOR_HUE, HARMONIZE_PULL_FACTOR)
-        return Triple(harmonized, s, neutral)
+        val hue = if (neutral) h else pullHueToward(h, BOTANICAL_ANCHOR_HUE, HARMONIZE_PULL_FACTOR)
+        return Triple(hue, s, neutral)
+    }
+
+    /**
+     * Picks a single rich, bold flat color-block jewel surface for the Hero card that guarantees
+     * crisp white typography (`>= 5.5:1` Light, `>= 6.8:1` Dark) across every brand hue.
+     */
+    private fun resolveFlatHeroBlockRgb(
+        hue: Float,
+        sat: Float,
+        isNeutral: Boolean,
+        isDark: Boolean
+    ): Int {
+        if (isNeutral) {
+            return if (isDark) 0x222C34 else 0x1E272E
+        }
+        val effectiveSat = (sat * 0.90f).coerceIn(0.68f, 0.88f)
+        val targetContrast = if (isDark) 6.8 else 5.6
+        val startLight = when {
+            hue in 210f..265f -> if (isDark) 0.38f else 0.44f
+            hue in 265f..315f -> if (isDark) 0.36f else 0.42f
+            else -> if (isDark) 0.34f else 0.40f
+        }
+        return ensureContrast(
+            backgroundRgb = 0xFFFFFF,
+            hue = hue,
+            sat = effectiveSat,
+            initialLight = startLight,
+            step = -0.02f,
+            minLimit = 0.16f,
+            targetRatio = targetContrast
+        )
+    }
+
+    /**
+     * Picks a joyful contrasting Material 3 Expressive triadic pop accent for the `SAVE` cookie seal
+     * and savings wave pill that always clashes constructively against the flat Hero hue.
+     */
+    private fun triadicPopForHeroHue(heroHue: Float, isNeutral: Boolean): Pair<Color, Color> {
+        if (isNeutral) return BrandTriadicLime to BrandOnTriadicLime
+        return when {
+            heroHue in 52f..108f -> BrandTriadicMint to BrandOnTriadicMint   // yellow-lime lead -> electric mint pop
+            heroHue in 14f..52f -> BrandTriadicMint to BrandOnTriadicMint    // terracotta/orange lead -> electric mint pop
+            else -> BrandTriadicLime to BrandOnTriadicLime                   // ruby, emerald, sapphire, violet -> electric acid-lime pop!
+        }
     }
 
     private fun petalColor(
@@ -595,24 +645,9 @@ object BrandColorHarmonizer {
         val effectiveSat = if (isNeutral) {
             sat.coerceAtMost(0.10f)
         } else {
-            (sat * satScale).coerceIn(0.42f, 0.78f)
+            (sat * satScale).coerceIn(0.58f, 0.92f)
         }
         return rgbToComposeColor(hslToRgb(hue, effectiveSat, targetLightness))
-    }
-
-    private fun softHeroStop(
-        hue: Float,
-        sat: Float,
-        isNeutral: Boolean,
-        lightness: Float,
-        maxSat: Float
-    ): Color {
-        val effectiveSat = if (isNeutral) {
-            sat.coerceAtMost(0.10f)
-        } else {
-            (sat * 0.45f).coerceIn(0.20f, maxSat)
-        }
-        return rgbToComposeColor(hslToRgb(hue, effectiveSat, lightness))
     }
 
     private fun ensureContrast(
@@ -621,12 +656,13 @@ object BrandColorHarmonizer {
         sat: Float,
         initialLight: Float,
         step: Float,
-        minLimit: Float
+        minLimit: Float,
+        targetRatio: Double = MIN_AAA_CONTRAST_RATIO
     ): Int {
         var l = initialLight
         var candidate = hslToRgb(hue, sat, l)
         var guard = 0
-        while (contrastRatio(backgroundRgb, candidate) < MIN_CONTRAST_RATIO && guard < 20) {
+        while (contrastRatio(backgroundRgb, candidate) < targetRatio && guard < 24) {
             l = if (step < 0f) (l + step).coerceAtLeast(minLimit) else (l + step).coerceAtMost(minLimit)
             candidate = hslToRgb(hue, sat, l)
             guard++
