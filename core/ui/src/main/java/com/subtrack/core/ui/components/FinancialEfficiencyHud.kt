@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -110,17 +112,29 @@ fun FinancialEfficiencyHud(
     )
 
     val clampedScroll = ExpressiveMotion.clampEffectProgress(scrollProgress)
-    val boldBadgePalette = ExpressivePalettes.boldPrimary()
+    val isDark = LocalSubCyclerDarkTheme.current
+    val accentTokens = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
     val heroInkColor by animateColorAsState(
-        targetValue = heroMood?.contentColor ?: MaterialTheme.colorScheme.onPrimaryContainer,
+        targetValue = heroMood?.contentColor ?: accentTokens.heroContent,
         animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
         label = "heroInkColor"
     )
-    val heroPillColor = if (LocalSubCyclerDarkTheme.current) {
-        MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.72f)
+    val sealBgColor by animateColorAsState(
+        targetValue = heroMood?.sealColor ?: accentTokens.heroPop,
+        animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
+        label = "heroSealBgColor"
+    )
+    val sealInkColor by animateColorAsState(
+        targetValue = heroMood?.onSealColor ?: accentTokens.onHeroPop,
+        animationSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion),
+        label = "heroSealInkColor"
+    )
+    val heroPillColor = if (isDark) {
+        Color.Black.copy(alpha = 0.28f)
     } else {
-        MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.88f)
+        Color.White.copy(alpha = 0.22f)
     }
+    val stackDots = heroMood?.stackAccentDots.orEmpty()
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -176,8 +190,8 @@ fun FinancialEfficiencyHud(
                             animationSpec = ExpressiveMotion.standardSpatialDefaultFloat().orSnapIfReduced(reducedMotion),
                             label = "heroSpendWaveFraction"
                         )
-                        val spendWaveColor = heroInkColor.copy(alpha = 0.84f)
-                        val savedBarColor = MaterialTheme.colorScheme.primary
+                        val spendWaveColor = heroInkColor.copy(alpha = 0.90f)
+                        val savedBarColor = sealBgColor
                         Canvas(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -275,14 +289,39 @@ fun FinancialEfficiencyHud(
                                 shape = RoundedCornerShape(999.dp),
                                 color = heroPillColor
                             ) {
-                                Text(
-                                    text = statusSummary,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                                ) {
+                                    Text(
+                                        text = statusSummary,
+                                        color = heroInkColor,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (stackDots.size >= 2) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(3.5.dp)
+                                        ) {
+                                            stackDots.forEach { dotColor ->
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(6.5.dp)
+                                                        .clip(CircleShape)
+                                                        .background(dotColor)
+                                                        .border(
+                                                            width = 0.75.dp,
+                                                            color = Color.White.copy(alpha = 0.55f),
+                                                            shape = CircleShape
+                                                        )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -308,7 +347,7 @@ fun FinancialEfficiencyHud(
                         formattedAmountOnly.length >= 5 -> 17.5.sp
                         else -> 19.5.sp
                     }
-                    val sealRingColor = boldBadgePalette.content.copy(alpha = 0.22f)
+                    val sealRingColor = sealInkColor.copy(alpha = 0.28f)
 
                     Box(
                         modifier = Modifier
@@ -320,7 +359,7 @@ fun FinancialEfficiencyHud(
                             }
                             .expressivePolygonSurface(
                                 shape = stampShape,
-                                color = boldBadgePalette.container
+                                color = sealBgColor
                             )
                             .drawBehind {
                                 val inset = 9.dp.toPx()
@@ -328,7 +367,7 @@ fun FinancialEfficiencyHud(
                                     color = sealRingColor,
                                     radius = (size.minDimension / 2f) - inset,
                                     style = Stroke(
-                                        width = 1.dp.toPx(),
+                                        width = 1.1.dp.toPx(),
                                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f), 0f)
                                     )
                                 )
@@ -355,7 +394,7 @@ fun FinancialEfficiencyHud(
                             Text(
                                 text = "SAVE",
                                 fontFamily = BodyFontFamily,
-                                color = boldBadgePalette.content.copy(alpha = 0.78f),
+                                color = sealInkColor.copy(alpha = 0.78f),
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 9.5.sp,
                                 lineHeight = 10.sp,
@@ -365,7 +404,7 @@ fun FinancialEfficiencyHud(
                             Text(
                                 text = formattedAmountOnly,
                                 fontFamily = DisplayHeroFontFamily,
-                                color = boldBadgePalette.content,
+                                color = sealInkColor,
                                 fontWeight = FontWeight.Black,
                                 fontSize = amountFontSize,
                                 lineHeight = (amountFontSize.value + 1.5f).sp,
@@ -377,7 +416,7 @@ fun FinancialEfficiencyHud(
                             Text(
                                 text = "per year",
                                 fontFamily = BodyFontFamily,
-                                color = boldBadgePalette.content.copy(alpha = 0.76f),
+                                color = sealInkColor.copy(alpha = 0.76f),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 9.5.sp,
                                 lineHeight = 10.5.sp,

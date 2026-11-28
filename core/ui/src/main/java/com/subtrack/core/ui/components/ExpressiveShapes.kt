@@ -777,7 +777,7 @@ fun <T> ExpressiveSegmentedGroup(
             )
             val containerColor by animateColorAsState(
                 targetValue = if (isSelected) {
-                    MaterialTheme.colorScheme.primaryContainer
+                    MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.surfaceContainerHigh
                 },
@@ -786,7 +786,7 @@ fun <T> ExpressiveSegmentedGroup(
             )
             val contentColor by animateColorAsState(
                 targetValue = if (isSelected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
+                    MaterialTheme.colorScheme.onPrimary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
@@ -801,8 +801,7 @@ fun <T> ExpressiveSegmentedGroup(
                 bottomEnd = endRadius
             )
             val border = when {
-                isSelected && isDark -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
-                !isSelected && !isDark -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                !isSelected && !isDark -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
                 else -> null
             }
 
@@ -1233,12 +1232,8 @@ fun ExpressiveServiceBadge(
             badgeBorderWidth = 0.dp
         }
         isSelected -> {
-            badgeBorderColor = effectivePalette.accent.copy(alpha = 0.55f)
+            badgeBorderColor = effectivePalette.content.copy(alpha = 0.55f)
             badgeBorderWidth = 1.5.dp
-        }
-        !isDark -> {
-            badgeBorderColor = effectivePalette.border.copy(alpha = 0.35f)
-            badgeBorderWidth = 1.dp
         }
         else -> {
             badgeBorderColor = null

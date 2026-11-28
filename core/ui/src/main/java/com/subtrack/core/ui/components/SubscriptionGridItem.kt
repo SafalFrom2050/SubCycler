@@ -244,33 +244,33 @@ fun SubscriptionGridItem(
 
     val activeFillColor = when {
         isIncomplete -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.58f else 0.72f)
-        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.20f else 0.13f)
-        else -> brandPalette.container.copy(alpha = if (isDark) 0.42f else 0.48f)
+        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.24f else 0.16f)
+        else -> brandPalette.accent.copy(alpha = if (isDark) 0.21f else 0.145f)
     }
-    val activeCompletedTint = brandPalette.container.copy(alpha = if (isDark) 0.18f else 0.22f)
+    val activeCompletedTint = brandPalette.accent.copy(alpha = if (isDark) 0.10f else 0.08f)
     val activeSeamColor = when {
-        isIncomplete -> MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.30f else 0.26f)
-        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.38f else 0.28f)
-        else -> brandPalette.accent.copy(alpha = if (isDark) 0.36f else 0.28f)
+        isIncomplete -> MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.36f else 0.32f)
+        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.78f else 0.68f)
+        else -> brandPalette.accent.copy(alpha = if (isDark) 0.84f else 0.72f)
     }
     val breakZoneBaseTint = when {
-        !isActive -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.22f else 0.28f)
-        else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.26f else 0.36f)
+        !isActive -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.28f else 0.34f)
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isDark) 0.30f else 0.42f)
     }
     val breakFillColor = when {
-        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.22f else 0.15f)
-        else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.44f else 0.46f)
+        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.26f else 0.18f)
+        else -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = if (isDark) 0.54f else 0.54f)
     }
     val breakSeamColor = when {
-        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.40f else 0.30f)
-        else -> MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.42f else 0.32f)
+        isActionDue -> MaterialTheme.colorScheme.error.copy(alpha = if (isDark) 0.78f else 0.68f)
+        else -> MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.72f else 0.62f)
     }
     val breakHatchColor = if (!isActive) {
-        MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = if (isDark) 0.13f else 0.10f)
+        MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = if (isDark) 0.16f else 0.12f)
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.085f else 0.075f)
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.10f else 0.09f)
     }
-    val zoneDividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.36f else 0.46f)
+    val zoneDividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isDark) 0.48f else 0.56f)
 
     val isEndingCancelled = !isIncomplete && isActive && cycleStatus.isAutoRenewCancelledForCurrentCycle
     val pillBg = when {
@@ -345,8 +345,8 @@ fun SubscriptionGridItem(
 
                 val hasBreak = vesselMetrics.hasBreakZone
                 val splitX = if (hasBreak) (w * animatedActiveZone).coerceIn(w * 0.25f, w * 0.85f) else w
-                val baseWaveAmp = 3.dp.toPx()
-                val seamStrokeWidth = 1.15.dp.toPx()
+                val baseWaveAmp = 3.2.dp.toPx()
+                val seamStrokeWidth = 1.65.dp.toPx()
                 val hatchSpacing = 9.dp.toPx()
                 val hatchStroke = 1.dp.toPx()
 
@@ -497,12 +497,13 @@ fun SubscriptionGridItem(
                     Spacer(modifier = Modifier.width(6.dp))
 
                     if (hasUnbankedBreak) {
+                        val popAccent = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
                         val bankText = "+${MoneyFormatter.format(cycleStatus.perBreakSavings, sub.currency, maximumFractionDigits = 0)}"
                         Box(
                             modifier = Modifier
                                 .graphicsLayer { rotationZ = -4f }
                                 .clip(RoundedCornerShape(999.dp))
-                                .background(MaterialTheme.colorScheme.primary)
+                                .background(popAccent.heroPop)
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     if (onBankBreakClick != null) onBankBreakClick() else onClick()
@@ -512,7 +513,7 @@ fun SubscriptionGridItem(
                         ) {
                             Text(
                                 text = "$bankText · Bank",
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = popAccent.onHeroPop,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.ExtraBold,

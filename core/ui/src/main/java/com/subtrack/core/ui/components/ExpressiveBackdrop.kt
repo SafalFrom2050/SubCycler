@@ -64,48 +64,22 @@ fun ExpressiveScreenBackdrop(
 ) {
     val isDark = LocalSubCyclerDarkTheme.current
     val baseColor = if (isDark) BrandDarkBackground else BrandLightBackground
+    val accentTokens = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
     val imageAlpha = when {
-        isDark && emphasized -> 0.40f
-        isDark -> 0.23f
-        emphasized -> 0.48f
-        else -> 0.24f
+        isDark && emphasized -> 0.24f
+        emphasized -> 0.28f
+        else -> 0.0f
     }
-    val maskBrush = if (isDark) {
-        if (emphasized) {
-            Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFF0E2920).copy(alpha = 0.70f),
-                    BrandDarkBackground.copy(alpha = 0.86f),
-                    BrandDarkBackground.copy(alpha = 0.95f)
-                )
+    val maskBrush = if (emphasized) {
+        Brush.verticalGradient(
+            colors = listOf(
+                accentTokens.heroBase.copy(alpha = if (isDark) 0.34f else 0.16f),
+                baseColor.copy(alpha = 0.90f),
+                baseColor
             )
-        } else {
-            Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFF131B19).copy(alpha = 0.74f),
-                    BrandDarkBackground.copy(alpha = 0.89f),
-                    BrandDarkBackground.copy(alpha = 0.96f)
-                )
-            )
-        }
+        )
     } else {
-        if (emphasized) {
-            Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFFDDF5E9).copy(alpha = 0.72f),
-                    BrandLightBackground.copy(alpha = 0.88f),
-                    BrandLightBackground.copy(alpha = 0.96f)
-                )
-            )
-        } else {
-            Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFFEFF3F1).copy(alpha = 0.82f),
-                    BrandLightBackground.copy(alpha = 0.92f),
-                    BrandLightBackground.copy(alpha = 0.98f)
-                )
-            )
-        }
+        null
     }
 
     Box(
@@ -113,98 +87,82 @@ fun ExpressiveScreenBackdrop(
             .fillMaxSize()
             .background(baseColor)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.bg_expressive_silk_waves),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alpha = imageAlpha,
-            colorFilter = GrayscaleSilkColorFilter,
-            modifier = Modifier.fillMaxSize()
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(maskBrush)
-        )
+        if (imageAlpha > 0.01f) {
+            Image(
+                painter = painterResource(id = R.drawable.bg_expressive_silk_waves),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alpha = imageAlpha,
+                colorFilter = GrayscaleSilkColorFilter,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        if (maskBrush != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(maskBrush)
+            )
+        }
         content()
     }
 }
 
 /**
- * Editorial duotone Hero Card backdrop:
- * concentrates the signature Botanical Emerald + sculptural silk waves texture
- * inside the Hero Bento centerpiece, optionally accented by an oversized off-corner
- * M3 Expressive polygon watermark silhouette that responds smoothly to scroll parallax.
+ * Pure Flat Color-Block Material 3 Expressive Hero Card backdrop:
+ * uses a single confident flat jewel color (zero multi-brand rainbow gradient, zero photo haze),
+ * accented purely by crisp tone-on-tone geometric M3 Expressive polygon silhouettes (`Clover8`
+ * top-right with scroll-parallax rotation + subtle bottom-left `Pebble` depth block).
  */
 @Composable
 fun ExpressiveHeroCardBackdrop(
     modifier: Modifier = Modifier,
     watermarkPolygon: RoundedPolygon? = ExpressiveMaterialPolygons.Clover8,
     watermarkRotationDegrees: Float = 0f,
-    watermarkAlpha: Float = 0.085f,
+    watermarkAlpha: Float = 0.11f,
     heroMood: HeroMoodPalette? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     val isDark = LocalSubCyclerDarkTheme.current
-    val accentIcon = com.subtrack.core.ui.theme.LocalSubCyclerAccentIcon.current
-    val accentDefaults = remember(accentIcon, isDark) {
-        com.subtrack.core.ui.theme.launcherAccentTokensFor(accentIcon, isDark)
-    }
+    val accentDefaults = com.subtrack.core.ui.theme.LocalSubCyclerAccentTokens.current
     val reducedMotion = rememberReducedMotionEnabled()
     val colorSpec = ExpressiveMotion.effectsDefaultColor().orSnapIfReduced(reducedMotion)
 
     val targetBase = heroMood?.baseColor ?: accentDefaults.heroBase
-    val targetStart = heroMood?.gradientStart ?: accentDefaults.heroGradientStart
-    val targetMid = heroMood?.gradientMid ?: accentDefaults.heroGradientMid
-    val targetEnd = heroMood?.gradientEnd ?: accentDefaults.heroGradientEnd
-    val targetWatermark = heroMood?.watermarkTint ?: MaterialTheme.colorScheme.onPrimaryContainer
+    val targetWatermark = heroMood?.watermarkTint ?: Color.White
 
-    val baseColor by animateColorAsState(targetBase, colorSpec, label = "heroMoodBase")
-    val gradStart by animateColorAsState(targetStart, colorSpec, label = "heroMoodStart")
-    val gradMid by animateColorAsState(targetMid, colorSpec, label = "heroMoodMid")
-    val gradEnd by animateColorAsState(targetEnd, colorSpec, label = "heroMoodEnd")
-    val watermarkTint by animateColorAsState(targetWatermark, colorSpec, label = "heroMoodWatermark")
-
-    val maskBrush = if (isDark) {
-        Brush.linearGradient(
-            colors = listOf(
-                gradStart.copy(alpha = 0.78f),
-                gradMid.copy(alpha = 0.84f),
-                gradEnd.copy(alpha = 0.90f)
-            )
-        )
+    val baseColor by animateColorAsState(targetBase, colorSpec, label = "heroFlatBlockBase")
+    val watermarkTint by animateColorAsState(targetWatermark, colorSpec, label = "heroFlatBlockWatermark")
+    val lowerShape = remember { RoundedPolygonShape(ExpressiveMaterialPolygons.Pebble) }
+    val effectiveWatermarkAlpha = if (isDark) {
+        watermarkAlpha.coerceIn(0f, 0.11f)
     } else {
-        Brush.linearGradient(
-            colors = listOf(
-                gradStart.copy(alpha = 0.72f),
-                gradMid.copy(alpha = 0.80f),
-                gradEnd.copy(alpha = 0.88f)
-            )
-        )
+        (watermarkAlpha * 1.18f).coerceIn(0f, 0.15f)
     }
 
     Box(
         modifier = modifier.background(baseColor)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.bg_expressive_silk_waves),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alpha = if (isDark) 0.34f else 0.46f,
-            colorFilter = GrayscaleSilkColorFilter,
-            modifier = Modifier.matchParentSize()
-        )
+        // Subtle bottom-left dark graphic depth block (tone-on-tone flat geometry)
         Box(
             modifier = Modifier
-                .matchParentSize()
-                .background(maskBrush)
+                .align(Alignment.BottomStart)
+                .offset(x = (-42).dp, y = 46.dp)
+                .size(134.dp)
+                .graphicsLayer {
+                    rotationZ = 20f
+                }
+                .expressivePolygonSurface(
+                    shape = lowerShape,
+                    color = Color.Black.copy(alpha = if (isDark) 0.15f else 0.09f)
+                )
         )
-        if (watermarkPolygon != null && watermarkAlpha > 0.001f) {
+        if (watermarkPolygon != null && effectiveWatermarkAlpha > 0.001f) {
             val watermarkShape = remember(watermarkPolygon) { RoundedPolygonShape(watermarkPolygon) }
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = 46.dp, y = (-42).dp)
+                    .offset(x = 42.dp, y = (-40).dp)
                     .size(176.dp)
                     .graphicsLayer {
                         rotationZ = watermarkRotationDegrees
@@ -212,7 +170,7 @@ fun ExpressiveHeroCardBackdrop(
                     .expressivePolygonSurface(
                         shape = watermarkShape,
                         color = watermarkTint.copy(
-                            alpha = ExpressiveMotion.clampEffectProgress(watermarkAlpha)
+                            alpha = ExpressiveMotion.clampEffectProgress(effectiveWatermarkAlpha)
                         )
                     )
             )
