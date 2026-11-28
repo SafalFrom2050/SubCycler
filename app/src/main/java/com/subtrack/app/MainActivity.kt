@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(
                 isSplashDismissed,
                 themeMode,
+                useDarkTheme,
                 launcherIcon,
                 dockMood.useStackHeroMood,
                 dockMood.activeSubscriptions
@@ -180,6 +181,7 @@ class MainActivity : ComponentActivity() {
         pendingLauncherIcon?.let { icon ->
             pendingLauncherIcon = null
             LauncherIconController.applyLauncherIcon(this, icon)
+            SubCyclerWidgets.schedulePostAliasRefresh(applicationContext)
         }
     }
 

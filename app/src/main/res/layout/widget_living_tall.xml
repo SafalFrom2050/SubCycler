@@ -13,7 +13,8 @@
         android:layout_height="match_parent"
         android:contentDescription="@null"
         android:scaleType="fitXY"
-        android:src="@drawable/bg_widget_inner_card" />
+        android:src="@drawable/bg_widget_inner_card"
+        android:tintMode="src_in" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -127,7 +128,8 @@
                         android:layout_height="match_parent"
                         android:contentDescription="@null"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/widget_cookie12_seal" />
+                        android:src="@drawable/widget_cookie12_seal"
+                        android:tintMode="src_in" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -212,7 +214,8 @@
                     android:layout_height="match_parent"
                     android:contentDescription="@null"
                     android:scaleType="fitXY"
-                    android:src="@drawable/bg_widget_row_top" />
+                    android:src="@drawable/bg_widget_row_top"
+                    android:tintMode="src_in" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -274,7 +277,8 @@
                             android:layout_alignBottom="@id/widget_row_0_pill_text"
                             android:contentDescription="@null"
                             android:scaleType="fitXY"
-                            android:src="@drawable/bg_widget_pill_mask" />
+                            android:src="@drawable/bg_widget_pill_mask"
+                            android:tintMode="src_in" />
 
                         <TextView
                             android:id="@+id/widget_row_0_pill_text"
@@ -306,7 +310,8 @@
                     android:layout_height="match_parent"
                     android:contentDescription="@null"
                     android:scaleType="fitXY"
-                    android:src="@drawable/bg_widget_row_mid" />
+                    android:src="@drawable/bg_widget_row_mid"
+                    android:tintMode="src_in" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -368,7 +373,8 @@
                             android:layout_alignBottom="@id/widget_row_1_pill_text"
                             android:contentDescription="@null"
                             android:scaleType="fitXY"
-                            android:src="@drawable/bg_widget_pill_mask" />
+                            android:src="@drawable/bg_widget_pill_mask"
+                            android:tintMode="src_in" />
 
                         <TextView
                             android:id="@+id/widget_row_1_pill_text"
@@ -400,7 +406,8 @@
                     android:layout_height="match_parent"
                     android:contentDescription="@null"
                     android:scaleType="fitXY"
-                    android:src="@drawable/bg_widget_row_bottom" />
+                    android:src="@drawable/bg_widget_row_bottom"
+                    android:tintMode="src_in" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -462,7 +469,8 @@
                             android:layout_alignBottom="@id/widget_row_2_pill_text"
                             android:contentDescription="@null"
                             android:scaleType="fitXY"
-                            android:src="@drawable/bg_widget_pill_mask" />
+                            android:src="@drawable/bg_widget_pill_mask"
+                            android:tintMode="src_in" />
 
                         <TextView
                             android:id="@+id/widget_row_2_pill_text"
