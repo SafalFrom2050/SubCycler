@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -37,7 +38,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -59,7 +63,10 @@ import com.subtrack.core.ui.theme.HeroMoodPalette
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
 import com.subtrack.core.ui.theme.orSnapIfReduced
 import com.subtrack.core.ui.theme.rememberReducedMotionEnabled
+import kotlin.math.PI
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * Material 3 Expressive v4.0 Hero Bento Card with masked silk-waves backdrop,
@@ -160,38 +167,83 @@ fun FinancialEfficiencyHud(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.height(7.dp))
-                        val spendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost)
+                        Spacer(modifier = Modifier.height(5.dp))
+                        val targetSpendFraction = (summary.totalMonthlyOptimizedCost / summary.totalMonthlyStandardCost)
                             .toFloat()
-                            .coerceIn(0.18f, 0.92f)
-                        val spendBarColor = heroInkColor.copy(alpha = 0.70f)
+                            .coerceIn(0.22f, 0.88f)
+                        val animatedSpendFraction by animateFloatAsState(
+                            targetValue = targetSpendFraction,
+                            animationSpec = ExpressiveMotion.standardSpatialDefaultFloat().orSnapIfReduced(reducedMotion),
+                            label = "heroSpendWaveFraction"
+                        )
+                        val spendWaveColor = heroInkColor.copy(alpha = 0.84f)
                         val savedBarColor = MaterialTheme.colorScheme.primary
                         Canvas(
                             modifier = Modifier
-                                .width(148.dp)
-                                .height(5.dp)
+                                .fillMaxWidth()
+                                .widthIn(max = 172.dp)
+                                .height(16.dp)
+                                .semantics {
+                                    contentDescription = "Effective monthly spend reduced by $pctOff percent"
+                                }
                         ) {
-                            val gap = 3.dp.toPx()
-                            val usable = (size.width - gap).coerceAtLeast(1f)
-                            val spendW = usable * spendFraction
-                            val savedW = (usable - spendW).coerceAtLeast(size.height)
-                            val r = CornerRadius(size.height / 2f, size.height / 2f)
-                            drawRoundRect(
-                                color = spendBarColor,
-                                topLeft = Offset.Zero,
-                                size = Size(spendW, size.height),
-                                cornerRadius = r
+                            val strokeW = 4.6.dp.toPx()
+                            val halfStroke = strokeW / 2f
+                            val savedPillH = 5.6.dp.toPx()
+                            val visualGap = 6.5.dp.toPx()
+                            val amplitude = 3.0.dp.toPx()
+                            val wavelength = 21.dp.toPx()
+                            val centerY = size.height / 2f
+
+                            val waveVisualEndX = (size.width - visualGap) * animatedSpendFraction
+                            val waveStartX = halfStroke
+                            val waveEndX = (waveVisualEndX - halfStroke).coerceAtLeast(waveStartX + 1f)
+
+                            // 1. Sculptural Material 3 Expressive curly Spend wave
+                            val wavePath = Path()
+                            val stepPx = 1.5f
+                            val rampPx = 8.dp.toPx()
+                            var x = waveStartX
+                            var first = true
+                            while (x <= waveEndX) {
+                                val distStart = x - waveStartX
+                                val distEnd = waveEndX - x
+                                val envelope = min(1f, min(distStart, distEnd) / rampPx).coerceIn(0f, 1f)
+                                val angle = (distStart / wavelength) * (2.0 * PI).toFloat()
+                                val y = centerY + amplitude * envelope * sin(angle)
+                                if (first) {
+                                    wavePath.moveTo(x, y)
+                                    first = false
+                                } else {
+                                    wavePath.lineTo(x, y)
+                                }
+                                x += stepPx
+                            }
+                            wavePath.lineTo(waveEndX, centerY)
+                            drawPath(
+                                path = wavePath,
+                                color = spendWaveColor,
+                                style = Stroke(
+                                    width = strokeW,
+                                    cap = StrokeCap.Round,
+                                    join = StrokeJoin.Round
+                                )
                             )
+
+                            // 2. Matching chunky theme-accent Saved pill linked to the SAVE seal
+                            val savedStartX = (waveVisualEndX + visualGap).coerceAtMost(size.width - savedPillH)
+                            val savedW = (size.width - savedStartX).coerceAtLeast(savedPillH)
+                            val savedRadius = CornerRadius(savedPillH / 2f, savedPillH / 2f)
                             drawRoundRect(
                                 color = savedBarColor,
-                                topLeft = Offset(spendW + gap, 0f),
-                                size = Size(savedW, size.height),
-                                cornerRadius = r
+                                topLeft = Offset(savedStartX, centerY - savedPillH / 2f),
+                                size = Size(savedW, savedPillH),
+                                cornerRadius = savedRadius
                             )
                         }
                     }
                     if (summary.totalSubscriptions > 0) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         val completeActiveCount = (summary.activeCount - incompleteCount).coerceAtLeast(0)
                         val statusSummary = buildList {
                             if (completeActiveCount > 0) {
