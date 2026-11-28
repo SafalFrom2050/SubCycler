@@ -121,8 +121,8 @@ class NextUpCookieWidgetProvider : AppWidgetProvider() {
         val inkArgb = when {
             soonest == null -> ExpressiveNotificationArt.toArgb(accent.onPrimaryContainer)
             soonest.phase == CyclePhase.BLACKOUT && soonest.daysRemainingInPhase <= 1 ->
-                ExpressiveNotificationArt.toArgb(accent.onPrimary)
-            !useStackMood -> ExpressiveNotificationArt.toArgb(accent.onPrimaryContainer)
+                ExpressiveNotificationArt.toArgb(accent.onHeroPop)
+            !useStackMood -> ExpressiveNotificationArt.toArgb(accent.heroContent)
             else -> {
                 val sub = soonest.subscription
                 val palette = BrandColorHarmonizer.harmonizedTonalPalette(sub.name, sub.colorHex, isDark)

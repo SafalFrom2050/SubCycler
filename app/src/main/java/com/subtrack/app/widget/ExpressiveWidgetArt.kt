@@ -2,23 +2,16 @@ package com.subtrack.app.widget
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.DashPathEffect
-import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.Shader
 import com.subtrack.app.notification.ExpressiveNotificationArt
 import com.subtrack.core.domain.model.AppLauncherIcon
 import com.subtrack.core.domain.model.CyclePhase
 import com.subtrack.core.domain.model.CycleStatus
 import com.subtrack.core.domain.model.Subscription
-import com.subtrack.core.ui.R as CoreUiR
 import com.subtrack.core.ui.components.drawSubCyclerSwirlLogoOnCanvas
 import com.subtrack.core.ui.theme.BrandColorHarmonizer
 import kotlin.math.PI
@@ -33,11 +26,11 @@ enum class LivingWidgetSizeTier {
 }
 
 /**
- * Shape-only & ambient backdrop accent renderer for SubCycler's **Native `RemoteViews` Home-Screen Widgets**.
+ * Shape-only & flat color-block backdrop renderer for SubCycler's **Native `RemoteViews` Home-Screen Widgets**.
  *
  * All typography, pills, row containers, touch ripples, and Android 12+ dynamic widget corner radii
  * are rendered natively by Android `RemoteViews`. This helper supplies strictly non-text accents:
- * - Ambient silk-waves + Living Stack Mood surface backdrop (cropped natively via `centerCrop`)
+ * - Pure Flat Color-Block Living Stack Mood backdrop with tone-on-tone M3E polygon geometry
  * - Dynamic 3-petal swirl emblem
  * - Transparent curly spend/savings efficiency wave & 2-zone cycle rhythm strips
  * - Shape-only scalloped cookie shell + sweeping perimeter ring for `Next Up Cookie`
@@ -50,14 +43,11 @@ object ExpressiveWidgetArt {
         else -> LivingWidgetSizeTier.COMPACT_2X2
     }
 
-    private fun decodeSilkWavesScaled(context: Context): Bitmap? = runCatching {
-        val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
-        BitmapFactory.decodeResource(context.resources, CoreUiR.drawable.bg_expressive_silk_waves, opts)
-    }.getOrNull()
-
     /**
-     * Renders ONLY the soft silk-waves + Living Stack Mood gradient + faint Clover8 watermark
-     * (zero text, zero pills, zero card borders — clipped natively by the widget's system outline).
+     * Renders a **Pure Flat Color-Block** Living Stack Mood backdrop matching the in-app Hero HUD:
+     * one confident solid jewel color + crisp tone-on-tone geometric M3 Expressive shapes
+     * (top-right white `Clover8` watermark + subtle bottom-left graphic depth block; zero rainbow,
+     * zero silk-photo haze, zero rasterized text).
      */
     fun renderHeroMoodBackdropBitmap(
         context: Context,
@@ -76,34 +66,26 @@ object ExpressiveWidgetArt {
             isDark = isDark,
             fallbackIcon = launcherIcon
         )
-        val fullRect = RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat())
         canvas.drawColor(ExpressiveNotificationArt.toArgb(heroMood.baseColor))
 
-        decodeSilkWavesScaled(context)?.let { silk ->
-            val silkPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                alpha = if (isDark) 88 else 112
-                colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) })
-            }
-            canvas.drawBitmap(silk, Rect(0, 0, silk.width, silk.height), fullRect, silkPaint)
-            silk.recycle()
+        // Subtle bottom-left dark graphic depth block
+        val lowerShade = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (isDark) 0x26000000 else 0x17000000
         }
+        canvas.save()
+        canvas.rotate(20f, 36f, heightPx - 12f)
+        val blockSize = min(widthPx, heightPx) * 0.62f
+        canvas.drawRoundRect(
+            RectF(-blockSize * 0.35f, heightPx - blockSize * 0.65f, blockSize * 0.65f, heightPx + blockSize * 0.35f),
+            blockSize * 0.34f,
+            blockSize * 0.34f,
+            lowerShade
+        )
+        canvas.restore()
 
-        val gradPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                0f, 0f, widthPx.toFloat(), heightPx.toFloat(),
-                intArrayOf(
-                    ExpressiveNotificationArt.toArgb(heroMood.gradientStart, if (isDark) 202 else 188),
-                    ExpressiveNotificationArt.toArgb(heroMood.gradientMid, if (isDark) 216 else 206),
-                    ExpressiveNotificationArt.toArgb(heroMood.gradientEnd, if (isDark) 232 else 224)
-                ),
-                floatArrayOf(0f, 0.52f, 1f),
-                Shader.TileMode.CLAMP
-            )
-        }
-        canvas.drawRect(fullRect, gradPaint)
-
+        // Crisp tone-on-tone top-right Clover8 polygon watermark
         val wmPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = ExpressiveNotificationArt.toArgb(heroMood.watermarkTint, if (isDark) 26 else 22)
+            color = ExpressiveNotificationArt.toArgb(heroMood.watermarkTint, if (isDark) 26 else 34)
         }
         canvas.drawPath(
             ExpressiveNotificationArt.buildScallopedPath(
@@ -316,19 +298,19 @@ object ExpressiveWidgetArt {
             val palette = BrandColorHarmonizer.harmonizedTonalPalette(sub.name, sub.colorHex, isDark)
             val isBreakReady = soonest.phase == CyclePhase.BLACKOUT && soonest.daysRemainingInPhase <= 1
             if (isBreakReady) {
-                containerArgb = ExpressiveNotificationArt.toArgb(accent.primary)
-                inkArgb = ExpressiveNotificationArt.toArgb(accent.onPrimary)
-                ringAccentArgb = ExpressiveNotificationArt.toArgb(accent.onPrimary)
+                containerArgb = ExpressiveNotificationArt.toArgb(accent.heroPop)
+                inkArgb = ExpressiveNotificationArt.toArgb(accent.onHeroPop)
+                ringAccentArgb = ExpressiveNotificationArt.toArgb(accent.onHeroPop)
                 silhouette = ExpressiveNotificationArt.buildScallopedPath(cx, cy, sizePx * 0.47f, petals = 12, amplitudeFraction = 0.075f)
             } else {
                 containerArgb = ExpressiveNotificationArt.toArgb(
-                    if (useStackMood) palette.container else accent.primaryContainer
+                    if (useStackMood) palette.container else accent.heroBase
                 )
                 inkArgb = ExpressiveNotificationArt.toArgb(
-                    if (useStackMood) palette.content else accent.onPrimaryContainer
+                    if (useStackMood) palette.content else accent.heroContent
                 )
                 ringAccentArgb = ExpressiveNotificationArt.toArgb(
-                    if (useStackMood) palette.accent else accent.primary
+                    if (useStackMood) palette.content else accent.heroPop
                 )
                 silhouette = if (sub.isRotating) {
                     ExpressiveNotificationArt.buildScallopedPath(cx, cy, sizePx * 0.46f, petals = 10, amplitudeFraction = 0.068f)

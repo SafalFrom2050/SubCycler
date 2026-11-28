@@ -164,9 +164,10 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
         )
 
         val inkPrimary = ExpressiveNotificationArt.toArgb(heroMood.contentColor)
-        val inkSecondary = ExpressiveNotificationArt.toArgb(heroMood.contentColor, 192)
+        val inkSecondary = ExpressiveNotificationArt.toArgb(heroMood.contentColor, 208)
         val accentPrimary = ExpressiveNotificationArt.toArgb(accent.primary)
-        val accentOnPrimary = ExpressiveNotificationArt.toArgb(accent.onPrimary)
+        val sealPrimary = ExpressiveNotificationArt.toArgb(heroMood.sealColor)
+        val sealOnPrimary = ExpressiveNotificationArt.toArgb(heroMood.onSealColor)
 
         val hasSavings = summary.totalAnnualSavings > 0.5
         val savingsAmount = MoneyFormatter.format(summary.totalAnnualSavings, currencyCode, maximumFractionDigits = 0)
@@ -207,9 +208,9 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                     summary.blackoutCount > 0 -> "${summary.activeCount} on · ${summary.blackoutCount} off"
                     else -> "${summary.activeCount} active"
                 }
-                val pillRgb = if (isDark) 0xFF101417.toInt() else 0xFFFFFFFF.toInt()
+                val pillRgb = if (isDark) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
                 setInt(R.id.widget_status_pill_bg, "setColorFilter", pillRgb)
-                setInt(R.id.widget_status_pill_bg, "setImageAlpha", if (isDark) 172 else 224)
+                setInt(R.id.widget_status_pill_bg, "setImageAlpha", if (isDark) 76 else 58)
                 setTextViewText(R.id.widget_status_pill_text, pillText)
                 setTextColor(R.id.widget_status_pill_text, inkPrimary)
 
@@ -234,8 +235,8 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                 if (soonest != null) {
                     val strip = ExpressiveWidgetArt.renderMiniRhythmStripBitmap(
                         status = soonest,
-                        accentArgb = accentPrimary,
-                        isDark = isDark
+                        accentArgb = sealPrimary,
+                        isDark = true
                     )
                     setViewVisibility(R.id.widget_rhythm_strip, View.VISIBLE)
                     setImageViewBitmap(R.id.widget_rhythm_strip, strip)
@@ -247,8 +248,8 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                     views = this,
                     hasSavings = hasSavings,
                     savingsAmount = savingsAmount,
-                    accentPrimary = accentPrimary,
-                    accentOnPrimary = accentOnPrimary,
+                    accentPrimary = sealPrimary,
+                    accentOnPrimary = sealOnPrimary,
                     compact = true
                 )
             }
@@ -266,14 +267,14 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                     hasSavings = hasSavings,
                     inkPrimary = inkPrimary,
                     inkSecondary = inkSecondary,
-                    accentPrimary = accentPrimary
+                    accentPrimary = sealPrimary
                 )
                 bindSavingsSeal(
                     views = this,
                     hasSavings = hasSavings,
                     savingsAmount = savingsAmount,
-                    accentPrimary = accentPrimary,
-                    accentOnPrimary = accentOnPrimary,
+                    accentPrimary = sealPrimary,
+                    accentOnPrimary = sealOnPrimary,
                     compact = false
                 )
 
@@ -360,14 +361,14 @@ class SubCyclerWidgetProvider : AppWidgetProvider() {
                     hasSavings = hasSavings,
                     inkPrimary = inkPrimary,
                     inkSecondary = inkSecondary,
-                    accentPrimary = accentPrimary
+                    accentPrimary = sealPrimary
                 )
                 bindSavingsSeal(
                     views = this,
                     hasSavings = hasSavings,
                     savingsAmount = savingsAmount,
-                    accentPrimary = accentPrimary,
-                    accentOnPrimary = accentOnPrimary,
+                    accentPrimary = sealPrimary,
+                    accentOnPrimary = sealOnPrimary,
                     compact = false
                 )
 
