@@ -119,6 +119,7 @@ fun ExpressiveHeroCardBackdrop(
     modifier: Modifier = Modifier,
     watermarkPolygon: RoundedPolygon? = ExpressiveMaterialPolygons.Clover8,
     watermarkRotationDegrees: Float = 0f,
+    watermarkRotationProvider: (() -> Float)? = null,
     watermarkAlpha: Float = 0.11f,
     heroMood: HeroMoodPalette? = null,
     content: @Composable BoxScope.() -> Unit
@@ -165,7 +166,7 @@ fun ExpressiveHeroCardBackdrop(
                     .offset(x = 42.dp, y = (-40).dp)
                     .size(176.dp)
                     .graphicsLayer {
-                        rotationZ = watermarkRotationDegrees
+                        rotationZ = watermarkRotationProvider?.invoke() ?: watermarkRotationDegrees
                     }
                     .expressivePolygonSurface(
                         shape = watermarkShape,

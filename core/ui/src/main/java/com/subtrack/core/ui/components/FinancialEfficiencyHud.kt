@@ -186,13 +186,18 @@ fun FinancialEfficiencyHud(
         color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
-        val watermarkSettle = if (reducedMotion) 0f else (1f - ExpressiveMotion.clampEffectProgress(cardReveal.value)) * 14f
         ExpressiveHeroCardBackdrop(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp)),
             watermarkPolygon = ExpressiveMaterialPolygons.Clover8,
-            watermarkRotationDegrees = if (reducedMotion) 0f else (clampedScroll * 20f + watermarkSettle),
+            watermarkRotationProvider = {
+                if (reducedMotion) {
+                    0f
+                } else {
+                    clampedScroll * 20f + (1f - ExpressiveMotion.clampEffectProgress(cardReveal.value)) * 14f
+                }
+            },
             watermarkAlpha = 0.09f * (1f - clampedScroll * 0.6f),
             heroMood = heroMood
         ) {

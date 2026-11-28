@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -359,15 +360,51 @@ fun Modifier.expressivePolygonSurface(
     color: Color,
     borderColor: Color? = null,
     borderWidth: Dp = 1.dp
-): Modifier = drawBehind {
+): Modifier = drawWithCache {
     val outline = shape.createOutline(size, layoutDirection, this)
-    drawOutline(outline = outline, color = color)
-    if (borderColor != null && borderWidth > 0.dp) {
-        drawOutline(
-            outline = outline,
-            color = borderColor,
-            style = Stroke(width = borderWidth.toPx())
-        )
+    val borderStroke = if (borderColor != null && borderWidth > 0.dp) {
+        Stroke(width = borderWidth.toPx())
+    } else {
+        null
+    }
+    onDrawBehind {
+        drawOutline(outline = outline, color = color)
+        if (borderColor != null && borderStroke != null) {
+            drawOutline(
+                outline = outline,
+                color = borderColor,
+                style = borderStroke
+            )
+        }
+    }
+}
+
+/**
+ * Draw-phase lambda overload of [expressivePolygonSurface] that caches the polygon [Outline]
+ * across animated color frames so color transitions trigger zero recompositions and zero
+ * `RoundedPolygon.toPath()` allocations.
+ */
+fun Modifier.expressivePolygonSurface(
+    shape: Shape,
+    color: () -> Color,
+    borderColor: (() -> Color)? = null,
+    borderWidth: Dp = 1.dp
+): Modifier = drawWithCache {
+    val outline = shape.createOutline(size, layoutDirection, this)
+    val borderStroke = if (borderColor != null && borderWidth > 0.dp) {
+        Stroke(width = borderWidth.toPx())
+    } else {
+        null
+    }
+    onDrawBehind {
+        drawOutline(outline = outline, color = color())
+        if (borderColor != null && borderStroke != null) {
+            drawOutline(
+                outline = outline,
+                color = borderColor(),
+                style = borderStroke
+            )
+        }
     }
 }
 
