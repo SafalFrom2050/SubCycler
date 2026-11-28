@@ -60,9 +60,8 @@ object ExpressiveNotificationArt {
     }
 
     fun loadDisplayTypeface(context: Context): Typeface =
-        runCatching { ResourcesCompat.getFont(context, CoreUiR.font.bricolage_grotesque_variable) }
+        runCatching { ResourcesCompat.getFont(context, CoreUiR.font.google_sans_flex_wide_extrabold) }
             .getOrNull()
-            ?.let { Typeface.create(it, Typeface.BOLD) }
             ?: Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
 
     fun buildScallopedPath(

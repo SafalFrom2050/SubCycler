@@ -58,6 +58,7 @@ import com.subtrack.core.ui.components.ExpressivePalettes
 import com.subtrack.core.ui.components.ExpressiveScreenTitle
 import com.subtrack.core.ui.components.ExpressiveSectionRow
 import com.subtrack.core.ui.components.ExpressiveSectionStack
+import com.subtrack.core.ui.components.ExpressiveSectionTitle
 import com.subtrack.core.ui.components.ExpressiveServiceBadge
 import com.subtrack.core.ui.components.ExpressiveSettingsActionButton
 import com.subtrack.core.ui.components.ExpressiveTonalPalette
@@ -450,19 +451,20 @@ fun AnalyticsScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp),
+                                    .padding(start = 4.dp, end = 6.dp, top = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.Bottom
                             ) {
-                                ExpressiveEyebrow(
-                                    text = "SAVINGS BREAKDOWN",
-                                    color = MaterialTheme.colorScheme.primary
+                                ExpressiveSectionTitle(
+                                    text = "Breakdown",
+                                    fontSize = 21.sp
                                 )
                                 Text(
                                     text = "${MoneyFormatter.format(uiState.summary.totalAnnualSavings, uiState.currencyCode, maximumFractionDigits = 0)}/yr",
-                                    fontSize = 12.sp,
+                                    fontFamily = DisplayFontFamily,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f)
                                 )
                             }
 
@@ -749,7 +751,13 @@ fun AnalyticsScreen(
                 // 5. Actionable Opportunity Connected Stack (1-Tap "Use 45d" for Continuous Monthly plans)
                 if (uiState.opportunities.isNotEmpty()) {
                     item(key = "opportunities_card", contentType = "card") {
-                        ExpressiveSectionStack(eyebrow = "SAVINGS OPPORTUNITIES") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ExpressiveSectionTitle(
+                                text = "Opportunities",
+                                fontSize = 21.sp,
+                                modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp)
+                            )
+                            ExpressiveSectionStack {
                             uiState.opportunities.forEachIndexed { index, opportunity ->
                                 val sub = opportunity.subscription
                                 ExpressiveSectionRow(
@@ -809,6 +817,7 @@ fun AnalyticsScreen(
                                         }
                                     }
                                 }
+                            }
                             }
                         }
                     }

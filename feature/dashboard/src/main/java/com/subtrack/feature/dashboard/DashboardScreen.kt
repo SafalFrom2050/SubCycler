@@ -140,6 +140,7 @@ import com.subtrack.core.ui.components.ExpressiveKineticBrandHeader
 import com.subtrack.core.ui.components.ExpressivePalettes
 import com.subtrack.core.ui.components.ExpressiveReactiveIconButton
 import com.subtrack.core.ui.components.ExpressiveRemovalCollapse
+import com.subtrack.core.ui.components.ExpressiveSectionTitle
 import com.subtrack.core.ui.components.ExpressiveSnackHost
 import com.subtrack.core.ui.components.FannedBadgeStack
 import com.subtrack.core.ui.components.FinancialEfficiencyHud
@@ -162,7 +163,6 @@ import com.subtrack.core.ui.components.openCancellationDestination
 import com.subtrack.core.ui.components.progressiveEdgeFade
 import com.subtrack.core.ui.components.rememberExpressiveSnackHostState
 import com.subtrack.core.ui.components.renderStackShareCardBitmap
-import com.subtrack.core.ui.theme.DisplayExpandedFontFamily
 import com.subtrack.core.ui.theme.DisplayFontFamily
 import com.subtrack.core.ui.theme.ExpressiveMotion
 import com.subtrack.core.ui.theme.LocalSubCyclerDarkTheme
@@ -885,17 +885,9 @@ fun DashboardScreen(
                                 },
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(
+                            ExpressiveSectionTitle(
                                 text = "Your stack",
-                                fontFamily = DisplayExpandedFontFamily,
-                                fontWeight = FontWeight.ExtraBold,
                                 fontSize = 25.sp,
-                                lineHeight = 30.sp,
-                                letterSpacing = 0.6.sp,
-                                color = MaterialTheme.colorScheme.onBackground.copy(
-                                    alpha = if (isDark) 0.78f else 0.72f
-                                ),
-                                maxLines = 1,
                                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp)
                             )
                             if (showFilterBar) {

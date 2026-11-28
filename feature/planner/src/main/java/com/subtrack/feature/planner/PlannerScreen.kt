@@ -69,6 +69,7 @@ import com.subtrack.core.ui.components.ExpressiveMoneyText
 import com.subtrack.core.ui.components.ExpressivePalettes
 import com.subtrack.core.ui.components.ExpressiveReactiveIconButton
 import com.subtrack.core.ui.components.ExpressiveScreenTitle
+import com.subtrack.core.ui.components.ExpressiveSectionTitle
 import com.subtrack.core.ui.components.ExpressiveSegmentOption
 import com.subtrack.core.ui.components.ExpressiveSegmentedGroup
 import com.subtrack.core.ui.components.ExpressiveServiceBadge
@@ -334,9 +335,10 @@ fun PlannerScreen(
                                 }
                             } else {
                                 item(key = "timeline_section_header", contentType = "section_header") {
-                                    ExpressiveEyebrow(
-                                        text = "CYCLES",
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ExpressiveSectionTitle(
+                                        text = "Cycles",
+                                        fontSize = 22.sp,
+                                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp)
                                     )
                                 }
 

@@ -227,17 +227,16 @@ fun renderStackShareCardBitmap(
     val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
-    // Load bundled OFL fonts gracefully with crisp sans-serif fallbacks
-    val displayTypeface = runCatching {
-        ResourcesCompat.getFont(context, R.font.bricolage_grotesque_variable)
+    // Load bundled OFL Google Sans Flex fonts gracefully with crisp sans-serif fallbacks
+    val displayBold = runCatching {
+        ResourcesCompat.getFont(context, R.font.google_sans_flex_wide_extrabold)
     }.getOrNull() ?: Typeface.DEFAULT_BOLD
-    val bodyTypeface = runCatching {
-        ResourcesCompat.getFont(context, R.font.plus_jakarta_sans_variable)
+    val bodyBold = runCatching {
+        ResourcesCompat.getFont(context, R.font.google_sans_flex_bold)
+    }.getOrNull() ?: Typeface.DEFAULT_BOLD
+    val bodyRegular = runCatching {
+        ResourcesCompat.getFont(context, R.font.google_sans_flex_regular)
     }.getOrNull() ?: Typeface.SANS_SERIF
-
-    val displayBold = Typeface.create(displayTypeface, Typeface.BOLD)
-    val bodyBold = Typeface.create(bodyTypeface, Typeface.BOLD)
-    val bodyRegular = Typeface.create(bodyTypeface, Typeface.NORMAL)
 
     // 1. Deep Botanical Obsidian-Emerald vertical gradient backdrop
     val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
